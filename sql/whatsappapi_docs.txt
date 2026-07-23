@@ -1,0 +1,104 @@
+دليل استخدام Public REST API v1
+كل ما تحتاجه للتكامل مع منصة WaAPI Pro
+
+1
+نقطة البداية
+🌐 Base URL
+https://yoursite.com/api/v1/index.php
+🔐 المصادقة (Authentication)
+أضف API Key في كل طلب بإحدى الطريقتين:
+
+✓ الطريقة 1 — مفضلة — Header
+X-Api-Key: YOUR_API_KEY
+الطريقة 2 — Query Parameter
+?api_key=YOUR_API_KEY
+2
+أمثلة سريعة
+GET
+?action=status
+التحقق من حالة الاتصال
+📤 الطلب — Headers
+X-Api-Key: YOUR_API_KEY
+✅ الاستجابة
+{
+  "success": true,
+  "connected": true,
+  "client": {
+    "wid": "201xxxxxxxx",
+    "platform": "Android"
+  },
+  "timestamp": "2025-04-24T12:00:00+02:00"
+}
+3
+العمليات المتاحة
+GET
+status
+حالة اتصال واتساب
+?action=status
+qr
+الحصول على QR Code
+?action=qr
+groups
+قائمة المجموعات
+?action=groups
+check
+فحص رقم واتساب
+?action=check&number=201...
+POST
+send_number
+إرسال لرقم واحد
+{ number, message }
+send_bulk
+إرسال جماعي
+{ numbers[], message, delay_ms? }
+send_group
+إرسال لمجموعة
+{ group_id, message }
+send_image
+إرسال صورة
+{ number, image_base64, caption? }
+4
+أمثلة على الاستخدام
+مثال: إرسال رسالة لرقم
+cURL
+JavaScript
+PHP
+curl -X POST "https://yoursite.com/api/v1/index.php?action=send_number" \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: YOUR_API_KEY" \
+  -d '{
+    "number": "201245f67890",
+    "message": "Hello from WaAPI Pro! 🚀"
+  }'
+مثال: جلب قائمة المجموعات
+cURL
+JavaScript
+PHP
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://yoursite.com/api/v1/index.php?action=groups"
+5
+أكواد الاستجابة
+200
+OK
+نجاح
+401
+UNAUTHORIZED
+API Key غير صالح
+400
+BAD REQUEST
+بيانات ناقصة أو خاطئة
+429
+RATE LIMIT
+تم تجاوز الحد المسموح
+422
+UNPROCESSABLE
+خطأ في المعالجة
+⚠️ القيود والحدود
+📝 أقصى حجم رسالة
+4,096 حرف
+📦 أقصى عدد Bulk
+100 رقم / طلب
+⏱️ الحد الافتراضي
+60 طلب / دقيقة
+📱 صيغة الرقم
+دولي (201xxxxxxxx)
