@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,7 +17,7 @@ import { signUp } from "@/lib/auth-actions";
 export function SignupForm() {
   const t = useTranslations("Auth");
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -45,7 +45,8 @@ export function SignupForm() {
     ),
   });
 
-  const onSubmit = handleSubmit((values) => {
+  const onSubmit = handleSubmit(async (values) => {
+    setSubmitting(true);
     setServerError(null);
     const fd = new FormData();
     fd.append("first_name", values.first_name);
@@ -55,7 +56,7 @@ export function SignupForm() {
     fd.append("password", values.password);
     fd.append("confirm", values.confirm);
 
-    startTransition(async () => {
+    try {
       const result = await signUp(fd);
 
       if (result.success) {
@@ -71,7 +72,9 @@ export function SignupForm() {
       }
 
       setServerError(result.error);
-    });
+    } finally {
+      setSubmitting(false);
+    }
   });
 
   const errorMsg = (key: string | undefined) =>
@@ -196,8 +199,8 @@ export function SignupForm() {
         )}
       </div>
 
-      <Button type="submit" className="w-full" disabled={isPending}>
-        {isPending && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+      <Button type="submit" className="w-full" disabled={submitting}>
+        {submitting && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
         {t("submit.signup")}
       </Button>
     </form>

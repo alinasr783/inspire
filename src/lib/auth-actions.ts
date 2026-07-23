@@ -63,7 +63,7 @@ function formatZodErrors(issues: z.ZodIssue[]): Record<string, string> {
   return fieldErrors;
 }
 
-// ── Sign Up (return-based, checks rejected) ──
+// ── Sign Up (return-based) ──
 export async function signUp(
   formData: FormData
 ): Promise<ActionResult> {
@@ -86,27 +86,7 @@ export async function signUp(
     };
   }
 
-  // Check if email has been permanently rejected
-  try {
-    const admin = createAdminClient();
-    const { data: rejectedProfile } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("email", parsed.data.email.toLowerCase())
-      .eq("approval_status", "rejected")
-      .maybeSingle();
-
-    if (rejectedProfile) {
-      return { success: false, error: "email-rejected" };
-    }
-  } catch (e) {
-    console.error("[signUp] rejected-check error:", e);
-  }
-
   const supabase = await createClient();
-  const origin = await getOrigin();
-  const emailRedirectTo = `${origin}/ar/auth/confirmed`;
-
   const { error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
@@ -116,32 +96,38 @@ export async function signUp(
         second_name: parsed.data.second_name,
         phone: parsed.data.phone,
       },
-      emailRedirectTo,
+      emailRedirectTo: `${await getOrigin()}/ar/auth/confirmed`,
     },
   });
 
   if (error) {
-  console.log("[signUp] SIGNUP FAILED", { name: error.name, status: error.status, code: error.code });
+    console.log("[signUp] SIGNUP FAILED", {
+      name: error.name,
+      message: error.message,
+      status: error.status,
+      code: error.code,
+    });
 
     const msg = (error.message ?? "").toLowerCase();
-    const code = (error.code ?? "").toLowerCase();
-    const name = (error.name ?? "").toLowerCase();
-    const fullText = `${msg} ${code} ${name}`;
+    const codeErr = (error.code ?? "").toLowerCase();
+    const errorName = (error.name ?? "").toLowerCase();
+    const fullText = `${msg} ${codeErr} ${errorName}`;
 
-    if (fullText.includes("already") || fullText.includes("registered")) {
+    if (
+      fullText.includes("already") ||
+      fullText.includes("registered")
+    ) {
       return { success: false, error: "email-exists" };
     }
 
-    // 500 AuthRetryableFetchError = email send failure / Supabase infra issue
     if (
-      name.includes("retryable") ||
-      error.status === 500 ||
-      error.status === 429
+      fullText.includes("email") ||
+      fullText.includes("confirmation") ||
+      fullText.includes("send") ||
+      errorName.includes("retryable") ||
+      error.status === 429 ||
+      error.status === 500
     ) {
-      return { success: false, error: "email-send-failed" };
-    }
-
-    if (fullText.includes("email") || fullText.includes("confirmation") || fullText.includes("send")) {
       return { success: false, error: "email-send-failed" };
     }
 
