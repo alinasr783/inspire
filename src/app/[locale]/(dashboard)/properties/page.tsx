@@ -6,9 +6,9 @@ import type { UnitRow } from "@/lib/unit-actions";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { UnitFilters } from "@/components/units/unit-filters";
-import { UnitTable } from "@/components/units/unit-table";
+import { PaginatedUnitTable } from "@/components/units/paginated-unit-table";
 import { ColumnConfigModal } from "@/components/units/column-config-modal";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -134,6 +134,12 @@ export default async function PropertiesPage({
         <h1 className="text-2xl font-bold tracking-tight">{tNav("properties")}</h1>
         <div className="flex items-center gap-2">
           <ColumnConfigModal />
+          <Link href="/properties/group-add">
+            <Button variant="outline">
+              <Upload className="h-4 w-4" />
+              {t("groupAddUnits")}
+            </Button>
+          </Link>
           <Link href="/properties/new">
             <Button>
               <Plus className="h-4 w-4" />
@@ -150,7 +156,7 @@ export default async function PropertiesPage({
         <CardContent>
           <UnitFilters customColumns={customCols} rangeLimits={rangeLimits} compoundNames={uniqueCompounds} />
 
-          <UnitTable columns={allColumns} units={unitsData} locale={locale} />
+          <PaginatedUnitTable columns={allColumns} units={unitsData} locale={locale} />
         </CardContent>
       </Card>
     </div>

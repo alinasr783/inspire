@@ -16,9 +16,10 @@ interface DataPreviewTableProps {
   locale: string;
   selectedIndices?: number[];
   onToggleSelect?: (index: number) => void;
+  standardKeys?: string[];
 }
 
-export function DataPreviewTable({ columns, rows, locale, selectedIndices, onToggleSelect }: DataPreviewTableProps) {
+export function DataPreviewTable({ columns, rows, locale, selectedIndices, onToggleSelect, standardKeys }: DataPreviewTableProps) {
   const t = useTranslations("UnconfirmedData");
   const warningsCount = rows.filter((r) => r.ai_notes).length;
 
@@ -49,11 +50,24 @@ export function DataPreviewTable({ columns, rows, locale, selectedIndices, onTog
       }
       return <span dir="ltr" className="text-xs">{original}</span>;
     }
+    if (col.key === "phone") {
+      const original = row.mapped[col.key] || "";
+      const normalized = row.phone_normalized;
+      if (normalized && normalized !== original) {
+        return (
+          <span dir="ltr" className="text-xs">
+            <span className="text-muted-foreground line-through">{original}</span>
+            <span className="ml-1 text-green-600 dark:text-green-400">{normalized}</span>
+          </span>
+        );
+      }
+      return <span dir="ltr" className="text-xs">{original}</span>;
+    }
     if (col.key === "ai_notes") {
       return null;
     }
-    const standardKeys = ["owner_name", "unit_area", "building_number", "unit_number", "owner_phone", "owner_phone_alt", "affiliated_company", "last_feedback", "last_contact_date"];
-    if (standardKeys.includes(col.key)) {
+    const stdKeys = standardKeys ?? ["owner_name", "unit_area", "building_number", "unit_number", "owner_phone", "owner_phone_alt", "affiliated_company", "last_feedback", "last_contact_date"];
+    if (stdKeys.includes(col.key)) {
       return row.mapped[col.key] || "";
     }
     const extraVal = row.extra_data[col.key];

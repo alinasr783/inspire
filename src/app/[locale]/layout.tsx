@@ -5,6 +5,7 @@ import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "sonner";
 import "../globals.css";
 
 const cause = Cause({
@@ -70,6 +71,12 @@ export default async function LocaleLayout({
           disableTransitionOnChange
         >
           <NextIntlClientProvider>{children}</NextIntlClientProvider>
+          <Toaster
+            position={dir === "rtl" ? "bottom-left" : "bottom-right"}
+            dir={dir === "rtl" ? "rtl" : "ltr"}
+            richColors
+            closeButton
+          />
         </ThemeProvider>
       </body>
     </html>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { navItems } from "@/lib/nav-items";
@@ -14,11 +15,54 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
+import { toast } from "sonner";
+import { getPendingUsersCount } from "@/lib/auth-actions";
 
 function SidebarContent({ role }: { role?: string }) {
   const t = useTranslations("Nav");
   const tApp = useTranslations("App");
+  const tAdmin = useTranslations("Admin");
   const pathname = usePathname();
+  const [pendingCount, setPendingCount] = useState(0);
+  const prevCountRef = useRef(0);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const run = async () => {
+      if (role !== "admin") return;
+      try {
+        const count = await getPendingUsersCount();
+        if (!mounted) return;
+        const prev = prevCountRef.current;
+
+        if (count > 0 && count > prev && prev > 0) {
+          toast(
+            tAdmin("newPendingToast", { count }),
+            {
+              action: {
+                label: tAdmin("viewUsers"),
+                onClick: () => (window.location.href = "/ar/admin/users"),
+              },
+              duration: 6000,
+            }
+          );
+        }
+
+        prevCountRef.current = count;
+        setPendingCount(count);
+      } catch {
+        // Silently fail
+      }
+    };
+
+    run();
+    const interval = setInterval(run, 10000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [role, tAdmin]);
 
   return (
     <div className="flex h-full flex-col">
@@ -60,7 +104,14 @@ function SidebarContent({ role }: { role?: string }) {
                 : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             )}
           >
-            <UsersRound className="h-4 w-4 shrink-0" />
+            <div className="relative">
+              <UsersRound className="h-4 w-4 shrink-0" />
+              {pendingCount > 0 && (
+                <span className="absolute -end-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
+                  {pendingCount > 9 ? "9+" : pendingCount}
+                </span>
+              )}
+            </div>
             <span>{t("users")}</span>
           </Link>
         )}
@@ -69,17 +120,9 @@ function SidebarContent({ role }: { role?: string }) {
   );
 }
 
-export function Sidebar({ role }: { role?: string }) {
-  return (
-    <aside className="hidden w-64 shrink-0 border-e bg-card md:block">
-      <SidebarContent role={role} />
-    </aside>
-  );
-}
-
-export function MobileSidebar({ role }: { role?: string }) {
-  const locale = useLocale();
+function SidebarBadge({ role }: { role?: string }) {
   const t = useTranslations("App");
+  const locale = useLocale();
 
   return (
     <Sheet>
@@ -106,4 +149,16 @@ export function MobileSidebar({ role }: { role?: string }) {
       </SheetContent>
     </Sheet>
   );
+}
+
+export function Sidebar({ role }: { role?: string }) {
+  return (
+    <aside className="hidden w-64 shrink-0 border-e bg-card md:block">
+      <SidebarContent role={role} />
+    </aside>
+  );
+}
+
+export function MobileSidebar({ role }: { role?: string }) {
+  return <SidebarBadge role={role} />;
 }

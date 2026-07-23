@@ -29,7 +29,6 @@ export default async function DashboardLayout({
     .single();
 
   if (!profile || profile.approval_status !== "approved") {
-    await supabase.auth.signOut();
     redirect(`/${locale}/auth/pending`);
   }
 
