@@ -84,6 +84,7 @@
       "invalid-credentials": "Email or password is incorrect.",
       "email-exists": "This email is already registered.",
       "email-rejected": "Account creation for this email has been permanently rejected.",
+      "email-send-failed": "Failed to send confirmation email. The mail system may be unavailable. Contact the site admin or try again later.",
       "signup-failed": "Could not create the account, please try again later.",
       "default": "An unexpected error occurred, please try again.",
       "firstNameRequired": "First name is required",
