@@ -229,7 +229,8 @@ export async function getUsers(filters?: {
 
   if (!user) return [];
 
-  const { data: me } = await supabase
+  const admin = createAdminClient();
+  const { data: me } = await admin
     .from("profiles")
     .select("role")
     .eq("id", user.id)
@@ -237,7 +238,6 @@ export async function getUsers(filters?: {
 
   if (!me || me.role !== "admin") return [];
 
-  const admin = createAdminClient();
   let query = admin
     .from("profiles")
     .select("id, email, first_name, second_name, phone, approval_status, role, created_at, updated_at");
@@ -272,7 +272,8 @@ export async function setApprovalReturn(
 
   if (!user) return { success: false, error: "unauthorized" };
 
-  const { data: me } = await supabase
+  const admin = createAdminClient();
+  const { data: me } = await admin
     .from("profiles")
     .select("role")
     .eq("id", user.id)
@@ -280,7 +281,6 @@ export async function setApprovalReturn(
 
   if (!me || me.role !== "admin") return { success: false, error: "unauthorized" };
 
-  const admin = createAdminClient();
   const { error } = await admin
     .from("profiles")
     .update({ approval_status: status, updated_at: new Date().toISOString() })
@@ -305,7 +305,8 @@ export async function changeUserRole(
 
   if (!user) return { success: false, error: "unauthorized" };
 
-  const { data: me } = await supabase
+  const admin = createAdminClient();
+  const { data: me } = await admin
     .from("profiles")
     .select("role")
     .eq("id", user.id)
@@ -313,7 +314,6 @@ export async function changeUserRole(
 
   if (!me || me.role !== "admin") return { success: false, error: "unauthorized" };
 
-  const admin = createAdminClient();
   const { error } = await admin
     .from("profiles")
     .update({ role, updated_at: new Date().toISOString() })
@@ -335,7 +335,8 @@ export async function getPendingUsersCount(): Promise<number> {
 
   if (!user) return 0;
 
-  const { data: me } = await supabase
+  const admin = createAdminClient();
+  const { data: me } = await admin
     .from("profiles")
     .select("role")
     .eq("id", user.id)
@@ -343,7 +344,6 @@ export async function getPendingUsersCount(): Promise<number> {
 
   if (!me || me.role !== "admin") return 0;
 
-  const admin = createAdminClient();
   const { count } = await admin
     .from("profiles")
     .select("*", { count: "exact", head: true })
