@@ -401,6 +401,7 @@
     "actions": "Actions",
     "approve": "Approve",
     "reject": "Reject",
+    "cancel": "Cancel",
     "status_pending": "Pending",
     "status_approved": "Approved",
     "status_rejected": "Rejected",

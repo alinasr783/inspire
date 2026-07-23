@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import {
   Search,
@@ -25,6 +26,12 @@ import { toast } from "sonner";
 
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
 
+type DialogAction =
+  | { type: "approve"; user: UserProfile }
+  | { type: "reject"; user: UserProfile }
+  | { type: "role"; user: UserProfile; newRole: "user" | "admin" }
+  | null;
+
 const statusStyles: Record<string, string> = {
   pending:
     "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200",
@@ -32,6 +39,10 @@ const statusStyles: Record<string, string> = {
     "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
   rejected: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
 };
+
+function userName(u: UserProfile) {
+  return [u.first_name, u.second_name].filter(Boolean).join(" ") || u.email;
+}
 
 export function UsersTable() {
   const t = useTranslations("Admin");
@@ -43,6 +54,7 @@ export function UsersTable() {
   const [roleChanging, setRoleChanging] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const pollingRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const [dialog, setDialog] = useState<DialogAction>(null);
 
   const fetchUsers = useCallback(async () => {
     const data = await getUsers({
@@ -72,78 +84,60 @@ export function UsersTable() {
     rejected: users.filter((u) => u.approval_status === "rejected").length,
   };
 
-  const handleApprove = (user: UserProfile) => {
-    const confirmed = window.confirm(
-      t("approveConfirm", {
-        name: [user.first_name, user.second_name].filter(Boolean).join(" ") || user.email,
-      })
-    );
-    if (!confirmed) return;
-
-    setApproving(user.id);
+  const executeApprove = (userId: string) => {
+    setApproving(userId);
     startTransition(async () => {
-      const result = await setApprovalReturn(user.id, "approved");
+      const result = await setApprovalReturn(userId, "approved");
       setApproving(null);
       if (result.success) {
-        toast.success(
-          t("userApproved", {
-            name: [user.first_name, user.second_name].filter(Boolean).join(" ") || user.email,
-          })
-        );
+        const u = users.find((x) => x.id === userId);
+        toast.success(t("userApproved", { name: u ? userName(u) : "" }));
         fetchUsers();
       }
     });
   };
 
-  const handleReject = (user: UserProfile) => {
-    const confirmed = window.confirm(
-      t("rejectConfirm", {
-        name: [user.first_name, user.second_name].filter(Boolean).join(" ") || user.email,
-      }) +
-        "\n\n" +
-        t("rejectPermanent")
-    );
-    if (!confirmed) return;
-
-    setApproving(user.id);
+  const executeReject = (userId: string) => {
+    setApproving(userId);
     startTransition(async () => {
-      const result = await setApprovalReturn(user.id, "rejected");
+      const result = await setApprovalReturn(userId, "rejected");
       setApproving(null);
       if (result.success) {
-        toast.success(
-          t("userRejected", {
-            name: [user.first_name, user.second_name].filter(Boolean).join(" ") || user.email,
-          })
-        );
+        const u = users.find((x) => x.id === userId);
+        toast.success(t("userRejected", { name: u ? userName(u) : "" }));
         fetchUsers();
       }
     });
   };
 
-  const handleRoleChange = (user: UserProfile) => {
-    const newRole = user.role === "admin" ? "user" : "admin";
-    const confirm = window.confirm(
-      t("changeRoleConfirm", {
-        name: [user.first_name, user.second_name].filter(Boolean).join(" ") || user.email,
-        role: t(newRole === "admin" ? "role_admin" : "role_user"),
-      })
-    );
-    if (!confirm) return;
-
-    setRoleChanging(user.id);
+  const executeRoleChange = (userId: string, newRole: "user" | "admin") => {
+    setRoleChanging(userId);
     startTransition(async () => {
-      const result = await changeUserRole(user.id, newRole);
+      const result = await changeUserRole(userId, newRole);
       setRoleChanging(null);
       if (result.success) {
+        const u = users.find((x) => x.id === userId);
         toast.success(
           t("roleChanged", {
-            name: [user.first_name, user.second_name].filter(Boolean).join(" ") || user.email,
+            name: u ? userName(u) : "",
             role: t(newRole === "admin" ? "role_admin" : "role_user"),
           })
         );
         fetchUsers();
       }
     });
+  };
+
+  const handleDialogConfirm = () => {
+    if (!dialog) return;
+    if (dialog.type === "approve") {
+      executeApprove(dialog.user.id);
+    } else if (dialog.type === "reject") {
+      executeReject(dialog.user.id);
+    } else if (dialog.type === "role") {
+      executeRoleChange(dialog.user.id, dialog.newRole);
+    }
+    setDialog(null);
   };
 
   const tabs: { key: StatusFilter; label: string; count: number }[] = [
@@ -237,9 +231,7 @@ export function UsersTable() {
                       className="border-b last:border-0 transition-colors hover:bg-muted/30"
                     >
                       <td className="px-3 py-2 font-medium">
-                        {[u.first_name, u.second_name]
-                          .filter(Boolean)
-                          .join(" ") || "—"}
+                        {userName(u) || "—"}
                       </td>
                       <td className="px-3 py-2 text-xs" dir="ltr">
                         {u.email}
@@ -274,7 +266,7 @@ export function UsersTable() {
                             <>
                               <Button
                                 size="sm"
-                                onClick={() => handleApprove(u)}
+                                onClick={() => setDialog({ type: "approve", user: u })}
                                 disabled={isPending && approving === u.id}
                                 className="h-8 px-2.5 text-xs"
                               >
@@ -288,7 +280,7 @@ export function UsersTable() {
                               <Button
                                 size="sm"
                                 variant="destructive"
-                                onClick={() => handleReject(u)}
+                                onClick={() => setDialog({ type: "reject", user: u })}
                                 disabled={isPending && approving === u.id}
                                 className="h-8 px-2.5 text-xs"
                               >
@@ -305,7 +297,7 @@ export function UsersTable() {
                             <Button
                               size="sm"
                               variant="destructive"
-                              onClick={() => handleReject(u)}
+                              onClick={() => setDialog({ type: "reject", user: u })}
                               disabled={isPending && approving === u.id}
                               className="h-8 px-2.5 text-xs"
                             >
@@ -316,7 +308,7 @@ export function UsersTable() {
                           {u.approval_status === "rejected" && (
                             <Button
                               size="sm"
-                              onClick={() => handleApprove(u)}
+                              onClick={() => setDialog({ type: "approve", user: u })}
                               disabled={isPending && approving === u.id}
                               className="h-8 px-2.5 text-xs"
                             >
@@ -327,7 +319,13 @@ export function UsersTable() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleRoleChange(u)}
+                            onClick={() =>
+                              setDialog({
+                                type: "role",
+                                user: u,
+                                newRole: u.role === "admin" ? "user" : "admin",
+                              })
+                            }
                             disabled={isPending && roleChanging === u.id}
                             className="h-8 px-2.5 text-xs"
                           >
@@ -350,6 +348,42 @@ export function UsersTable() {
           )}
         </CardContent>
       </Card>
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        open={dialog !== null}
+        onOpenChange={(open) => {
+          if (!open) setDialog(null);
+        }}
+        title={
+          dialog?.type === "approve"
+            ? t("approveConfirm", { name: userName(dialog.user) })
+            : dialog?.type === "reject"
+              ? t("rejectConfirm", { name: userName(dialog.user) })
+              : dialog?.type === "role"
+                ? t("changeRoleConfirm", {
+                    name: userName(dialog.user),
+                    role: t(
+                      dialog.newRole === "admin" ? "role_admin" : "role_user"
+                    ),
+                  })
+                : ""
+        }
+        description={
+          dialog?.type === "reject" ? t("rejectPermanent") : undefined
+        }
+        confirmLabel={
+          dialog?.type === "approve"
+            ? t("approve")
+            : dialog?.type === "reject"
+              ? t("reject")
+              : t("changeRoleReassign")
+        }
+        cancelLabel={t("cancel")}
+        variant={dialog?.type === "reject" ? "destructive" : "default"}
+        loading={false}
+        onConfirm={handleDialogConfirm}
+      />
     </div>
   );
 }

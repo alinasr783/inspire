@@ -401,6 +401,7 @@
     "actions": "إجراءات",
     "approve": "موافقة",
     "reject": "رفض",
+    "cancel": "إلغاء",
     "status_pending": "بانتظار الموافقة",
     "status_approved": "مُعتمَد",
     "status_rejected": "مرفوض",

@@ -385,44 +385,41 @@ export async function processUnitsExcel(fileBase64: string) {
 }
 
 export async function confirmGroupUnits(rows: Array<{ mapped: Record<string, string> }>) {
+  const locale = await getLocale();
   const supabase = await createClient();
+
   const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (!user || userError) throw new Error("unauthorized");
+  if (!user || userError) redirect(`/${locale}/auth/login`);
 
   if (!rows || rows.length === 0) throw new Error("no-rows-to-confirm");
 
-  const admin = createAdminClient();
-
-  const numericFields = new Set(["cash_required", "remaining"]);
-  const dateFields = new Set(["last_contact_date"]);
-
-  const insertData = rows.map((row) => {
-    const cleaned: Record<string, unknown> = {
-      created_by: user.id,
-      custom_fields: {},
-    };
-    for (const [key, val] of Object.entries(row.mapped)) {
+  const insertData: Record<string, unknown>[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const raw: Record<string, unknown> = {};
+    for (const key of Object.keys(unitSchema.shape)) {
       if (key === "custom_fields") continue;
-      const trimmed = (val ?? "").trim();
-      if (numericFields.has(key)) {
-        if (!trimmed) {
-          cleaned[key] = null;
-        } else {
-          const num = Number(trimmed);
-          cleaned[key] = isNaN(num) ? null : num;
-        }
-      } else if (dateFields.has(key)) {
-        cleaned[key] = trimmed || null;
-      } else {
-        cleaned[key] = val || "";
+      const val = rows[i].mapped[key];
+      if (val !== null && val !== undefined && val !== "") {
+        raw[key] = val;
       }
     }
-    return cleaned;
-  });
+    raw.custom_fields = {};
 
-  const { error } = await admin.from("units").insert(insertData);
+    const parsed = unitSchema.safeParse(raw);
+    if (!parsed.success) {
+      const issues = parsed.error.issues.map((iss) => `${iss.path.join(".")}: ${iss.message}`).join("; ");
+      throw new Error(`Row ${i + 1} invalid → ${issues}. Data: ${JSON.stringify({ ...raw, custom_fields: "{}" })}`);
+    }
 
-  if (error) throw new Error(`insert-failed: ${error.message}`);
+    insertData.push({
+      ...parsed.data,
+      created_by: user.id,
+    });
+  }
+
+  const { error } = await supabase.from("units").insert(insertData);
+
+  if (error) throw new Error(`DB error: ${error.message} (code: ${error.code}, details: ${error.details}, hint: ${error.hint || "none"})`);
 
   return { success: true, count: insertData.length };
 }
