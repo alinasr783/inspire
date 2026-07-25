@@ -16,16 +16,26 @@ function formatOnlineTime(isoString: string): string {
   return `${Math.floor(diffHr / 24)}d ago`;
 }
 
+const CARD_HEIGHT = 170;
+
 export function UserHoverCard({ user, children }: { user: PresenceState; children: React.ReactNode }) {
   const [show, setShow] = useState(false);
-  const [coords, setCoords] = useState({ x: 0, y: 0 });
+  const [coords, setCoords] = useState({ x: 0, y: 0, below: false });
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleEnter = useCallback((e: React.MouseEvent) => {
     if (hideTimeoutRef.current) { clearTimeout(hideTimeoutRef.current); hideTimeoutRef.current = null; }
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setCoords({ x: rect.left + rect.width / 2, y: rect.top - 8 });
+    const hasSpaceAbove = rect.top > CARD_HEIGHT + 20;
+    const cardW = 240;
+    let x = rect.left + rect.width / 2;
+    x = Math.max(cardW / 2, Math.min(x, window.innerWidth - cardW / 2));
+    setCoords({
+      x,
+      y: hasSpaceAbove ? rect.top - 8 : rect.bottom + 8,
+      below: !hasSpaceAbove,
+    });
     timeoutRef.current = setTimeout(() => setShow(true), 200);
   }, []);
 
@@ -51,13 +61,17 @@ export function UserHoverCard({ user, children }: { user: PresenceState; childre
       {show && (
         <div
           className="fixed z-[10000]"
-          style={{ left: coords.x, top: coords.y, transform: "translate(-50%, -100%)" }}
+          style={{
+            left: coords.x,
+            top: coords.y,
+            transform: `translate(-50%, ${coords.below ? "0" : "-100%"})`,
+          }}
           onMouseEnter={handleCardEnter}
           onMouseLeave={handleCardLeave}
         >
           <div
-            className="animate-in fade-in zoom-in-95 origin-bottom duration-200 rounded-xl border bg-card p-4 shadow-xl"
-            style={{ minWidth: 220 }}
+            className="animate-in fade-in zoom-in-95 duration-200 rounded-xl border bg-card p-4 shadow-xl"
+            style={{ minWidth: 220, transformOrigin: coords.below ? "top center" : "bottom center" }}
           >
             <div className="flex items-center gap-3">
               <div
@@ -98,11 +112,6 @@ export function UserHoverCard({ user, children }: { user: PresenceState; childre
                 <span className="text-muted-foreground">{formatOnlineTime(user.onlineAt)}</span>
               </div>
             </div>
-
-            <div
-              className="absolute left-1/2 top-full h-3 w-3 -translate-x-1/2 rotate-45 border-b border-r bg-card"
-              style={{ marginTop: -2 }}
-            />
           </div>
         </div>
       )}

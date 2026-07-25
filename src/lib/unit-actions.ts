@@ -202,7 +202,8 @@ export async function updateUnitField(unitId: string, field: string, value: stri
   ];
   if (!allowedFields.includes(field)) throw new Error("invalid-field");
 
-  const { data: profile } = await supabase
+  const admin = createAdminClient();
+  const { data: profile } = await admin
     .from("profiles")
     .select("role")
     .eq("id", user.id)
@@ -213,7 +214,6 @@ export async function updateUnitField(unitId: string, field: string, value: stri
   }
 
   const numericFields = ["cash_required", "remaining"];
-  const admin = createAdminClient();
   let updateValue: unknown = value;
   if (numericFields.includes(field)) {
     const trimmed = value.trim();

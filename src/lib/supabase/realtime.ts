@@ -20,6 +20,9 @@ export type CursorPayload = {
   userColor: string;
   x: number;
   y: number;
+  vw: number;
+  vh: number;
+  page: string;
   ts: number;
 };
 

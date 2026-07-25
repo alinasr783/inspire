@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import { usePathname } from "@/i18n/navigation";
 import { createRealtimeClient, type CursorPayload } from "@/lib/supabase/realtime";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -21,10 +22,13 @@ export function useCursorBroadcast(
   const cursorsRef = useRef<Map<string, RemoteCursor>>(new Map());
   const lastSendRef = useRef(0);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const pathname = usePathname();
+  const onCursorsUpdateRef = useRef(onCursorsUpdate);
+  onCursorsUpdateRef.current = onCursorsUpdate;
 
   const updateCursors = useCallback(() => {
-    onCursorsUpdate(Array.from(cursorsRef.current.values()));
-  }, [onCursorsUpdate]);
+    onCursorsUpdateRef.current(Array.from(cursorsRef.current.values()));
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -74,6 +78,9 @@ export function useCursorBroadcast(
         userColor: user.color,
         x: e.clientX,
         y: e.clientY,
+        vw: window.innerWidth,
+        vh: window.innerHeight,
+        page: pathname,
         ts: now,
       };
 
@@ -102,5 +109,5 @@ export function useCursorBroadcast(
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [user?.id, user?.firstName, user?.secondName, user?.color, updateCursors]);
+  }, [user?.id, user?.firstName, user?.secondName, user?.color, pathname]);
 }
