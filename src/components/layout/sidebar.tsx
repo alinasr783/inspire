@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { navItems } from "@/lib/nav-items";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import { toast } from "sonner";
+import { useRealtime } from "@/components/providers/realtime-provider";
 import { createRealtimeClient } from "@/lib/supabase/realtime";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
@@ -37,6 +38,27 @@ function SidebarContent({
   const pathname = usePathname();
   const [pendingCount, setPendingCount] = useState(initialPending);
   const prevCountRef = useRef(initialPending);
+  const { cursors, onlineUsers } = useRealtime();
+
+  const pageUsers = useMemo(() => {
+    const map = new Map<string, { userId: string; color: string; initials: string; firstName: string; secondName: string }[]>();
+    for (const c of cursors) {
+      const route = c.page.replace(/^\/(ar|en)/, "") || "/";
+      if (!map.has(route)) map.set(route, []);
+      const arr = map.get(route)!;
+      if (!arr.some((u) => u.userId === c.userId)) {
+        const online = onlineUsers.find((o) => o.userId === c.userId);
+        arr.push({
+          userId: c.userId,
+          color: c.userColor,
+          initials: online?.initials ?? c.userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase(),
+          firstName: online?.firstName ?? "",
+          secondName: online?.secondName ?? "",
+        });
+      }
+    }
+    return map;
+  }, [cursors, onlineUsers]);
 
   useEffect(() => {
     if (role !== "admin") return;
@@ -105,6 +127,7 @@ function SidebarContent({
               ? pathname === "/"
               : pathname.startsWith(item.href);
           const Icon = item.icon;
+          const users = pageUsers.get(item.href) ?? [];
           return (
             <Link
               key={item.key}
@@ -117,7 +140,24 @@ function SidebarContent({
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
-              <span>{t(item.key)}</span>
+              <span className="flex-1">{t(item.key)}</span>
+              {users.length > 0 && (
+                <div className="flex items-center gap-0.5">
+                  {users.slice(0, 3).map((u) => (
+                    <span
+                      key={u.userId}
+                      className="flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white ring-1 ring-background"
+                      style={{ backgroundColor: u.color }}
+                      title={`${u.firstName} ${u.secondName}`.trim() || u.userId}
+                    >
+                      {u.initials}
+                    </span>
+                  ))}
+                  {users.length > 3 && (
+                    <span className="text-[10px] text-muted-foreground">+{users.length - 3}</span>
+                  )}
+                </div>
+              )}
             </Link>
           );
         })}

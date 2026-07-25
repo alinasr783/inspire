@@ -76,7 +76,7 @@ interface RowProps {
   onEditCancel: () => void;
 }
 
-const Row = memo(({ record, columns, locale, selectable, isSelected, editingKey, onToggle, onDelete, onCellEdit, onCellSave, onEditCancel }: RowProps) => {
+const Row = function Row({ record, columns, locale, selectable, isSelected, editingKey, onToggle, onDelete, onCellEdit, onCellSave, onEditCancel }: RowProps) {
   const t = useTranslations("UnconfirmedData");
   return (
     <tr className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
@@ -106,8 +106,7 @@ const Row = memo(({ record, columns, locale, selectable, isSelected, editingKey,
       </td>
     </tr>
   );
-});
-Row.displayName = "Row";
+};
 
 export function UploadsTable({ records: serverRecords, columns, locale, selectable, userId }: { records: UnconfirmedRecord[]; columns: Columns[]; locale: string; selectable?: boolean; userId: string }) {
   const t = useTranslations("UnconfirmedData");

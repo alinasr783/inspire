@@ -92,8 +92,7 @@ interface RowProps {
   onEditCancel: () => void; isAdmin: boolean;
 }
 
-const Row = memo(
-  ({ unit, columns, locale, editingField, onCellEdit, onCellSave, onEditCancel, isAdmin }: RowProps) => {
+const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCellSave, onEditCancel, isAdmin }: RowProps) {
     const t = useTranslations("Properties");
     const uid = unit.id;
     return (
@@ -119,8 +118,6 @@ const Row = memo(
       </tr>
     );
   }
-);
-Row.displayName = "Row";
 
 export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId }: UnitTableProps) {
   const t = useTranslations("Properties");

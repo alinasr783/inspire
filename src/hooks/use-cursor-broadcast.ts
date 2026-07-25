@@ -78,6 +78,8 @@ export function useCursorBroadcast(
         userColor: user.color,
         x: e.clientX,
         y: e.clientY,
+        sx: window.scrollX,
+        sy: window.scrollY,
         vw: window.innerWidth,
         vh: window.innerHeight,
         page: pathname,
