@@ -9,6 +9,7 @@ import { Building2 } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { updateColumnOrder, renameColumnConfig, type ColumnConfig } from "@/lib/unit-config-actions";
 import { updateUnitField } from "@/lib/unit-actions";
+import { PresenceTd } from "@/components/realtime/presence-td";
 import type { UnitRow } from "@/lib/unit-actions";
 
 const COLUMN_WIDTHS: Record<string, number> = {
@@ -103,13 +104,13 @@ const Row = memo(
           const canEdit = isAdmin || key === "feedback";
           const raw = col.is_builtin ? String((unit as Record<string, unknown>)[key] ?? "") : String((unit.custom_fields as Record<string, unknown>)?.[key] ?? "");
           return (
-            <td key={col.id} className="overflow-hidden border-b border-r align-middle">
+            <PresenceTd key={col.id} table="properties" rowId={unit.id} colKey={col.key} className="overflow-hidden border-b border-r align-middle">
               {isEdit ? (
                 <CellEditor defaultValue={key === "last_contact_date" ? String((unit as Record<string, unknown>)[key] ?? "") : raw} type={key === "cash_required" || key === "remaining" ? "number" : key === "last_contact_date" ? "date" : "text"} onSave={(v) => onCellSave(uid, key, v)} onCancel={onEditCancel} />
               ) : (
                 <CellDisplay col={col} raw={raw} locale={locale} onEdit={() => onCellEdit(uid, key)} canEdit={canEdit} />
               )}
-            </td>
+            </PresenceTd>
           );
         })}
         <td className="whitespace-nowrap border-b px-3 py-2 align-middle">

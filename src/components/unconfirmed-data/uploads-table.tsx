@@ -9,6 +9,7 @@ import { FileSpreadsheet, Trash2, Eye, Pencil } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { UnconfirmedRecord } from "@/lib/unconfirmed-data-actions";
 import { deleteRecords, updateRecordField } from "@/lib/unconfirmed-data-actions";
+import { PresenceTd } from "@/components/realtime/presence-td";
 
 interface Columns { key: string; label: string; type: string }
 
@@ -87,13 +88,13 @@ const Row = memo(({ record, columns, locale, selectable, isSelected, editingKey,
       {columns.map((col) => {
         const isEdit = editingKey === col.key;
         return (
-          <td key={col.key} className="overflow-hidden border-b border-r align-middle">
+          <PresenceTd key={col.key} table="unconfirmed" rowId={record.id} colKey={col.key} className="overflow-hidden border-b border-r align-middle">
             {isEdit ? (
               <CellEditor defaultValue={col.key === "last_contact_date" ? (record.last_contact_date || "") : String((record as any)[col.key] ?? "")} type={col.type} onSave={(v) => onCellSave(record.id, col.key, v)} onCancel={onEditCancel} />
             ) : (
               <CellDisplay col={col} record={record} locale={locale} onEdit={() => onCellEdit(record.id, col.key)} onSave={(v) => onCellSave(record.id, col.key, v)} />
             )}
-          </td>
+          </PresenceTd>
         );
       })}
       <td className="whitespace-nowrap border-b px-3 py-2 align-middle">

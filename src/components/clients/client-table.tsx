@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { Users } from "lucide-react";
 import { updateColumnOrder, renameColumnConfig, type ColumnConfig } from "@/lib/client-config-actions";
+import { PresenceTd } from "@/components/realtime/presence-td";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 
 type ClientRow = Record<string, unknown> & {
@@ -207,9 +208,9 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
             clientsData.map((client) => (
               <tr key={client.id} className="border-b last:border-0 hover:bg-muted/30">
                 {localCols.map((col) => (
-                  <td key={col.id} className="overflow-hidden border-r px-3 py-2 truncate">
+                  <PresenceTd key={col.id} table="clients" rowId={client.id as string} colKey={col.key} className="overflow-hidden border-r px-3 py-2 truncate">
                     {renderCell(col, client)}
-                  </td>
+                  </PresenceTd>
                 ))}
                 <td className="whitespace-nowrap px-3 py-2">
                   <Link href={`/clients/${client.id}`}>
