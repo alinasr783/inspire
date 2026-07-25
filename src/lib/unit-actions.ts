@@ -190,6 +190,49 @@ export async function deleteUnit(id: string) {
   redirect(`/${locale}/properties`);
 }
 
+export async function updateUnitField(unitId: string, field: string, value: string) {
+  const supabase = await createClient();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (!user || userError) throw new Error("unauthorized");
+
+  const allowedFields = [
+    "customer_name", "phone", "compound_name", "area", "building_number",
+    "finishing_status", "rent_sale", "unit_type", "cash_required", "remaining",
+    "last_contact_date", "additional_notes", "feedback",
+  ];
+  if (!allowedFields.includes(field)) throw new Error("invalid-field");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  const isAdmin = profile?.role === "admin";
+  if (!isAdmin && field !== "feedback") {
+    throw new Error("unauthorized");
+  }
+
+  const numericFields = ["cash_required", "remaining"];
+  const admin = createAdminClient();
+  let updateValue: unknown = value;
+  if (numericFields.includes(field)) {
+    const trimmed = value.trim();
+    updateValue = trimmed ? Number(trimmed) : null;
+    if (trimmed && isNaN(updateValue as number)) updateValue = value;
+  } else if (field === "last_contact_date") {
+    updateValue = value.trim() || null;
+  }
+
+  const { error } = await admin
+    .from("units")
+    .update({ [field]: updateValue, updated_at: new Date().toISOString() })
+    .eq("id", unitId);
+
+  if (error) throw new Error("update-failed");
+
+  return { success: true };
+}
+
 /* ── Excel Group Import ── */
 
 const UNIT_COLUMN_ALIASES: Record<string, string[]> = {
@@ -282,6 +325,38 @@ function extractNumber(text: string): string {
 
 const NUMERIC_FIELDS = ["area", "cash_required", "remaining"];
 
+function normalizeDate(text: string): string {
+  if (!text || !text.trim()) return "";
+  const arabicDigits: Record<string, string> = {
+    "٠": "0", "١": "1", "٢": "2", "٣": "3", "٤": "4",
+    "٥": "5", "٦": "6", "٧": "7", "٨": "8", "٩": "9",
+  };
+  let s = text.trim();
+  for (const [ar, en] of Object.entries(arabicDigits)) {
+    s = s.split(ar).join(en);
+  }
+  s = s.replace(/\\/g, "/").replace(/\s+/g, "");
+  const parts = s.split(/[/\-.]/).map(Number).filter((n) => !isNaN(n));
+  if (parts.length < 3) return "";
+  const [a, b, c] = parts;
+  let day: number, month: number, year: number;
+  if (a > 31) {
+
+    year = a; month = b; day = c;
+  } else if (c > 31) {
+
+    day = a; month = b; year = c;
+  } else {
+
+    day = a; month = b; year = c;
+  }
+  if (year < 100) year += year < 50 ? 2000 : 1900;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return "";
+  const m = String(month).padStart(2, "0");
+  const d = String(day).padStart(2, "0");
+  return `${year}-${m}-${d}`;
+}
+
 export async function processUnitsExcel(fileBase64: string) {
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -360,6 +435,10 @@ export async function processUnitsExcel(fileBase64: string) {
       }
     }
 
+    if (mapped.last_contact_date) {
+      mapped.last_contact_date = normalizeDate(mapped.last_contact_date);
+    }
+
     const phone = mapped.phone || "";
     return {
       mapped,
@@ -393,7 +472,9 @@ export async function confirmGroupUnits(rows: Array<{ mapped: Record<string, str
 
   if (!rows || rows.length === 0) throw new Error("no-rows-to-confirm");
 
-  const insertData: Record<string, unknown>[] = [];
+  const validRows: Record<string, unknown>[] = [];
+  const skipped: Array<{ row: number; issues: string }> = [];
+
   for (let i = 0; i < rows.length; i++) {
     const raw: Record<string, unknown> = {};
     for (const key of Object.keys(unitSchema.shape)) {
@@ -408,18 +489,29 @@ export async function confirmGroupUnits(rows: Array<{ mapped: Record<string, str
     const parsed = unitSchema.safeParse(raw);
     if (!parsed.success) {
       const issues = parsed.error.issues.map((iss) => `${iss.path.join(".")}: ${iss.message}`).join("; ");
-      throw new Error(`Row ${i + 1} invalid → ${issues}. Data: ${JSON.stringify({ ...raw, custom_fields: "{}" })}`);
+      skipped.push({ row: i + 1, issues });
+      continue;
     }
 
-    insertData.push({
+    validRows.push({
       ...parsed.data,
       created_by: user.id,
     });
   }
 
-  const { error } = await supabase.from("units").insert(insertData);
+  if (validRows.length === 0) {
+    const details = skipped.map((s) => `Row ${s.row}: ${s.issues}`).join("\n");
+    throw new Error(`All ${rows.length} rows failed validation:\n${details}`);
+  }
+
+  const { error } = await supabase.from("units").insert(validRows);
 
   if (error) throw new Error(`DB error: ${error.message} (code: ${error.code}, details: ${error.details}, hint: ${error.hint || "none"})`);
 
-  return { success: true, count: insertData.length };
+  return {
+    success: true,
+    inserted: validRows.length,
+    skipped: skipped.length,
+    skippedDetails: skipped.map((s) => `Row ${s.row}: ${s.issues}`),
+  };
 }

@@ -2,11 +2,10 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "@/i18n/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertCircle, AlertTriangle, Trash2 } from "lucide-react";
 import { ExcelUploader } from "@/components/unconfirmed-data/excel-uploader";
 import { AiProgressSteps, type Step } from "@/components/unconfirmed-data/ai-progress-steps";
 import { DataPreviewTable } from "@/components/unconfirmed-data/data-preview-table";
@@ -24,12 +23,12 @@ const UNIT_STANDARD_KEYS = [
 export default function GroupAddUnitsPage() {
   const t = useTranslations("Properties");
   const tU = useTranslations("UnconfirmedData");
-  const router = useRouter();
 
   const [currentStep, setCurrentStep] = useState<Step>("upload");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<PreviewResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -137,9 +136,14 @@ export default function GroupAddUnitsPage() {
   const handleConfirm = async () => {
     if (!previewData) return;
     setConfirming(true);
+    setError(null);
+    setWarning(null);
 
     try {
-      await confirmGroupUnits(remainingRows);
+      const result = await confirmGroupUnits(remainingRows);
+      if (result.skipped > 0) {
+        setWarning(`Inserted ${result.inserted} units. Skipped ${result.skipped} rows:\n${result.skippedDetails.join("\n")}`);
+      }
       setCurrentStep("confirm");
       setShowConfirm(false);
       setConfirming(false);
@@ -177,6 +181,20 @@ export default function GroupAddUnitsPage() {
         </div>
 
         <AiProgressSteps currentStep={currentStep} />
+
+        {error && currentStep !== "confirm" && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span className="whitespace-pre-wrap font-mono text-xs">{error}</span>
+          </div>
+        )}
+
+        {warning && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span className="whitespace-pre-wrap font-mono text-xs">{warning}</span>
+          </div>
+        )}
 
         {currentStep !== "confirm" && (
           <>
@@ -265,13 +283,21 @@ export default function GroupAddUnitsPage() {
         )}
 
         {currentStep === "confirm" && (
-          <div className="flex justify-center">
-            <Link href="/properties">
-              <Button>
-                <ArrowLeft className="h-4 w-4" />
-                {tU("backToUploads")}
-              </Button>
-            </Link>
+          <div className="space-y-4">
+            {warning && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span className="whitespace-pre-wrap font-mono text-xs">{warning}</span>
+              </div>
+            )}
+            <div className="flex justify-center">
+              <Link href="/properties">
+                <Button>
+                  <ArrowLeft className="h-4 w-4" />
+                  {tU("backToUploads")}
+                </Button>
+              </Link>
+            </div>
           </div>
         )}
 
@@ -330,6 +356,13 @@ export default function GroupAddUnitsPage() {
             <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span className="whitespace-pre-wrap font-mono text-xs">{error}</span>
+            </div>
+          )}
+
+          {warning && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span className="whitespace-pre-wrap font-mono text-xs">{warning}</span>
             </div>
           )}
 

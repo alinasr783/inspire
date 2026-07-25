@@ -122,11 +122,9 @@ export function ColumnConfigModal() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <Settings2 className="h-3.5 w-3.5" />
-          {t("manageColumns")}
-        </Button>
+      <SheetTrigger render={<Button variant="outline" size="sm" className="gap-1.5" />}>
+        <Settings2 className="h-3.5 w-3.5" />
+        {t("manageColumns")}
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto p-4 sm:p-6">
         <SheetHeader className="mb-6">

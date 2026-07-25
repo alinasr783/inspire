@@ -6,32 +6,21 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Search, X, Settings2 } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 import { UploadsTable } from "@/components/unconfirmed-data/uploads-table";
 import { CampaignActions } from "@/components/unconfirmed-data/campaign-actions";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { type UnconfirmedRecord } from "@/lib/unconfirmed-data-actions";
 import { getFolders, type Folder } from "@/lib/unconfirmed-folder-actions";
 import { Link } from "@/i18n/navigation";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-} from "@/components/ui/dropdown-menu";
 
 interface Props {
   initialRecords: UnconfirmedRecord[];
   locale: string;
+  userId: string;
 }
 
-const ALL_COLUMN_KEYS = [
-  "owner_name", "unit_area", "building_number", "unit_number",
-  "owner_phone", "owner_phone_alt", "affiliated_company",
-  "last_feedback", "last_contact_date", "whatsapp_state",
-];
-
-export function UnconfirmedDataClient({ initialRecords, locale }: Props) {
+export function UnconfirmedDataClient({ initialRecords, locale, userId }: Props) {
   const t = useTranslations("UnconfirmedData");
   const tNav = useTranslations("Nav");
   const searchParams = useSearchParams();
@@ -48,22 +37,6 @@ export function UnconfirmedDataClient({ initialRecords, locale }: Props) {
   }, []);
 
   useEffect(() => { setShowCount(50); }, [search, folderId, fileId]);
-
-  const [visibleKeys, setVisibleKeys] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set(ALL_COLUMN_KEYS);
-    try {
-      const saved = localStorage.getItem("unconfirmed-data-visible-columns");
-      if (saved) {
-        const arr = JSON.parse(saved) as string[];
-        if (Array.isArray(arr) && arr.length > 0) return new Set(arr.filter((k: string) => ALL_COLUMN_KEYS.includes(k)));
-      }
-    } catch {}
-    return new Set(ALL_COLUMN_KEYS);
-  });
-
-  useEffect(() => {
-    try { localStorage.setItem("unconfirmed-data-visible-columns", JSON.stringify([...visibleKeys])); } catch {}
-  }, [visibleKeys]);
 
   const currentFiles = folders.find((f) => f.id === folderId)?.files ?? [];
 
@@ -104,8 +77,6 @@ export function UnconfirmedDataClient({ initialRecords, locale }: Props) {
     { key: "last_contact_date", label: t("lastContactDate"), type: "date" },
     { key: "whatsapp_state", label: t("whatsappState"), type: "text" },
   ];
-
-  const visibleColumns = useMemo(() => columns.filter(c => visibleKeys.has(c.key)), [columns, visibleKeys]);
 
   const selectClass = "appearance-none flex h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -183,35 +154,10 @@ export function UnconfirmedDataClient({ initialRecords, locale }: Props) {
                   {t("filterAll")}
                 </Button>
               )}
-
-              <DropdownMenu>
-                <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="gap-1.5 h-8" />}>
-                  <Settings2 className="h-3.5 w-3.5" />
-                  {t("manageColumns")}
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  {columns.map((col) => (
-                    <DropdownMenuCheckboxItem
-                      key={col.key}
-                      checked={visibleKeys.has(col.key)}
-                      onCheckedChange={() => {
-                        setVisibleKeys((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(col.key)) next.delete(col.key);
-                          else next.add(col.key);
-                          return next;
-                        });
-                      }}
-                    >
-                      {col.label}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
           </div>
 
-          <UploadsTable records={filteredRecords.slice(0, showCount)} columns={visibleColumns} locale={locale} selectable={true} />
+          <UploadsTable records={filteredRecords.slice(0, showCount)} columns={columns} locale={locale} selectable={true} userId={userId} />
           {showCount < filteredRecords.length && (
             <div className="flex justify-center pt-4">
               <Button variant="outline" onClick={() => setShowCount((c) => c + 50)}>
