@@ -1,12 +1,17 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { OverviewStats } from "@/components/tasks/overview-stats";
 import { EmployeeCard } from "@/components/tasks/employee-card";
 import { TaskSearch } from "@/components/tasks/task-search";
 import { Button } from "@/components/ui/button";
-import type { EmployeeWithTasks, OverviewStats as Stats } from "@/lib/task-types";
+import { useRealtimeSync } from "@/hooks/use-realtime-sync";
+import {
+  combineEmployeesWithTasks,
+  calculateOverviewStats,
+} from "@/lib/task-types";
+import type { EmployeeWithTasks, OverviewStats as Stats, EmployeeRow, TaskRow } from "@/lib/task-types";
 
 type FilterKey = "all" | "active" | "overdue" | "completed";
 
@@ -18,15 +23,33 @@ const filters: { key: FilterKey; labelKey: string }[] = [
 ];
 
 export function TasksClient({
-  employees,
-  stats,
+  initialEmployees,
+  initialStats,
+  tasksRaw,
+  employeesRaw,
 }: {
-  employees: EmployeeWithTasks[];
-  stats: Stats;
+  initialEmployees: EmployeeWithTasks[];
+  initialStats: Stats;
+  tasksRaw: TaskRow[];
+  employeesRaw: EmployeeRow[];
 }) {
   const t = useTranslations("Tasks");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<FilterKey>("all");
+
+  const { data: liveTasks, setInitialData } = useRealtimeSync<TaskRow>("tasks");
+
+  useEffect(() => {
+    setInitialData(tasksRaw);
+  }, [tasksRaw, setInitialData]);
+
+  const currentTasks = liveTasks.length > 0 ? liveTasks : tasksRaw;
+
+  const { employees, stats } = useMemo(() => {
+    const combined = combineEmployeesWithTasks(employeesRaw, currentTasks);
+    const s = calculateOverviewStats(combined);
+    return { employees: combined, stats: s };
+  }, [employeesRaw, currentTasks]);
 
   const filtered = useMemo(() => {
     let result = employees;
@@ -50,11 +73,13 @@ export function TasksClient({
     return result;
   }, [searchQuery, statusFilter, employees]);
 
+  const displayStats = stats.activeTasks > 0 || stats.overdue > 0 ? stats : initialStats;
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
 
-      <OverviewStats stats={stats} />
+      <OverviewStats stats={displayStats} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <TaskSearch value={searchQuery} onChange={setSearchQuery} />

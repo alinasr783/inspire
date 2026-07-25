@@ -302,6 +302,7 @@
     "empty": "لا توجد بيانات غير مؤكدة بعد.",
     "filterSearch": "بحث في كل الحقول...",
     "filterAll": "مسح الفلترة",
+    "filterFeedbackOnly": "اللي فيهم فيد باك",
     "uploadSuccess": "تم رفع البيانات بنجاح",
     "confirmMessage": "هل أنت متأكد من إضافة {count} سجل؟",
     "warnings": "تحذيرات",

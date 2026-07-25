@@ -1,62 +1,113 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { Clock, XCircle, Loader2 } from "lucide-react";
-import { checkMyStatus } from "@/lib/auth-actions";
+import { createClient } from "@/lib/supabase/client";
+import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
-type PageState = "pending" | "rejected" | "redirecting";
+type PageState = "pending" | "rejected" | "redirecting" | "loading";
+
+type ProfileChange = {
+  id: string;
+  approval_status: string;
+};
 
 export default function PendingPage() {
   const t = useTranslations("Auth");
   const router = useRouter();
-  const [state, setState] = useState<PageState>("pending");
-  const pollingRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const [state, setState] = useState<PageState>("loading");
 
   useEffect(() => {
     let mounted = true;
+    const supabase = createClient();
 
-    const poll = async () => {
-      try {
-        const result = await checkMyStatus();
+    async function init() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-        if (!mounted) return;
+      if (!mounted) return;
 
-        if (!result.authenticated) {
-          router.push("/auth/login");
-          return;
-        }
+      if (!user) {
+        router.push("/auth/login");
+        return;
+      }
 
-        if (result.approval_status === "approved") {
-          setState("redirecting");
-          router.push("/");
-          router.refresh();
-          return;
-        }
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("approval_status")
+        .eq("id", user.id)
+        .single();
 
-        if (result.approval_status === "rejected") {
-          setState("rejected");
-          if (pollingRef.current) {
-            clearInterval(pollingRef.current);
+      if (!mounted) return;
+
+      if (!profile) {
+        router.push("/auth/login");
+        return;
+      }
+
+      if (profile.approval_status === "approved") {
+        setState("redirecting");
+        router.push("/");
+        router.refresh();
+        return;
+      }
+
+      if (profile.approval_status === "rejected") {
+        setState("rejected");
+        return;
+      }
+
+      setState("pending");
+
+      const channel = supabase.channel("realtime:profile:status");
+
+      channel.on(
+        "postgres_changes" as never,
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${user.id}`,
+        },
+        (payload: RealtimePostgresChangesPayload<ProfileChange>) => {
+          if (!mounted) return;
+          const newStatus = (payload.new as ProfileChange | undefined)?.approval_status;
+
+          if (newStatus === "approved") {
+            setState("redirecting");
+            router.push("/");
+            router.refresh();
+          } else if (newStatus === "rejected") {
+            setState("rejected");
           }
         }
-      } catch {
-        // Silently retry
-      }
-    };
+      );
 
-    poll();
-    pollingRef.current = setInterval(poll, 3000);
+      channel.subscribe();
+    }
+
+    init();
 
     return () => {
       mounted = false;
-      if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, [router]);
+
+  if (state === "loading") {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center gap-4 px-6 py-10 text-center">
+          <Loader2 className="h-14 w-14 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

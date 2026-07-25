@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useTransition, useRef } from "react";
+import { useState, useEffect, useCallback, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { cn } from "@/lib/utils";
 import {
   Search,
@@ -53,8 +54,9 @@ export function UsersTable() {
   const [approving, setApproving] = useState<string | null>(null);
   const [roleChanging, setRoleChanging] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const pollingRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const [dialog, setDialog] = useState<DialogAction>(null);
+
+  const { data: liveProfiles, setInitialData } = useRealtimeSync<UserProfile>("profiles");
 
   const fetchUsers = useCallback(async () => {
     const data = await getUsers({
@@ -66,16 +68,29 @@ export function UsersTable() {
   }, [filter, search]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUsers();
   }, [fetchUsers]);
 
   useEffect(() => {
-    pollingRef.current = setInterval(fetchUsers, 5000);
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
-  }, [fetchUsers]);
+    setInitialData(users);
+  }, [users, setInitialData]);
+
+  useEffect(() => {
+    if (liveProfiles.length > 0) {
+      const filtered = liveProfiles.filter((u) => {
+        if (filter !== "all" && u.approval_status !== filter) return false;
+        if (search) {
+          const s = search.toLowerCase();
+          const name = userName(u).toLowerCase();
+          return name.includes(s) || u.email.toLowerCase().includes(s);
+        }
+        return true;
+      });
+      setUsers(filtered.sort((a, b) => {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }));
+    }
+  }, [liveProfiles, filter, search]);
 
   const counts = {
     all: users.length,

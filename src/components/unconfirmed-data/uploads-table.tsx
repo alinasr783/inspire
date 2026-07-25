@@ -9,7 +9,6 @@ import { FileSpreadsheet, Trash2, Eye, Pencil } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { UnconfirmedRecord } from "@/lib/unconfirmed-data-actions";
 import { deleteRecords, updateRecordField } from "@/lib/unconfirmed-data-actions";
-import { loadColumnWidths, saveColumnWidths } from "@/lib/column-widths-storage";
 
 interface Columns { key: string; label: string; type: string }
 
@@ -120,14 +119,13 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   const srvRef = useRef(serverRecords); srvRef.current = serverRecords;
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    const defaults: Record<string, number> = {};
-    for (const col of columns) defaults[col.key] = COL_WIDTHS[col.key] ?? DEFAULT_WIDTH;
-    return loadColumnWidths("uploads", userId, defaults);
+    const init: Record<string, number> = {};
+    for (const col of columns) init[col.key] = COL_WIDTHS[col.key] ?? DEFAULT_WIDTH;
+    return init;
   });
   const colWidthsRef = useRef(colWidths); colWidthsRef.current = colWidths;
 
   useEffect(() => { setRecords(serverRecords); }, [serverRecords]);
-  useEffect(() => { saveColumnWidths("uploads", userId, colWidths); }, [colWidths, userId]);
 
   const handleResizeMouseDown = (e: React.MouseEvent, colKey: string) => {
     e.preventDefault();

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { Users } from "lucide-react";
 import { updateColumnOrder, renameColumnConfig, type ColumnConfig } from "@/lib/client-config-actions";
-import { loadColumnWidths, saveColumnWidths } from "@/lib/column-widths-storage";
+import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 
 type ClientRow = Record<string, unknown> & {
   id: string;
@@ -48,6 +48,14 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
   const t = useTranslations("Clients");
   const router = useRouter();
 
+  const { data: liveClients, setInitialData } = useRealtimeSync<ClientRow>("clients");
+
+  useEffect(() => {
+    setInitialData(clients);
+  }, [clients, setInitialData]);
+
+  const clientsData = liveClients.length > 0 ? liveClients : clients;
+
   const enabledColumns = useMemo(() => columns.filter((c) => c.enabled), [columns]);
 
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -57,15 +65,14 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
   const editRef = useRef<HTMLInputElement>(null);
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    const defaults: Record<string, number> = {};
-    for (const col of enabledColumns) defaults[col.key] = COL_WIDTHS[col.key] ?? DEFAULT_WIDTH;
-    return loadColumnWidths("clients", userId, defaults);
+    const init: Record<string, number> = {};
+    for (const col of enabledColumns) init[col.key] = COL_WIDTHS[col.key] ?? DEFAULT_WIDTH;
+    return init;
   });
   const colWidthsRef = useRef(colWidths);
   colWidthsRef.current = colWidths;
 
   useEffect(() => { setLocalCols(enabledColumns); }, [enabledColumns]);
-  useEffect(() => { saveColumnWidths("clients", userId, colWidths); }, [colWidths, userId]);
   useEffect(() => {
     setColWidths((prev) => {
       let changed = false;
@@ -189,7 +196,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
           </tr>
         </thead>
         <tbody>
-          {clients.length === 0 ? (
+          {clientsData.length === 0 ? (
             <tr>
               <td colSpan={localCols.length + 1} className="px-3 py-12 text-center text-muted-foreground">
                 <Users className="mx-auto mb-2 h-8 w-8 opacity-50" />
@@ -197,7 +204,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
               </td>
             </tr>
           ) : (
-            clients.map((client) => (
+            clientsData.map((client) => (
               <tr key={client.id} className="border-b last:border-0 hover:bg-muted/30">
                 {localCols.map((col) => (
                   <td key={col.id} className="overflow-hidden border-r px-3 py-2 truncate">

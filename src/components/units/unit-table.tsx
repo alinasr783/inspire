@@ -9,7 +9,6 @@ import { Building2 } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { updateColumnOrder, renameColumnConfig, type ColumnConfig } from "@/lib/unit-config-actions";
 import { updateUnitField } from "@/lib/unit-actions";
-import { loadColumnWidths, saveColumnWidths } from "@/lib/column-widths-storage";
 import type { UnitRow } from "@/lib/unit-actions";
 
 const COLUMN_WIDTHS: Record<string, number> = {
@@ -139,14 +138,12 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   const [editing, setEditing] = useState<{ uid: string; key: string } | null>(null);
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    const defaults: Record<string, number> = {};
-    for (const col of enabledColumns) defaults[col.key] = defaultColWidth(col.key);
-    return loadColumnWidths("units", userId, defaults);
+    const initial: Record<string, number> = {};
+    for (const col of enabledColumns) initial[col.key] = defaultColWidth(col.key);
+    return initial;
   });
   const colWidthsRef = useRef(colWidths);
   colWidthsRef.current = colWidths;
-
-  useEffect(() => { saveColumnWidths("units", userId, colWidths); }, [colWidths, userId]);
 
   const dragStateRef = useRef<{ key: string; width: number } | null>(null);
 

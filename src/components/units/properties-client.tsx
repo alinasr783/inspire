@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { UnitFilters } from "@/components/units/unit-filters";
 import { UnitTable } from "@/components/units/unit-table";
+import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import type { ColumnConfig } from "@/lib/unit-config-actions";
 import type { UnitRow } from "@/lib/unit-actions";
 
@@ -78,6 +79,14 @@ export function PropertiesClient({
 }: PropertiesClientProps) {
   const t = useTranslations("Properties");
 
+  const { data: liveUnits, setInitialData } = useRealtimeSync<UnitRow>("units");
+
+  useEffect(() => {
+    setInitialData(initialUnits);
+  }, [initialUnits, setInitialData]);
+
+  const unitsData = liveUnits.length > 0 ? liveUnits : initialUnits;
+
   const [filters, setFilters] = useState<Record<string, string>>(() =>
     buildInitialFilters(customColumns)
   );
@@ -99,7 +108,7 @@ export function PropertiesClient({
   }, [customColumns]);
 
   const filteredUnits = useMemo(() => {
-    let result = initialUnits;
+    let result = unitsData;
 
     const searchTerm = filters.q?.toLowerCase();
     if (searchTerm) {
@@ -165,7 +174,7 @@ export function PropertiesClient({
     }
 
     return result;
-  }, [initialUnits, filters, customColumns]);
+  }, [unitsData, filters, customColumns]);
 
   const hasActiveFilters = useMemo(() => {
     if (filters.q) return true;

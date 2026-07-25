@@ -12,6 +12,7 @@ import { CampaignActions } from "@/components/unconfirmed-data/campaign-actions"
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { type UnconfirmedRecord } from "@/lib/unconfirmed-data-actions";
 import { getFolders, type Folder } from "@/lib/unconfirmed-folder-actions";
+import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { Link } from "@/i18n/navigation";
 
 interface Props {
@@ -25,23 +26,31 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId }: Props)
   const tNav = useTranslations("Nav");
   const searchParams = useSearchParams();
 
-  const [records, setRecords] = useState(initialRecords);
+  const { data: liveRecords, setInitialData } = useRealtimeSync<UnconfirmedRecord>("unconfirmed_records");
+
+  useEffect(() => {
+    setInitialData(initialRecords);
+  }, [initialRecords, setInitialData]);
+
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [folderId, setFolderId] = useState(searchParams.get("folder") ?? "");
   const [fileId, setFileId] = useState(searchParams.get("file") ?? "");
   const [folders, setFolders] = useState<Folder[]>([]);
   const [showCount, setShowCount] = useState(50);
+  const [feedbackOnly, setFeedbackOnly] = useState(false);
 
   useEffect(() => {
     getFolders().then((data) => setFolders(data)).catch(() => {});
   }, []);
 
-  useEffect(() => { setShowCount(50); }, [search, folderId, fileId]);
+  useEffect(() => { setShowCount(50); }, [search, folderId, fileId, feedbackOnly]);
 
   const currentFiles = folders.find((f) => f.id === folderId)?.files ?? [];
 
+  const dataSource = liveRecords.length > 0 ? liveRecords : initialRecords;
+
   const filteredRecords = useMemo(() => {
-    let result = initialRecords;
+    let result = dataSource;
     if (folderId) {
       const matchedFolder = folders.find((f) => f.id === folderId);
       if (matchedFolder) {
@@ -62,8 +71,11 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId }: Props)
         ].some((v) => (v ?? "").toLowerCase().includes(term));
       });
     }
+    if (feedbackOnly) {
+      result = result.filter((r) => !!(r.last_feedback && r.last_feedback.trim()));
+    }
     return result;
-  }, [initialRecords, folderId, fileId, search, folders]);
+  }, [dataSource, folderId, fileId, search, folders, feedbackOnly]);
 
   const columns = [
     { key: "owner_name", label: t("ownerName"), type: "text" },
@@ -143,11 +155,24 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId }: Props)
                 <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
               </div>
 
-              {(search || folderId || fileId) && (
+              <label className={`flex h-8 cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors select-none ${feedbackOnly ? "border-primary/50 bg-primary/10 text-primary" : "border-input bg-background text-foreground hover:bg-muted/50"}`}>
+                <input
+                  type="checkbox"
+                  checked={feedbackOnly}
+                  onChange={(e) => setFeedbackOnly(e.target.checked)}
+                  className="sr-only"
+                />
+                <span className={`relative inline-flex h-4 w-8 shrink-0 items-center rounded-full transition-colors ${feedbackOnly ? "bg-primary" : "bg-muted-foreground/30"}`}>
+                  <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-background transition-all ${feedbackOnly ? "end-0.5" : "start-0.5"}`} />
+                </span>
+                {t("filterFeedbackOnly")}
+              </label>
+
+              {(search || folderId || fileId || feedbackOnly) && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => { setSearch(""); setFolderId(""); setFileId(""); }}
+                    onClick={() => { setSearch(""); setFolderId(""); setFileId(""); setFeedbackOnly(false); }}
                   className="h-8 gap-1 text-xs"
                 >
                   <X className="h-3 w-3" />

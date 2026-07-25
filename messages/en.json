@@ -302,6 +302,7 @@
     "empty": "No unconfirmed data yet.",
     "filterSearch": "Search in all fields...",
     "filterAll": "Clear Filters",
+    "filterFeedbackOnly": "With Feedback",
     "uploadSuccess": "Data uploaded successfully",
     "confirmMessage": "Are you sure you want to add {count} records?",
     "warnings": "Warnings",
