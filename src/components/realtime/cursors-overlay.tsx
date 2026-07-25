@@ -6,9 +6,8 @@ import type { RemoteCursor } from "@/hooks/use-cursor-broadcast";
 
 function CursorArrow({ color }: { color: string }) {
   return (
-    <svg width="24" height="28" viewBox="0 0 24 28" className="drop-shadow" xmlns="http://www.w3.org/2000/svg">
-      <path d="M1.84 1.12C2.1 0.92 2.43 0.86 2.73 0.94L3.34 1L10.5 6.5H11L1.5 3C1.2 2.98 0.92 3.1 0.74 3.34C0.56 3.58 0.52 3.88 0.64 4.14L3.5 11.5C3.56 11.66 3.68 11.78 3.84 11.84L11.34 16C11.6 16.14 11.74 16.46 11.66 16.76C11.58 17.06 11.28 17.3 10.96 17.32L6.5 17.5L2.84 24.16C2.64 24.44 2.3 24.58 1.98 24.54C1.66 24.5 1.4 24.26 1.34 23.94L0.04 6.94C0 6.6 0.12 6.28 0.38 6.06L1.84 1.12Z" fill={color} />
-      <path d="M11 6.5L23.2 17.5L17.5 21.6L17 22L5 22.5L11 6.5Z" fill={color} />
+    <svg width="16" height="20" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M1 1L5.5 15L8 10.5L13.5 11.5L1 1Z" fill={color} stroke="white" strokeWidth="1.2" strokeLinejoin="round" />
     </svg>
   );
 }
