@@ -30,16 +30,17 @@ export default async function ClientsPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect(`/${locale}/auth/login`);
 
-  const isAdmin = (await supabase
+  const admin = createAdminClient();
+  const { data: currentProfile } = await admin
     .from("profiles")
     .select("role")
     .eq("id", user.id)
-    .single()).data?.role === "admin";
+    .single();
+  const isAdmin = currentProfile?.role === "admin";
 
   const allColumns = await getColumnConfig();
   const customCols = allColumns.filter((c) => !c.is_builtin && c.enabled);
 
-  const admin = createAdminClient();
   let query = admin
     .from("clients")
     .select("*")

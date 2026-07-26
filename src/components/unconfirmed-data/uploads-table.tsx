@@ -11,6 +11,7 @@ import type { UnconfirmedRecord } from "@/lib/unconfirmed-data-actions";
 import { deleteRecords, updateRecordField } from "@/lib/unconfirmed-data-actions";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { PresenceTd } from "@/components/realtime/presence-td";
+import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
 
 interface Columns { key: string; label: string; type: string }
 
@@ -113,6 +114,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   const t = useTranslations("UnconfirmedData");
   const { notifyCellEdit } = useRealtime();
   const [records, setRecords] = useState(serverRecords);
+  const { containerRef, ctrlD } = useTableCellKeyboard(records);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selTo, setSelTo] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -161,8 +163,24 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   const delBulk = useCallback(async () => { if (selectedIds.length === 0) return; setDeleting(true); const ids = [...selectedIds]; setSelectedIds([]); setRecords((p) => p.filter((r) => !ids.includes(r.id))); try { await deleteRecords(ids); } catch { setRecords(srvRef.current); } setDeleting(false); }, [selectedIds]);
   const delOne = useCallback((id: string) => { setRecords((p) => p.filter((r) => r.id !== id)); setSelectedIds((p) => p.filter((i) => i !== id)); deleteRecords([id]).catch(() => setRecords(srvRef.current)); }, []);
   const cellEdit = useCallback((rid: string, key: string) => setEditing({ rid, key }), []);
-  const cellSave = useCallback((rid: string, key: string, val: string) => { setEditing(null); setRecords((p) => p.map((r) => (r.id === rid ? { ...r, [key]: val } : r))); notifyCellEdit({ table: "unconfirmed_records", rowId: rid, field: key, action: "update" }); const tag = rid + key; if (!bgSaveRef.current.has(tag)) { bgSaveRef.current.add(tag); updateRecordField(rid, key, val).finally(() => bgSaveRef.current.delete(tag)); } }, [notifyCellEdit]);
+  const cellSave = useCallback((rid: string, key: string, val: string) => { setEditing(null); setRecords((p) => p.map((r) => (r.id === rid ? { ...r, [key]: val } : r))); notifyCellEdit({ table: "unconfirmed_records", rowId: rid, field: key, action: "update" }); const tag = rid + key; if (!bgSaveRef.current.has(tag)) { bgSaveRef.current.add(tag); updateRecordField(rid, key, val).finally(() => bgSaveRef.current.delete(tag)); }   }, [notifyCellEdit]);
   const editCancel = useCallback(() => setEditing(null), []);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.altKey && e.key === "d") {
+        ctrlD(cellSave, (rowId, colKey) => {
+          const idx = records.findIndex((r) => r.id === rowId);
+          if (idx <= 0) return null;
+          const prev = records[idx - 1] as Record<string, unknown>;
+          const val = prev[colKey];
+          return (val != null && val !== "") ? String(val) : null;
+        });
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [ctrlD, cellSave, records]);
   if (records.length === 0) return <div className="px-3 py-12 text-center text-muted-foreground"><FileSpreadsheet className="mx-auto mb-2 h-8 w-8 opacity-50" />{t("empty")}</div>;
   const ed = editing;
 
@@ -175,7 +193,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
           {selectedIds.length > 0 && <Button variant="destructive" size="sm" className="gap-1.5" onClick={delBulk} disabled={deleting}><Trash2 className="h-4 w-4" />{t("deleteSelected", { count: selectedIds.length })}</Button>}
         </div>
       )}
-      <div className="overflow-x-auto rounded-lg border">
+      <div ref={containerRef} className="overflow-x-auto rounded-lg border">
         <table className="border-collapse text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
             {selectable && <col style={{ width: CHECKBOX_WIDTH }} />}

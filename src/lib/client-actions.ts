@@ -190,3 +190,48 @@ export async function deleteClient(id: string) {
 
   redirect(`/${locale}/clients`);
 }
+
+export async function updateClientField(clientId: string, field: string, value: string) {
+  const supabase = await createClient();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (!user || userError) throw new Error("unauthorized");
+
+  const allowedFields = [
+    "customer_name", "phone", "phone_alt", "budget_from", "budget_to",
+    "payment_method", "preferred_area", "unit_type", "bedrooms",
+    "preferred_developer", "source", "additional_notes", "last_contact_date",
+    "assigned_employee",
+  ];
+
+  const admin = createAdminClient();
+
+  if (!allowedFields.includes(field)) {
+    const { data: current } = await admin.from("clients").select("custom_fields").eq("id", clientId).single();
+    const customFields = (current?.custom_fields ?? {}) as Record<string, unknown>;
+    customFields[field] = value.trim() || null;
+    const { error } = await admin
+      .from("clients")
+      .update({ custom_fields: customFields, updated_at: new Date().toISOString() })
+      .eq("id", clientId);
+    if (error) throw new Error("update-failed");
+    return { success: true };
+  }
+
+  const numericFields = ["budget_from", "budget_to"];
+  let updateValue: unknown = value;
+  if (numericFields.includes(field)) {
+    const trimmed = value.trim();
+    updateValue = trimmed ? Number(trimmed) : null;
+    if (trimmed && isNaN(updateValue as number)) updateValue = value;
+  } else if (field === "last_contact_date") {
+    updateValue = value.trim() || null;
+  }
+
+  const { error } = await admin
+    .from("clients")
+    .update({ [field]: updateValue, updated_at: new Date().toISOString() })
+    .eq("id", clientId);
+
+  if (error) throw new Error("update-failed");
+  return { success: true };
+}

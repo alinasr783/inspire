@@ -200,9 +200,21 @@ export async function updateUnitField(unitId: string, field: string, value: stri
     "finishing_status", "rent_sale", "unit_type", "cash_required", "remaining",
     "last_contact_date", "additional_notes", "feedback",
   ];
-  if (!allowedFields.includes(field)) throw new Error("invalid-field");
 
   const admin = createAdminClient();
+
+  if (!allowedFields.includes(field)) {
+    const { data: current } = await admin.from("units").select("custom_fields").eq("id", unitId).single();
+    const customFields = (current?.custom_fields ?? {}) as Record<string, unknown>;
+    customFields[field] = value.trim() || null;
+    const { error } = await admin
+      .from("units")
+      .update({ custom_fields: customFields, updated_at: new Date().toISOString() })
+      .eq("id", unitId);
+    if (error) throw new Error("update-failed");
+    return { success: true };
+  }
+
   const { data: profile } = await admin
     .from("profiles")
     .select("role")

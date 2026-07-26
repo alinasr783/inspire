@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ColumnConfig = {
   id: string;
@@ -61,16 +62,17 @@ export async function saveColumnConfig(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "unauthorized" };
 
+  const admin = createAdminClient();
   const id = formData.get("id");
   if (id && typeof id === "string" && id.length > 0) {
-    const { error } = await supabase
+    const { error } = await admin
       .from("client_column_config")
       .update(parsed.data)
       .eq("id", id);
 
     if (error) return { error: "update-failed" };
   } else {
-    const { error } = await supabase
+    const { error } = await admin
       .from("client_column_config")
       .insert(parsed.data);
 
@@ -85,7 +87,8 @@ export async function deleteColumnConfig(id: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "unauthorized" };
 
-  const { error } = await supabase
+  const admin = createAdminClient();
+  const { error } = await admin
     .from("client_column_config")
     .delete()
     .eq("id", id);
@@ -99,7 +102,8 @@ export async function renameColumnConfig(id: string, label_ar: string, label_en:
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "unauthorized" };
 
-  const { error } = await supabase
+  const admin = createAdminClient();
+  const { error } = await admin
     .from("client_column_config")
     .update({ label_ar, label_en })
     .eq("id", id);
@@ -113,8 +117,9 @@ export async function updateColumnOrder(orders: { id: string; sort_order: number
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "unauthorized" };
 
+  const admin = createAdminClient();
   const promises = orders.map(({ id, sort_order }) =>
-    supabase.from("client_column_config").update({ sort_order }).eq("id", id)
+    admin.from("client_column_config").update({ sort_order }).eq("id", id)
   );
   const results = await Promise.all(promises);
   const error = results.find((r) => r.error);

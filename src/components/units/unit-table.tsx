@@ -11,6 +11,7 @@ import { updateColumnOrder, renameColumnConfig, type ColumnConfig } from "@/lib/
 import { updateUnitField } from "@/lib/unit-actions";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { PresenceTd } from "@/components/realtime/presence-td";
+import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
 import type { UnitRow } from "@/lib/unit-actions";
 
 const COLUMN_WIDTHS: Record<string, number> = {
@@ -124,9 +125,10 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   const t = useTranslations("Properties");
   const router = useRouter();
   const { notifyCellEdit } = useRealtime();
+  const [localUnits, setLocalUnits] = useState(serverUnits);
+  const { containerRef, ctrlD } = useTableCellKeyboard(localUnits);
   const enabledColumns = useMemo(() => columns.filter((c) => c.enabled), [columns]);
 
-  const [localUnits, setLocalUnits] = useState(serverUnits);
   const srvRef = useRef(serverUnits); srvRef.current = serverUnits;
   const bgSaveRef = useRef<Set<string>>(new Set());
 
@@ -230,22 +232,49 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
     return locale === "ar" ? col.label_ar : col.label_en;
   };
 
+  const unitsBuiltin = useRef(new Set([
+    "customer_name","phone","compound_name","area","building_number",
+    "finishing_status","rent_sale","unit_type","cash_required","remaining",
+    "last_contact_date","additional_notes","feedback",
+  ]));
+
   /* -- Inline cell edit -- */
   const cellEdit = useCallback((uid: string, key: string) => setEditing({ uid, key }), []);
   const cellSave = useCallback((uid: string, key: string, value: string) => {
     setEditing(null);
-    setLocalUnits((prev) => prev.map((u) => (u.id === uid ? ({ ...u, [key]: value } as UnitRow) : u)));
+    setLocalUnits((prev) => prev.map((u) => {
+      if (u.id !== uid) return u;
+      if (unitsBuiltin.current.has(key)) return { ...u, [key]: value } as UnitRow;
+      const cf = { ...(u.custom_fields as Record<string, unknown>), [key]: value.trim() || null };
+      return { ...u, custom_fields: cf } as UnitRow;
+    }));
     notifyCellEdit({ table: "units", rowId: uid, field: key, action: "update" });
     const tag = uid + key;
     if (!bgSaveRef.current.has(tag)) { bgSaveRef.current.add(tag); updateUnitField(uid, key, value).finally(() => bgSaveRef.current.delete(tag)); }
   }, [notifyCellEdit]);
   const editCancel = useCallback(() => setEditing(null), []);
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.altKey && e.key === "d") {
+        ctrlD(cellSave, (rowId, colKey) => {
+          const idx = localUnits.findIndex((u) => u.id === rowId);
+          if (idx <= 0) return null;
+          const prev = localUnits[idx - 1] as Record<string, unknown>;
+          const val = prev[colKey];
+          return (val != null && val !== "") ? String(val) : null;
+        });
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [ctrlD, cellSave, localUnits]);
+
   const ed = editing;
 
   return (
     <TooltipProvider>
-      <div className="overflow-x-auto rounded-lg border">
+      <div ref={containerRef} className="overflow-x-auto rounded-lg border">
         <table className="border-collapse text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
             {localCols.map((col) => (

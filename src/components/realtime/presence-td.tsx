@@ -53,9 +53,9 @@ export const PresenceTd = memo(function PresenceTd({
   }
 
   const td = (
-    <td className={className} style={style}
-      onMouseEnter={() => broadcastHover(table, rowId, colKey)}
-      onMouseLeave={() => broadcastLeave(table, rowId, colKey)}>
+    <td className={className} style={style} data-row-id={rowId} data-col-key={colKey}
+      onMouseEnter={() => { broadcastHover(table, rowId, colKey); }}
+      onMouseLeave={() => { broadcastLeave(table, rowId, colKey); }}>
       {children}
     </td>
   );
