@@ -10,6 +10,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import type { UnconfirmedRecord } from "@/lib/unconfirmed-data-actions";
 import { deleteRecords, updateRecordField } from "@/lib/unconfirmed-data-actions";
 import { PresenceTd } from "@/components/realtime/presence-td";
+import { useCellPresence } from "@/components/providers/cell-presence-provider";
 
 interface Columns { key: string; label: string; type: string }
 
@@ -110,6 +111,7 @@ const Row = function Row({ record, columns, locale, selectable, isSelected, edit
 
 export function UploadsTable({ records: serverRecords, columns, locale, selectable, userId }: { records: UnconfirmedRecord[]; columns: Columns[]; locale: string; selectable?: boolean; userId: string }) {
   const t = useTranslations("UnconfirmedData");
+  const { broadcastActivity } = useCellPresence();
   const [records, setRecords] = useState(serverRecords);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selTo, setSelTo] = useState("");
@@ -159,7 +161,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   const delBulk = useCallback(async () => { if (selectedIds.length === 0) return; setDeleting(true); const ids = [...selectedIds]; setSelectedIds([]); setRecords((p) => p.filter((r) => !ids.includes(r.id))); try { await deleteRecords(ids); } catch { setRecords(srvRef.current); } setDeleting(false); }, [selectedIds]);
   const delOne = useCallback((id: string) => { setRecords((p) => p.filter((r) => r.id !== id)); setSelectedIds((p) => p.filter((i) => i !== id)); deleteRecords([id]).catch(() => setRecords(srvRef.current)); }, []);
   const cellEdit = useCallback((rid: string, key: string) => setEditing({ rid, key }), []);
-  const cellSave = useCallback((rid: string, key: string, val: string) => { setEditing(null); setRecords((p) => p.map((r) => (r.id === rid ? { ...r, [key]: val } : r))); const tag = rid + key; if (!bgSaveRef.current.has(tag)) { bgSaveRef.current.add(tag); updateRecordField(rid, key, val).finally(() => bgSaveRef.current.delete(tag)); } }, []);
+  const cellSave = useCallback((rid: string, key: string, val: string) => { setEditing(null); setRecords((p) => p.map((r) => (r.id === rid ? { ...r, [key]: val } : r))); broadcastActivity({ table: "unconfirmed", rowId: rid, colKey: key, action: "edit", tableLabel: "Unconfirmed Data" }); const tag = rid + key; if (!bgSaveRef.current.has(tag)) { bgSaveRef.current.add(tag); updateRecordField(rid, key, val).finally(() => bgSaveRef.current.delete(tag)); } }, [broadcastActivity]);
   const editCancel = useCallback(() => setEditing(null), []);
   if (records.length === 0) return <div className="px-3 py-12 text-center text-muted-foreground"><FileSpreadsheet className="mx-auto mb-2 h-8 w-8 opacity-50" />{t("empty")}</div>;
   const ed = editing;

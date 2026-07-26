@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import { toast } from "sonner";
+import { useCellPresence } from "@/components/providers/cell-presence-provider";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { createRealtimeClient } from "@/lib/supabase/realtime";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
@@ -38,27 +39,28 @@ function SidebarContent({
   const pathname = usePathname();
   const [pendingCount, setPendingCount] = useState(initialPending);
   const prevCountRef = useRef(initialPending);
-  const { cursors, onlineUsers } = useRealtime();
+  const { onlineUsers } = useRealtime();
+  const { pagePresences } = useCellPresence();
 
   const pageUsers = useMemo(() => {
     const map = new Map<string, { userId: string; color: string; initials: string; firstName: string; secondName: string }[]>();
-    for (const c of cursors) {
-      const route = c.page.replace(/^\/(ar|en)/, "") || "/";
+    for (const [, pp] of pagePresences) {
+      const route = pp.page.replace(/^\/(ar|en)/, "") || "/";
       if (!map.has(route)) map.set(route, []);
       const arr = map.get(route)!;
-      if (!arr.some((u) => u.userId === c.userId)) {
-        const online = onlineUsers.find((o) => o.userId === c.userId);
+      if (!arr.some((u) => u.userId === pp.userId)) {
+        const online = onlineUsers.find((o) => o.userId === pp.userId);
         arr.push({
-          userId: c.userId,
-          color: c.userColor,
-          initials: online?.initials ?? c.userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase(),
+          userId: pp.userId,
+          color: pp.userColor,
+          initials: online?.initials ?? pp.userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase(),
           firstName: online?.firstName ?? "",
           secondName: online?.secondName ?? "",
         });
       }
     }
     return map;
-  }, [cursors, onlineUsers]);
+  }, [pagePresences, onlineUsers]);
 
   useEffect(() => {
     if (role !== "admin") return;
