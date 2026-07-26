@@ -2,101 +2,105 @@
 
 import { memo } from "react";
 import { useCellPresence } from "@/components/providers/cell-presence-provider";
-import type { CellPresence } from "@/hooks/use-cell-broadcast";
+import { useRealtime } from "@/components/providers/realtime-provider";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 function userInitials(name: string) {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  return name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 }
 
 export const PresenceTd = memo(function PresenceTd({
-  table,
-  rowId,
-  colKey,
-  children,
-  className,
+  table, rowId, colKey, children, className,
 }: {
-  table: string;
-  rowId: string;
-  colKey: string;
-  children: React.ReactNode;
-  className?: string;
+  table: string; rowId: string; colKey: string;
+  children: React.ReactNode; className?: string;
 }) {
-  const { cellPresences, editCells, broadcastHover, broadcastLeave } = useCellPresence();
+  const { cellPresences, broadcastHover, broadcastLeave } = useCellPresence();
+  const { cellEditEvents } = useRealtime();
   const key = `${rowId}:${colKey}`;
   const users = cellPresences.get(key);
-  const edit = editCells.get(`${table}:${rowId}:${colKey}`);
+  const editEvents = cellEditEvents.filter(
+    (e) => e.rowId === rowId && e.field === colKey
+  );
 
   const style = (() => {
     const shadows: string[] = [];
-    if (edit) shadows.push(`inset 0 0 0 2px ${edit.userColor}`);
     if (users && users.length > 0) {
       const colors = users.map((u) => u.userColor);
-      if (edit) colors.push(edit.userColor);
-      if (colors.length === 1) shadows.push(`inset 0 0 0 ${edit ? 4.5 : 2}px ${colors[0]}`);
-      else {
-        colors.slice(0, 3).forEach((c, i) => {
-          shadows.push(`inset 0 0 0 ${2 + i * 2.5}px ${c}`);
-        });
-      }
+      if (colors.length === 1) shadows.push(`inset 0 0 0 2px ${colors[0]}`);
+      else colors.slice(0, 3).forEach((c, i) => shadows.push(`inset 0 0 0 ${2 + i * 2.5}px ${c}`));
+    }
+    if (editEvents.length > 0) {
+      const e = editEvents[editEvents.length - 1];
+      shadows.push(`inset 0 0 0 3px ${e.userColor}`);
     }
     if (shadows.length === 0) return undefined;
     return { boxShadow: shadows.join(", ") };
   })();
 
+  const allUsers = users ?? [];
+  if (editEvents.length > 0) {
+    allUsers.unshift({
+      userId: editEvents[0].userId,
+      userName: editEvents[0].userName,
+      userColor: editEvents[0].userColor,
+      table: "",
+      rowId: "",
+      colKey: "",
+      page: "",
+      ts: editEvents[0].ts,
+    });
+  }
+
   const td = (
-    <td
-      className={className}
-      style={style}
+    <td className={className} style={style}
       onMouseEnter={() => broadcastHover(table, rowId, colKey)}
-      onMouseLeave={() => broadcastLeave(table, rowId, colKey)}
-    >
+      onMouseLeave={() => broadcastLeave(table, rowId, colKey)}>
       {children}
     </td>
   );
 
-  const tooltipUsers: CellPresence[] = users ?? [];
-  if (edit && !tooltipUsers.some((u) => u.userId === edit.userId)) {
-    tooltipUsers.push({
-      userId: edit.userId,
-      userName: edit.userName,
-      userColor: edit.userColor,
-      table,
-      rowId,
-      colKey,
-      page: "",
-      ts: edit.ts,
-    });
+  if (!users || users.length === 0) {
+    if (editEvents.length === 0) return td;
+    return (
+      <Tooltip>
+        <TooltipTrigger>{td}</TooltipTrigger>
+        <TooltipContent side="top" align="center" className="max-w-[260px] p-0">
+          <div className="rounded-lg p-3">
+            {editEvents.map((e) => (
+              <div key={`edit-${e.userId}-${e.ts}`} className="flex items-center gap-2.5 py-1 first:pt-0 last:pb-0">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: e.userColor }}>
+                  {e.initials}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-semibold">{e.userName}</p>
+                  <p className="text-[10px] text-muted-foreground">{e.action === "insert" ? "Added" : e.action === "delete" ? "Deleted" : "Edited"} this cell</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    );
   }
-
-  if (tooltipUsers.length === 0) return td;
 
   return (
     <Tooltip>
       <TooltipTrigger>{td}</TooltipTrigger>
       <TooltipContent side="top" align="center" className="max-w-[260px] p-0">
         <div className="rounded-lg p-3">
-          {tooltipUsers.map((u) => (
+          {allUsers.map((u) => (
             <div key={u.userId} className="flex items-center gap-2.5 py-1 first:pt-0 last:pb-0">
-              <span
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                style={{ backgroundColor: u.userColor }}
-              >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: u.userColor }}>
                 {userInitials(u.userName)}
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-semibold">{u.userName}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {u.userId === edit?.userId ? "Edited this cell" : "Viewing this cell"}
-                </p>
+                <p className="text-[10px] text-muted-foreground">Viewing this cell</p>
               </div>
             </div>
           ))}
+          {allUsers.length > 3 && <p className="mt-1 text-[10px] text-muted-foreground">+{allUsers.length - 3} more</p>}
         </div>
       </TooltipContent>
     </Tooltip>

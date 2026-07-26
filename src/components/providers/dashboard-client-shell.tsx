@@ -2,7 +2,6 @@
 
 import { RealtimeProvider, useRealtime } from "@/components/providers/realtime-provider";
 import { CursorsOverlay } from "@/components/realtime/cursors-overlay";
-import { CellPresenceProvider } from "@/components/providers/cell-presence-provider";
 
 type ConnectionState = "connected" | "connecting" | "disconnected";
 
@@ -12,10 +11,10 @@ function RealtimeShell({ children }: { children: React.ReactNode }) {
   const { cursors } = useRealtime();
 
   return (
-    <CellPresenceProvider>
+    <>
       <CursorsOverlay cursors={cursors} />
       {children}
-    </CellPresenceProvider>
+    </>
   );
 }
 

@@ -36,5 +36,18 @@ export type PresenceState = {
   role: string;
   color: string;
   initials: string;
+  page: string;
   onlineAt: string;
+};
+
+export type CellEditPayload = {
+  userId: string;
+  userName: string;
+  userColor: string;
+  initials: string;
+  table: string;
+  rowId: string;
+  field: string;
+  action: "update" | "insert" | "delete";
+  ts: number;
 };

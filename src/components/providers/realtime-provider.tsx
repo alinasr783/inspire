@@ -1,13 +1,17 @@
 "use client";
 
 import { createContext, useContext, useCallback, useState, useEffect, useRef } from "react";
+import { usePathname } from "@/i18n/navigation";
 import { toast } from "sonner";
 import { getUserColor, getUserInitials } from "@/lib/realtime-user-color";
 import { usePresence } from "@/hooks/use-presence";
 import { useCursorBroadcast, type RemoteCursor } from "@/hooks/use-cursor-broadcast";
-import type { PresenceState } from "@/lib/supabase/realtime";
+import { createRealtimeClient, type PresenceState, type CellEditPayload } from "@/lib/supabase/realtime";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 type ConnectionState = "connected" | "connecting" | "disconnected";
+
+const CELL_EDIT_CHANNEL = "broadcast:inspire:celledits";
 
 type RealtimeContextValue = {
   onlineUsers: PresenceState[];
@@ -23,6 +27,8 @@ type RealtimeContextValue = {
     color: string;
     initials: string;
   } | null;
+  cellEditEvents: CellEditPayload[];
+  notifyCellEdit: (payload: Omit<CellEditPayload, "userId" | "userName" | "userColor" | "initials" | "ts">) => void;
 };
 
 const RealtimeContext = createContext<RealtimeContextValue>({
@@ -31,6 +37,8 @@ const RealtimeContext = createContext<RealtimeContextValue>({
   onlineCount: 0,
   connectionState: "connecting",
   currentUser: null,
+  cellEditEvents: [],
+  notifyCellEdit: () => {},
 });
 
 export function useRealtime() {
@@ -52,6 +60,9 @@ export function RealtimeProvider({
 }) {
   const [cursors, setCursors] = useState<RemoteCursor[]>([]);
   const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
+  const [cellEditEvents, setCellEditEvents] = useState<CellEditPayload[]>([]);
+  const pathname = usePathname();
+
   const { onlineUsers, onlineCount } = usePresence(
     user
       ? {
@@ -60,6 +71,7 @@ export function RealtimeProvider({
           secondName: user.secondName,
           email: user.email,
           role: user.role,
+          page: pathname,
         }
       : null
   );
@@ -88,37 +100,17 @@ export function RealtimeProvider({
       }
     }
 
-    for (const id of prevIds) {
-      if (!currentIds.has(id) && id !== user?.id) {
-        // User left - we could also toast but it might be noisy
-      }
-    }
-
     prevIdsRef.current = currentIds;
   }, [onlineUsers, user?.id]);
 
   useEffect(() => {
-    if (!user) {
-      setConnectionState("disconnected");
-      return;
-    }
-
+    if (!user) { setConnectionState("disconnected"); return; }
     setConnectionState("connecting");
-
-    const timer = setTimeout(() => {
-      setConnectionState("connected");
-    }, 1500);
-
-    const handleOnline = () => {
-      setConnectionState("connected");
-    };
-    const handleOffline = () => {
-      setConnectionState("disconnected");
-    };
-
+    const timer = setTimeout(() => setConnectionState("connected"), 1500);
+    const handleOnline = () => setConnectionState("connected");
+    const handleOffline = () => setConnectionState("disconnected");
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-
     return () => {
       clearTimeout(timer);
       window.removeEventListener("online", handleOnline);
@@ -145,10 +137,45 @@ export function RealtimeProvider({
     setCursors(newCursors);
   }, []);
 
-  useCursorBroadcast(
-    currentUser ? { ...currentUser, color } : null,
-    handleCursors
+  useCursorBroadcast(currentUser ? { ...currentUser, color } : null, handleCursors);
+
+  const notifyCellEdit = useCallback(
+    (payload: Omit<CellEditPayload, "userId" | "userName" | "userColor" | "initials" | "ts">) => {
+      if (!currentUser) return;
+      const fullPayload: CellEditPayload = {
+        ...payload,
+        userId: currentUser.id,
+        userName: `${currentUser.firstName} ${currentUser.secondName}`.trim(),
+        userColor: currentUser.color,
+        initials: currentUser.initials,
+        ts: Date.now(),
+      };
+      const supabase = createRealtimeClient();
+      const ch = supabase.channel(CELL_EDIT_CHANNEL);
+      ch.subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          ch.send({ type: "broadcast", event: "cellEdit", payload: fullPayload });
+          setTimeout(() => { supabase.removeChannel(ch); }, 500);
+        }
+      });
+    },
+    [currentUser]
   );
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const supabase = createRealtimeClient();
+    const ch = supabase.channel(CELL_EDIT_CHANNEL, { config: { broadcast: { self: false } } });
+    ch.on("broadcast" as never, { event: "cellEdit" }, (payload: { payload: CellEditPayload }) => {
+      const edit = payload.payload;
+      setCellEditEvents((prev) => [...prev.slice(-20), edit]);
+      setTimeout(() => {
+        setCellEditEvents((prev) => prev.filter((e) => e.ts !== edit.ts || e.userId !== edit.userId));
+      }, 30000);
+    });
+    ch.subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user?.id]);
 
   return (
     <RealtimeContext.Provider
@@ -158,6 +185,8 @@ export function RealtimeProvider({
         onlineCount,
         connectionState,
         currentUser,
+        cellEditEvents,
+        notifyCellEdit,
       }}
     >
       {children}

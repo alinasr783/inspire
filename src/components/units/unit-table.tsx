@@ -9,8 +9,8 @@ import { Building2 } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { updateColumnOrder, renameColumnConfig, type ColumnConfig } from "@/lib/unit-config-actions";
 import { updateUnitField } from "@/lib/unit-actions";
+import { useRealtime } from "@/components/providers/realtime-provider";
 import { PresenceTd } from "@/components/realtime/presence-td";
-import { useCellPresence } from "@/components/providers/cell-presence-provider";
 import type { UnitRow } from "@/lib/unit-actions";
 
 const COLUMN_WIDTHS: Record<string, number> = {
@@ -123,7 +123,7 @@ const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCe
 export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId }: UnitTableProps) {
   const t = useTranslations("Properties");
   const router = useRouter();
-  const { broadcastActivity } = useCellPresence();
+  const { notifyCellEdit } = useRealtime();
   const enabledColumns = useMemo(() => columns.filter((c) => c.enabled), [columns]);
 
   const [localUnits, setLocalUnits] = useState(serverUnits);
@@ -235,10 +235,10 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   const cellSave = useCallback((uid: string, key: string, value: string) => {
     setEditing(null);
     setLocalUnits((prev) => prev.map((u) => (u.id === uid ? ({ ...u, [key]: value } as UnitRow) : u)));
-    broadcastActivity({ table: "properties", rowId: uid, colKey: key, action: "edit", tableLabel: "Properties" });
+    notifyCellEdit({ table: "units", rowId: uid, field: key, action: "update" });
     const tag = uid + key;
     if (!bgSaveRef.current.has(tag)) { bgSaveRef.current.add(tag); updateUnitField(uid, key, value).finally(() => bgSaveRef.current.delete(tag)); }
-  }, [broadcastActivity]);
+  }, [notifyCellEdit]);
   const editCancel = useCallback(() => setEditing(null), []);
 
   const ed = editing;
