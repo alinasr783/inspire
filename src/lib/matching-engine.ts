@@ -145,32 +145,33 @@ export async function runDealsMatching(clientId: string) {
     const totalPrice = parseNumeric(unit.cash_required) + parseNumeric(unit.remaining);
     const downPayment = parseNumeric(unit.cash_required);
 
-    const budgetMatch = clientBudget > 0
-      ? Math.max(0, Math.min(100, 100 - Math.abs(totalPrice - clientBudget) / (clientBudget || 1) * 100))
+    const budgetMatch = clientBudget > 0 && totalPrice > 0
+      ? Math.max(0, Math.min(100, 100 - Math.abs(totalPrice - clientBudget) / Math.max(clientBudget, 1) * 100))
       : 50;
 
     const utSim = clientUnitType
       ? getUnitTypeSimilarity(String(unit.unit_type ?? ""), clientUnitType, unitTypeMatrix)
       : 50;
 
-    const bedsMatch = clientBedrooms > 0
-      ? (parseNumeric(unit.building_number, 0) === clientBedrooms ? 100 : parseNumeric(unit.building_number, 0) === clientBedrooms + 1 || parseNumeric(unit.building_number, 0) === clientBedrooms - 1 ? 70 : 40)
+    const unitBeds = parseNumeric(unit.building_number, 0);
+    const bedsMatch = clientBedrooms > 0 && unitBeds > 0
+      ? (unitBeds === clientBedrooms ? 100 : Math.abs(unitBeds - clientBedrooms) === 1 ? 70 : 40)
       : 50;
 
     const contactDate = unit.last_contact_date ? new Date(String(unit.last_contact_date)).getTime() : 0;
-    const daysSinceContact = contactDate ? Math.max(0, (Date.now() - contactDate) / 86400000) : 365;
-    const freshnessScore = Math.max(0, Math.min(100, 100 - daysSinceContact * 0.5));
+    const daysSinceContact = contactDate > 0 ? Math.max(0, (Date.now() - contactDate) / 86400000) : 365;
+    const freshnessScore = Math.max(0, Math.min(100, 100 - Math.min(daysSinceContact * 0.5, 99)));
 
     const downPaymentScore = clientBudget > 0 && downPayment > 0
-      ? Math.max(0, Math.min(100, 100 - Math.abs(downPayment - clientBudget * 0.3) / (clientBudget * 0.3 || 1) * 100))
+      ? Math.max(0, Math.min(100, 100 - Math.abs(downPayment - clientBudget * 0.3) / Math.max(clientBudget * 0.3, 1) * 100))
       : 50;
 
     const systemScore = (
-      budgetMatch * 0.30 +
-      utSim * 0.25 +
-      bedsMatch * 0.20 +
-      freshnessScore * 0.15 +
-      downPaymentScore * 0.10
+      (isFinite(budgetMatch) ? budgetMatch : 50) * 0.30 +
+      (isFinite(utSim) ? utSim : 50) * 0.25 +
+      (isFinite(bedsMatch) ? bedsMatch : 50) * 0.20 +
+      (isFinite(freshnessScore) ? freshnessScore : 50) * 0.15 +
+      (isFinite(downPaymentScore) ? downPaymentScore : 50) * 0.10
     );
 
     const locSim = clientPreferred
@@ -179,13 +180,13 @@ export async function runDealsMatching(clientId: string) {
 
     return {
       unit,
-      systemScore: Math.round(systemScore * 100) / 100,
-      budgetMatch: Math.round(budgetMatch * 100) / 100,
-      unitTypeMatch: Math.round(utSim * 100) / 100,
-      bedroomsMatch: Math.round(bedsMatch * 100) / 100,
-      freshnessScore: Math.round(freshnessScore * 100) / 100,
-      downPaymentScore: Math.round(downPaymentScore * 100) / 100,
-      locationScore: Math.round(locSim * 100) / 100,
+      systemScore: isFinite(systemScore) ? Math.round(systemScore * 100) / 100 : 50,
+      budgetMatch: isFinite(budgetMatch) ? Math.round(budgetMatch * 100) / 100 : 50,
+      unitTypeMatch: isFinite(utSim) ? Math.round(utSim * 100) / 100 : 50,
+      bedroomsMatch: isFinite(bedsMatch) ? Math.round(bedsMatch * 100) / 100 : 50,
+      freshnessScore: isFinite(freshnessScore) ? Math.round(freshnessScore * 100) / 100 : 50,
+      downPaymentScore: isFinite(downPaymentScore) ? Math.round(downPaymentScore * 100) / 100 : 50,
+      locationScore: isFinite(locSim) ? Math.round(locSim * 100) / 100 : 50,
       totalPrice: Math.round(totalPrice * 100) / 100,
       downPayment: Math.round(downPayment * 100) / 100,
     };
@@ -244,23 +245,23 @@ export async function runDealsMatching(clientId: string) {
   }
 
   /* 7. Final Scoring */
-  const final: MatchResult[] = scored.map((s, i) => {
+  const final: MatchResult[] = scored.map((s) => {
     const ai = aiResults[s.unit.id];
     const aiScore = ai?.aiScore ?? 50;
     const aiConfidence = ai?.aiConfidence ?? 50;
-    const finalScore = Math.round((s.systemScore * 0.6 + aiScore * 0.4) * 100) / 100;
+    const finalScore = isFinite(s.systemScore) ? Math.round((s.systemScore * 0.6 + aiScore * 0.4) * 100) / 100 : 50;
 
     return {
       propertyId: s.unit.id,
       rank: 0,
-      finalScore,
-      systemScore: s.systemScore,
-      aiScore,
-      aiConfidence,
-      budgetMatch: s.budgetMatch,
-      unitTypeMatch: s.unitTypeMatch,
-      bedroomsMatch: s.bedroomsMatch,
-      freshnessScore: s.freshnessScore,
+      finalScore: isFinite(finalScore) ? finalScore : 50,
+      systemScore: isFinite(s.systemScore) ? s.systemScore : 50,
+      aiScore: isFinite(aiScore) ? aiScore : 50,
+      aiConfidence: isFinite(aiConfidence) ? aiConfidence : 50,
+      budgetMatch: isFinite(s.budgetMatch) ? s.budgetMatch : 50,
+      unitTypeMatch: isFinite(s.unitTypeMatch) ? s.unitTypeMatch : 50,
+      bedroomsMatch: isFinite(s.bedroomsMatch) ? s.bedroomsMatch : 50,
+      freshnessScore: isFinite(s.freshnessScore) ? s.freshnessScore : 50,
       hardFilterResults: {},
       aiAnalysis: ai?.analysis ?? {},
       recommendationStatus: "pending",
