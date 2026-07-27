@@ -22,9 +22,13 @@ export function DealsClient({ clientId, locale }: { clientId: string; locale: st
     try {
       const result = await runDealsMatching(clientId);
       setStats({ totalProperties: result.totalProperties, filteredCount: result.filteredCount });
+      if ((result as any).aiError) setError((result as any).aiError);
+      const l = (result as any).logs as string[];
+      if (l && l.length > 0) console.log("MATCHING LOGS:\n" + l.join("\n"));
       setUnitsMap(result.units || {});
       const enriched = (result.results || []).map((r: any) => ({ ...r, units: result.units?.[r.propertyId] || null }));
       setResults(enriched);
+      if ((result as any).aiError) setError((result as any).aiError);
     } catch (e: any) { setError(e.message || "Failed"); }
     setLoading(false);
   };

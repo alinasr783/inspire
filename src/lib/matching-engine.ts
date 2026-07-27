@@ -72,6 +72,8 @@ export async function runDealsMatching(clientId: string) {
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   const isAdmin = profile?.role === "admin";
+  const logs: string[] = [];
+  const log = (msg: string) => { logs.push(msg); console.log("[MATCH]", msg); };
 
   /* 1. Read Client */
   const { data: client } = await admin.from("clients").select("*").eq("id", clientId).single();
@@ -86,16 +88,19 @@ export async function runDealsMatching(clientId: string) {
   const clientTransactionType = String((cl as Record<string, unknown>).transaction_type ?? cl.custom_fields?.["transaction_type"] ?? "").trim().toLowerCase();
   const clientPreferred = String(cl.preferred_area ?? "");
   const clientNotes = String(cl.additional_notes ?? "");
+  log(`Client: ${cl.customer_name}, budget=${clientBudget}, unit=${clientUnitType}, beds=${clientBedrooms}, txn=${clientTransactionType || "none"}, area=${clientPreferred || "none"}`);
 
   /* 2. Load Properties */
   const { data: allUnits } = await supabase.from("units").select("*");
   const units = (allUnits ?? []) as UnitRow[];
+  log(`Loaded ${units.length} properties`);
 
   /* 3. Load similarity matrices */
   const [unitTypeMatrix, locationMatrix] = await Promise.all([
     getSimilarityMatrix("unit_type_similarity", "type_a", "type_b"),
     getSimilarityMatrix("location_similarity", "area_a", "area_b"),
   ]);
+  log(`Unit type matrix: ${unitTypeMatrix.size} entries | Location matrix: ${locationMatrix.size} entries`);
 
   /* 4. Hard Filters */
   const filtered: { unit: UnitRow; rejection?: string }[] = [];
@@ -139,6 +144,7 @@ export async function runDealsMatching(clientId: string) {
   }
 
   const remaining = filtered.filter((f) => !f.rejection);
+  log(`Hard filters: ${units.length} → ${remaining.length} passed (${filtered.length - remaining.length} rejected)`);
 
   /* 5. System Matching Engine */
   const scored = remaining.map(({ unit }) => {
@@ -194,35 +200,39 @@ export async function runDealsMatching(clientId: string) {
 
   scored.sort((a, b) => b.systemScore - a.systemScore);
   const top20 = scored.slice(0, AI_TOP_N);
+  log(`Scored ${scored.length} properties. Top score: ${top20[0]?.systemScore ?? "N/A"}. Selecting top ${top20.length} for AI`);
 
   /* 6. AI Analysis */
   const aiResults: Record<string, { aiScore: number; aiConfidence: number; analysis: Record<string, unknown> }> = {};
+  let aiError: string | null = null;
 
   if (top20.length > 0) {
-    const aiPrompt = top20.map((s, i) => {
-      const u = s.unit;
-      return `Property ${i + 1}: ID=${u.id}, compound=${u.compound_name}, area=${u.area}, unit_type=${u.unit_type}, finishing=${u.finishing_status}, cash_required=${u.cash_required}, remaining=${u.remaining}, owner=${u.customer_name}, phone=${u.phone}, feedback="${u.feedback || ''}", notes="${u.additional_notes || ''}"`;
-    }).join("\n");
-
-    const messages = [
-      {
-        role: "system" as const,
-        content: `You are an Egyptian real estate matching AI. Analyze properties for a client. Return JSON array of objects, each with: property_index, ownerReliability (0-100), notesMatching (0-100), negotiationProbability (0-100), aiConfidence (0-100), aiScore (0-100), reasoning (short Arabic text). Return ONLY valid JSON array, no other text.`,
-      },
-      {
-        role: "user" as const,
-        content: `Client: budget=${clientBudget}, unit_type=${clientUnitType}, bedrooms=${clientBedrooms}, area=${clientPreferred}, notes="${clientNotes}"\n\nProperties:\n${aiPrompt}\n\nAnalyze each property. Return JSON array.`,
-      },
-    ];
-
     try {
+      const aiPrompt = top20.map((s, i) => {
+        const u = s.unit;
+        return `Property ${i + 1}: ID=${u.id}, compound=${u.compound_name}, area=${u.area}, unit_type=${u.unit_type}, finishing=${u.finishing_status}, cash_required=${u.cash_required}, remaining=${u.remaining}, owner=${u.customer_name}, phone=${u.phone}, feedback="${u.feedback || ''}", notes="${u.additional_notes || ''}"`;
+      }).join("\n");
+
+      const messages = [
+        {
+          role: "system" as const,
+          content: `You are an Egyptian real estate matching AI. Analyze properties for a client. Return JSON array of objects, each with: property_index, ownerReliability (0-100), notesMatching (0-100), negotiationProbability (0-100), aiConfidence (0-100), aiScore (0-100), reasoning (short Arabic text). Return ONLY valid JSON array, no other text.`,
+        },
+        {
+          role: "user" as const,
+          content: `Client: budget=${clientBudget}, unit_type=${clientUnitType}, bedrooms=${clientBedrooms}, area=${clientPreferred}, notes="${clientNotes}"\n\nProperties:\n${aiPrompt}\n\nAnalyze each property. Return JSON array.`,
+        },
+      ];
+
       const content = await callDeepSeek(messages);
+      log(`AI response received (${content.length} chars)`);
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         const list = JSON.parse(jsonMatch[0]) as Array<{
           property_index: number; ownerReliability: number; notesMatching: number;
           negotiationProbability: number; aiConfidence: number; aiScore: number; reasoning: string;
         }>;
+        log(`AI parsed ${list.length} property analyses`);
         for (const item of list) {
           const s = top20[item.property_index - 1];
           if (s) {
@@ -238,10 +248,16 @@ export async function runDealsMatching(clientId: string) {
             };
           }
         }
+      } else {
+        log(`AI response had no JSON array. First 300 chars: ${content.slice(0, 300)}`);
       }
-    } catch (e) {
-      console.error("AI analysis failed:", e);
+    } catch (e: any) {
+      aiError = e.message || "AI analysis failed";
+      log(`AI ERROR: ${aiError}`);
     }
+  } else {
+    aiError = "No properties passed hard filters";
+    log(aiError);
   }
 
   /* 7. Final Scoring */
@@ -298,7 +314,7 @@ export async function runDealsMatching(clientId: string) {
     }
   }
 
-  return { clientId, totalProperties: units.length, filteredCount: remaining.length, results: final.slice(0, 30), units: units.reduce((acc, u) => { acc[u.id] = u; return acc; }, {} as Record<string, UnitRow>) };
+  return { clientId, totalProperties: units.length, filteredCount: remaining.length, results: final.slice(0, 30), units: units.reduce((acc, u) => { acc[u.id] = u; return acc; }, {} as Record<string, UnitRow>), aiError, logs };
 }
 
 export async function getDealResults(clientId: string) {

@@ -9,7 +9,6 @@ function pct(v: number | null | undefined) {
   if (v == null || isNaN(v)) return "—";
   return `${Math.round(v)}%`;
 }
-
 function formatNum(v: number | null | undefined) {
   if (v == null || isNaN(v)) return "—";
   return Number(v).toLocaleString();
@@ -17,17 +16,15 @@ function formatNum(v: number | null | undefined) {
 
 function AnalysisModal({ deal, locale, onClose }: { deal: any; locale: string; onClose: () => void }) {
   const u = deal.units;
-  const ai = deal.ai_analysis || {};
-  const p = (v: any) => pct(v);
+  const ai = deal.aiAnalysis || deal.ai_analysis || {};
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="relative max-h-[90vh] w-[640px] overflow-y-auto rounded-xl border bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold">{u?.compound_name || deal.property_id || "Analysis"}</h3>
+          <h3 className="text-lg font-bold">{u?.compound_name || deal.propertyId || "Analysis"}</h3>
           <Button variant="ghost" size="icon-xs" onClick={onClose}><X className="h-4 w-4" /></Button>
         </div>
-
         <div className="space-y-5">
           <div>
             <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">Hard Filters</p>
@@ -43,25 +40,25 @@ function AnalysisModal({ deal, locale, onClose }: { deal: any; locale: string; o
             <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">Mathematical Analysis</p>
             <div className="rounded-lg bg-muted/30 p-3">
               {[
-                { label: "Budget Match", value: deal.budget_match, color: "bg-blue-500" },
-                { label: "Unit Type Match", value: deal.unit_type_match, color: "bg-green-500" },
-                { label: "Bedrooms Match", value: deal.bedrooms_match, color: "bg-yellow-500" },
-                { label: "Freshness", value: deal.freshness_score, color: "bg-orange-500" },
+                { label: "Budget Match", value: deal.budgetMatch, color: "bg-blue-500" },
+                { label: "Unit Type Match", value: deal.unitTypeMatch, color: "bg-green-500" },
+                { label: "Bedrooms Match", value: deal.bedroomsMatch, color: "bg-yellow-500" },
+                { label: "Freshness", value: deal.freshnessScore, color: "bg-orange-500" },
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-3 py-1">
                   <span className="w-28 text-xs text-muted-foreground">{item.label}</span>
                   <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
                     <div className={`h-full rounded-full ${item.color}`} style={{ width: `${Math.min(100, Math.max(0, item.value || 0))}%` }} />
                   </div>
-                  <span className="w-10 text-right text-xs font-medium">{p(item.value)}</span>
+                  <span className="w-10 text-right text-xs font-medium">{pct(item.value)}</span>
                 </div>
               ))}
               <div className="flex items-center gap-3 py-2 border-t mt-1">
                 <span className="w-28 text-xs font-semibold">System Score</span>
                 <div className="flex-1 h-3 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, Math.max(0, deal.system_score || 0))}%` }} />
+                  <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, Math.max(0, deal.systemScore || 0))}%` }} />
                 </div>
-                <span className="w-10 text-right text-sm font-bold text-primary">{p(deal.system_score)}</span>
+                <span className="w-10 text-right text-sm font-bold text-primary">{pct(deal.systemScore)}</span>
               </div>
             </div>
           </div>
@@ -81,8 +78,8 @@ function AnalysisModal({ deal, locale, onClose }: { deal: any; locale: string; o
                 ))}
                 {ai.reasoning && <p className="text-xs text-muted-foreground italic mt-2">"{ai.reasoning}"</p>}
                 <div className="flex gap-4 pt-1 border-t">
-                  <span className="text-xs"><span className="text-muted-foreground">AI Score:</span> <b className="text-purple-600">{p(deal.ai_score)}</b></span>
-                  <span className="text-xs"><span className="text-muted-foreground">Confidence:</span> <b>{p(deal.ai_confidence)}</b></span>
+                  <span className="text-xs"><span className="text-muted-foreground">AI Score:</span> <b className="text-purple-600">{pct(deal.aiScore)}</b></span>
+                  <span className="text-xs"><span className="text-muted-foreground">Confidence:</span> <b>{pct(deal.aiConfidence)}</b></span>
                 </div>
               </div>
             </div>
@@ -91,7 +88,7 @@ function AnalysisModal({ deal, locale, onClose }: { deal: any; locale: string; o
           <div className="border-t pt-3">
             <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">Final Result</p>
             <div className="flex items-center gap-3">
-              <span className="text-3xl font-bold text-primary">{p(deal.final_score)}</span>
+              <span className="text-3xl font-bold text-primary">{pct(deal.finalScore)}</span>
               <span className="text-xs text-muted-foreground">60% System · 40% AI</span>
             </div>
           </div>
@@ -121,8 +118,8 @@ export function DealsResultsTable({ deals, locale, clientId }: { deals: any[]; l
             <tr key={d.propertyId || d.id} className="border-b hover:bg-muted/30">
               <td className="px-2 py-2 font-bold">{d.rank}</td>
               <td className="px-2 py-2">
-                <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${(d.final_score || 0) >= 80 ? "bg-green-100 text-green-800" : (d.final_score || 0) >= 60 ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800"}`}>
-                  {pct(d.final_score)}
+                <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${(d.finalScore || 0) >= 80 ? "bg-green-100 text-green-800" : (d.finalScore || 0) >= 60 ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800"}`}>
+                  {pct(d.finalScore)}
                 </span>
               </td>
               <td className="px-2 py-2 font-medium truncate max-w-[120px]">
@@ -135,7 +132,7 @@ export function DealsResultsTable({ deals, locale, clientId }: { deals: any[]; l
               <td className="px-2 py-2 text-xs">{d.units?.finishing_status || "—"}</td>
               <td className="px-2 py-2 text-xs truncate max-w-[100px]">{d.units?.customer_name || "—"}</td>
               <td className="px-2 py-2 text-xs">{formatDate(d.units?.last_contact_date)}</td>
-              <td className="px-2 py-2 text-xs">{pct(d.ai_confidence)}</td>
+              <td className="px-2 py-2 text-xs">{pct(d.aiConfidence)}</td>
               <td className="px-2 py-2">
                 <div className="flex items-center gap-0.5">
                   <Button variant="ghost" size="icon-xs" onClick={() => setAnalysis(d)}><BarChart3 className="h-3.5 w-3.5" /></Button>
