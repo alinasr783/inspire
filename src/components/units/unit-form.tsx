@@ -246,7 +246,7 @@ export function UnitForm({ mode, defaultValues, unitId, allColumns, customFieldV
           return (
             <div key={key} className="space-y-2">
               <Label htmlFor={key}>{col.label_ar}</Label>
-              <select id={key} className={selectClass} value={watch(key) ?? ""} onChange={(e) => setValue(key as any, e.target.value)}>
+              <select id={key} className={selectClass} value={String(watch(key as any) ?? "")} onChange={(e) => setValue(key as any, e.target.value)}>
                 <option value="">—</option>
                 {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
               </select>

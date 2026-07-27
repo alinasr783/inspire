@@ -50,17 +50,22 @@ interface UnitTableProps {
 
 /* -- Cell Editor -- */
 const CellEditor = memo(
-  ({ defaultValue, type, options, onSave, onCancel }: { defaultValue: string; type: string; options?: { value: string; label: string }[]; onSave: (v: string) => void; onCancel: () => void }) => {
+  ({ defaultValue, type, options, colKey, onSave, onCancel }: { defaultValue: string; type: string; options?: { value: string; label: string }[]; colKey?: string; onSave: (v: string) => void; onCancel: () => void }) => {
     const ref = useRef<HTMLInputElement>(null);
     useEffect(() => { const el = ref.current; if (el) { el.focus(); el.select(); } }, []);
 
-    if (options && options.length > 0) {
+    if (options !== undefined) {
+      const listId = `datalist-${colKey || "editor"}`;
+      const commit = useCallback(() => onSave(ref.current?.value ?? ""), [onSave]);
+      const keyDown = useCallback((e: React.KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); commit(); } if (e.key === "Escape") onCancel(); }, [commit, onCancel]);
       return (
-        <select defaultValue={defaultValue} onBlur={(e) => onSave(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}
-          className="block h-full w-full border-none bg-transparent px-2 py-2 text-xs outline-none cursor-pointer" autoFocus>
-          <option value="">—</option>
-          {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        <>
+          <input ref={ref} list={listId} type="text" defaultValue={defaultValue} onBlur={commit} onKeyDown={keyDown}
+            className="block h-full w-full border-none bg-transparent px-3 py-2 text-xs outline-none" />
+          <datalist id={listId}>
+            {options.map((o) => <option key={o.value} value={o.label} />)}
+          </datalist>
+        </>
       );
     }
 
@@ -132,7 +137,7 @@ const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCe
           return (
             <PresenceTd key={col.id} table="properties" rowId={unit.id} colKey={col.key} className="overflow-hidden border-b border-r align-middle">
               {isEdit ? (
-                <CellEditor defaultValue={editDefault} type={editType} options={editOptions} onSave={(v) => onCellSave(uid, key, v)} onCancel={onEditCancel} />
+                <CellEditor defaultValue={editDefault} type={editType} options={editOptions} colKey={key} onSave={(v) => onCellSave(uid, key, v)} onCancel={onEditCancel} />
               ) : (
                 <CellDisplay col={col} raw={raw} locale={locale} onEdit={() => onCellEdit(uid, key)} canEdit={canEdit} />
               )}
