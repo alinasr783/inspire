@@ -45,6 +45,7 @@ interface UnitTableProps {
   isAdmin: boolean;
   userId: string;
   employeeMap: Map<string, string>;
+  uniqueValues: { finishing_status: string[]; rent_sale: string[]; unit_type: string[] };
 }
 
 /* -- Cell Editor -- */
@@ -106,9 +107,10 @@ interface RowProps {
   onCellEdit: (uid: string, field: string) => void; onCellSave: (uid: string, field: string, value: string) => void;
   onEditCancel: () => void; isAdmin: boolean;
   employeeMap: Map<string, string>;
+  uniqueValues: { finishing_status: string[]; rent_sale: string[]; unit_type: string[] };
 }
 
-const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCellSave, onEditCancel, isAdmin, employeeMap }: RowProps) {
+const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCellSave, onEditCancel, isAdmin, employeeMap, uniqueValues }: RowProps) {
     const t = useTranslations("Properties");
     const uid = unit.id;
     return (
@@ -120,8 +122,13 @@ const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCe
           const rawVal = col.is_builtin ? String((unit as Record<string, unknown>)[key] ?? "") : String((unit.custom_fields as Record<string, unknown>)?.[key] ?? "");
           const raw = key === "assigned_employee" ? (employeeMap.get(rawVal) || rawVal) : rawVal;
           const editDefault = key === "assigned_employee" ? rawVal : raw;
-          const editOptions = key === "assigned_employee" ? Array.from(employeeMap.entries()).map(([id, name]) => ({ value: id, label: name })) : undefined;
-          const editType = key === "assigned_employee" ? "select" : (key === "cash_required" || key === "remaining" ? "number" : key === "last_contact_date" ? "date" : "text");
+          const editOptions =
+            key === "assigned_employee" ? Array.from(employeeMap.entries()).map(([id, name]) => ({ value: id, label: name })) :
+            key === "finishing_status" ? (uniqueValues.finishing_status || []).map((v) => ({ value: v, label: v })) :
+            key === "rent_sale" ? (uniqueValues.rent_sale || []).map((v) => ({ value: v, label: v })) :
+            key === "unit_type" ? (uniqueValues.unit_type || []).map((v) => ({ value: v, label: v })) :
+            undefined;
+          const editType = key === "assigned_employee" || key === "finishing_status" || key === "rent_sale" || key === "unit_type" ? "select" : (key === "cash_required" || key === "remaining" ? "number" : key === "last_contact_date" ? "date" : "text");
           return (
             <PresenceTd key={col.id} table="properties" rowId={unit.id} colKey={col.key} className="overflow-hidden border-b border-r align-middle">
               {isEdit ? (
@@ -139,7 +146,7 @@ const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCe
     );
   }
 
-export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId, employeeMap }: UnitTableProps) {
+export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId, employeeMap, uniqueValues }: UnitTableProps) {
   const t = useTranslations("Properties");
   const router = useRouter();
   const { notifyCellEdit } = useRealtime();
@@ -344,7 +351,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
                 <Row key={unit.id} unit={unit} columns={localCols} locale={locale}
                   editingField={ed?.uid === unit.id ? ed.key : null}
                   onCellEdit={cellEdit} onCellSave={cellSave} onEditCancel={editCancel}
-                  isAdmin={isAdmin} employeeMap={employeeMap}
+                  isAdmin={isAdmin} employeeMap={employeeMap} uniqueValues={uniqueValues}
                 />
               ))
             )}

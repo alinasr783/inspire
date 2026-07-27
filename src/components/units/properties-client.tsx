@@ -216,6 +216,7 @@ export function PropertiesClient({
         isAdmin={isAdmin}
         userId={userId}
         employeeMap={employeeMap}
+        uniqueValues={{ finishing_status: uniqueFinishing, rent_sale: uniqueRentSale, unit_type: uniqueUnitType }}
       />
 
       {showCount < filteredUnits.length && (

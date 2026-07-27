@@ -71,6 +71,7 @@ export default async function EditUnitPage({
               additional_notes: unitData.additional_notes ?? "",
               feedback: unitData.feedback ?? "",
             }}
+            customFieldValues={unitData.custom_fields as Record<string, unknown>}
           />
         </CardContent>
       </Card>

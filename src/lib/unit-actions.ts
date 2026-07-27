@@ -263,13 +263,12 @@ const UNIT_COLUMN_ALIASES: Record<string, string[]> = {
   last_contact_date: ["last contact", "contact date", "date", "last contacted", "تاريخ التواصل", "تاريخ", "contact", "follow up date"],
   additional_notes: ["notes", "additional notes", "extra notes", "ملاحظات", "ملاحظات إضافية", "تعليقات", "comments", "note"],
   feedback: ["feedback", "فيد باك", "تقييم", "رد", "review", "client feedback"],
-  assigned_employee: ["assigned employee", "employee", "assigned", "موظف مسؤول", "الموظف المسؤول", "مسؤول"],
 };
 
 const UNIT_FIXED_COLUMNS = [
   "customer_name", "phone", "compound_name", "area", "building_number",
   "finishing_status", "rent_sale", "unit_type", "cash_required", "remaining",
-  "last_contact_date", "additional_notes", "feedback", "assigned_employee",
+  "last_contact_date", "additional_notes", "feedback",
 ];
 
 const PHONE_KW = ["phone", "mobile", "tel", "telephone", "هاتف", "تليفون", "موبايل", "جوال", "cell", "موبيل"];
@@ -497,7 +496,7 @@ export async function confirmGroupUnits(rows: Array<{ mapped: Record<string, str
   for (let i = 0; i < rows.length; i++) {
     const raw: Record<string, unknown> = {};
     for (const key of Object.keys(unitSchema.shape)) {
-      if (key === "custom_fields") continue;
+      if (key === "custom_fields" || key === "assigned_employee") continue;
       const val = rows[i].mapped[key];
       if (val !== null && val !== undefined && val !== "") {
         raw[key] = val;

@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { createUnit, updateUnit } from "@/lib/unit-actions";
 import { getUnitDropdownOptions } from "@/lib/unit-dropdown-actions";
+import { getAllEmployees } from "@/lib/client-dropdown-actions";
 import { UnitDynamicSelect } from "@/components/units/unit-dynamic-select";
 import type { ColumnConfig } from "@/lib/unit-config-actions";
 
@@ -40,11 +41,12 @@ interface UnitFormProps {
   defaultValues?: Partial<FormValues>;
   unitId?: string;
   allColumns: ColumnConfig[];
+  customFieldValues?: Record<string, unknown>;
 }
 
 const selectClass = "flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground [&>option]:text-foreground [&>option]:bg-background";
 
-export function UnitForm({ mode, defaultValues, unitId, allColumns }: UnitFormProps) {
+export function UnitForm({ mode, defaultValues, unitId, allColumns, customFieldValues }: UnitFormProps) {
   const t = useTranslations("Properties");
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -52,14 +54,17 @@ export function UnitForm({ mode, defaultValues, unitId, allColumns }: UnitFormPr
   const customColumns = enabledColumns.filter((c) => !c.is_builtin);
 
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, string[]>>({});
+  const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     Promise.all([
       getUnitDropdownOptions("finishing_status"),
       getUnitDropdownOptions("rent_sale"),
       getUnitDropdownOptions("unit_type"),
-    ]).then(([fs, rs, ut]) => {
+      getAllEmployees(),
+    ]).then(([fs, rs, ut, emps]) => {
       setDropdownOptions({ finishing_status: fs, rent_sale: rs, unit_type: ut });
+      setEmployees(emps as { id: string; name: string }[]);
     });
   }, []);
 
@@ -237,6 +242,16 @@ export function UnitForm({ mode, defaultValues, unitId, allColumns }: UnitFormPr
               <textarea id={key} className="flex min-h-20 w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm" {...register(key)} />
             </div>
           );
+        case "assigned_employee":
+          return (
+            <div key={key} className="space-y-2">
+              <Label htmlFor={key}>{col.label_ar}</Label>
+              <select id={key} className={selectClass} value={watch(key) ?? ""} onChange={(e) => setValue(key as any, e.target.value)}>
+                <option value="">—</option>
+                {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+              </select>
+            </div>
+          );
         default:
           return null;
       }
@@ -246,20 +261,21 @@ export function UnitForm({ mode, defaultValues, unitId, allColumns }: UnitFormPr
       <div key={key} className="space-y-2">
         <Label htmlFor={key}>{col.label_ar}</Label>
         {col.type === "select" ? (
-          <select id={key} name={key} className={selectClass}>
+          <select id={key} name={key} className={selectClass} defaultValue={String(customFieldValues?.[key] ?? "")}>
             <option value=""></option>
             {(col.options ?? []).map((opt) => (
               <option key={opt} value={opt}>{opt}</option>
             ))}
           </select>
         ) : col.type === "textarea" ? (
-          <textarea id={key} name={key} className="flex min-h-20 w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm" />
+          <textarea id={key} name={key} className="flex min-h-20 w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm" defaultValue={String(customFieldValues?.[key] ?? "")} />
         ) : (
           <Input
             id={key}
             name={key}
             type={col.type === "number" ? "number" : col.type === "date" ? "date" : "text"}
             dir={col.type === "number" ? "ltr" : undefined}
+            defaultValue={String(customFieldValues?.[key] ?? "")}
           />
         )}
       </div>
