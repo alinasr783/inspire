@@ -85,12 +85,14 @@ export default async function PropertiesPage({
         <h1 className="text-2xl font-bold tracking-tight">{tNav("properties")}</h1>
         <div className="flex items-center gap-2">
           {isAdmin && <ColumnConfigModal />}
+          {isAdmin && (
           <Link href="/properties/group-add">
             <Button variant="outline">
               <Upload className="h-4 w-4" />
               {t("groupAddUnits")}
             </Button>
           </Link>
+          )}
           <Link href="/properties/new">
             <Button>
               <Plus className="h-4 w-4" />

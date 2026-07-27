@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { deleteClient } from "@/lib/client-actions";
 import { getColumnConfig } from "@/lib/client-config-actions";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Sparkles } from "lucide-react";
 import type { ClientRow } from "@/lib/client-actions";
 
 export default async function ClientDetailPage({
@@ -51,7 +51,7 @@ export default async function ClientDetailPage({
         .single()
     : { data: null };
 
-  const { data: profile } = await supabase
+  const { data: profile } = await admin
     .from("profiles")
     .select("role")
     .eq("id", user.id)
@@ -84,22 +84,23 @@ export default async function ClientDetailPage({
           </Link>
           <h1 className="text-2xl font-bold tracking-tight">{clientData.customer_name}</h1>
         </div>
-        {canEdit && (
-          <div className="flex items-center gap-2">
-            <Link href={`/clients/${clientData.id}/edit`}>
-              <Button variant="outline" size="sm">
-                <Pencil className="h-4 w-4" />
-                {t("editClient")}
-              </Button>
-            </Link>
-            <form action={deleteClient.bind(null, clientData.id)}>
-              <Button type="submit" variant="destructive" size="sm">
-                <Trash2 className="h-4 w-4" />
-                {t("delete")}
-              </Button>
-            </form>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <Link href={`/clients/${clientData.id}/deals`}>
+            <Button variant="default" size="sm" className="gap-1.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white">
+              <Sparkles className="h-4 w-4" />Generate Deals
+            </Button>
+          </Link>
+          {canEdit && (
+            <>
+              <Link href={`/clients/${clientData.id}/edit`}>
+                <Button variant="outline" size="sm"><Pencil className="h-4 w-4" />{t("editClient")}</Button>
+              </Link>
+              <form action={deleteClient.bind(null, clientData.id)}>
+                <Button type="submit" variant="destructive" size="sm"><Trash2 className="h-4 w-4" />{t("delete")}</Button>
+              </form>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">

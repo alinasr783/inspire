@@ -2,27 +2,20 @@ import { redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { getColumnConfig } from "@/lib/client-config-actions";
-import { getDropdownOptions } from "@/lib/client-dropdown-actions";
 import type { ClientRow } from "@/lib/client-actions";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus } from "lucide-react";
-import { ClientFilters } from "@/components/clients/client-filters";
-import { ClientTable } from "@/components/clients/client-table";
+import { Plus, Upload } from "lucide-react";
+import { ClientsClient } from "@/components/clients/clients-client";
 import { ColumnConfigModal } from "@/components/clients/column-config-modal";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export default async function ClientsPage({
   params,
-  searchParams,
-}: {
-  params: Promise<{ locale: string }>;
-  searchParams: Promise<Record<string, string>>;
-}) {
+}: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const sp = await searchParams;
   const t = await getTranslations("Clients");
   const tNav = await getTranslations("Nav");
 
@@ -31,119 +24,40 @@ export default async function ClientsPage({
   if (!user) redirect(`/${locale}/auth/login`);
 
   const admin = createAdminClient();
-  const { data: currentProfile } = await admin
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  const { data: currentProfile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   const isAdmin = currentProfile?.role === "admin";
 
   const allColumns = await getColumnConfig();
   const customCols = allColumns.filter((c) => !c.is_builtin && c.enabled);
 
-  let query = admin
-    .from("clients")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (!isAdmin) {
-    query = query.eq("created_by", user.id);
-  }
-
-  if (sp.q) {
-    const q = sp.q.replace(/\*/g, "\\*");
-    query = query.or(
-      `customer_name.ilike.*${q}*,` +
-      `phone.ilike.*${q}*,` +
-      `phone_alt.ilike.*${q}*,` +
-      `preferred_area.ilike.*${q}*,` +
-      `preferred_developer.ilike.*${q}*,` +
-      `source.ilike.*${q}*,` +
-      `additional_notes.ilike.*${q}*`
-    );
-  }
-
-  if (sp.payment_method && sp.payment_method !== "all") {
-    query = query.eq("payment_method", sp.payment_method);
-  }
-  if (sp.unit_type && sp.unit_type !== "all") {
-    query = query.eq("unit_type", sp.unit_type);
-  }
-  if (sp.source && sp.source !== "all") {
-    query = query.eq("source", sp.source);
-  }
-  if (sp.created_by && sp.created_by !== "all" && isAdmin) {
-    query = query.eq("created_by", sp.created_by);
-  }
-
-  if (sp.budget_from) query = query.gte("budget_from", Number(sp.budget_from));
-  if (sp.budget_to) query = query.lte("budget_to", Number(sp.budget_to));
-
-  for (const col of customCols) {
-    const val = sp[col.key];
-    if (val && val !== "all") {
-      query = query.filter(`custom_fields->>${col.key}`, "ilike", `%${val}%`);
-    }
-  }
-
+  let query = admin.from("clients").select("*").order("created_at", { ascending: false });
+  if (!isAdmin) query = query.eq("created_by", user.id);
   const { data: clients } = await query;
   const clientsData = (clients ?? []) as ClientRow[];
 
-  const budgetValues = clientsData
-    .flatMap((c) => [c.budget_from, c.budget_to])
-    .filter((v): v is number => v != null);
-
-  const rangeLimits = {
-    budget:
-      budgetValues.length > 0
-        ? { min: Math.min(...budgetValues), max: Math.max(...budgetValues) }
-        : null,
+  const uniqueVals = async (col: string) => {
+    const { data } = await admin.from("clients").select(col).not(col, "is", null).not(col, "eq", "");
+    return [...new Set((data ?? []).map((r: any) => r[col]))].sort();
   };
+  const uniquePaymentMethods = await uniqueVals("payment_method");
+  const uniqueUnitTypes = await uniqueVals("unit_type");
+  const uniqueSources = await uniqueVals("source");
+  const uniqueAreas = await uniqueVals("preferred_area");
+  const uniqueDevelopers = await uniqueVals("preferred_developer");
+  const uniqueBedrooms = await uniqueVals("bedrooms");
+
+  const budgetNums = clientsData.flatMap((c) => [c.budget_from, c.budget_to]).filter((v): v is number => v != null && !isNaN(v) && v > 0 && v < 100000);
+  const budgetRange = budgetNums.length > 0 ? { min: Math.min(...budgetNums), max: Math.max(...budgetNums) } : null;
 
   const creatorIds = [...new Set(clientsData.map((c) => c.created_by))];
-  const { data: creators } = await admin
-    .from("profiles")
-    .select("id, first_name, second_name")
-    .in("id", creatorIds.length > 0 ? creatorIds : ["none"]);
-
-  const creatorMap = new Map(
-    (creators ?? []).map((c: { id: string; first_name: string | null; second_name: string | null }) => [
-      c.id,
-      [c.first_name, c.second_name].filter(Boolean).join(" "),
-    ])
-  );
+  const { data: creators } = await admin.from("profiles").select("id, first_name, second_name").in("id", creatorIds.length > 0 ? creatorIds : ["none"]);
+  const creatorMap = new Map((creators ?? []).map((c: { id: string; first_name: string | null; second_name: string | null }) => [c.id, [c.first_name, c.second_name].filter(Boolean).join(" ")]));
+  const creatorOptions = (creators ?? []).map((c) => ({ id: c.id, name: [c.first_name, c.second_name].filter(Boolean).join(" ") }));
 
   const assigneeIds = [...new Set(clientsData.map((c) => c.assigned_employee).filter(Boolean))] as string[];
-  const { data: assignees } = assigneeIds.length > 0
-    ? await admin
-        .from("profiles")
-        .select("id, first_name, second_name")
-        .in("id", assigneeIds)
-    : { data: [] };
-  const employeeMap = new Map(
-    (assignees ?? []).map((a: { id: string; first_name: string | null; second_name: string | null }) => [
-      a.id,
-      [a.first_name, a.second_name].filter(Boolean).join(" "),
-    ])
-  );
-
-  let employees: { id: string; name: string }[] = [];
-  if (isAdmin) {
-    const { data: allProfiles } = await admin
-      .from("profiles")
-      .select("id, first_name, second_name")
-      .eq("approval_status", "approved");
-    employees = (allProfiles ?? []).map((p: { id: string; first_name: string | null; second_name: string | null }) => ({
-      id: p.id,
-      name: [p.first_name, p.second_name].filter(Boolean).join(" "),
-    }));
-  }
-
-  const [sourceOpts, unitTypeOpts, paymentOpts] = await Promise.all([
-    getDropdownOptions("source"),
-    getDropdownOptions("unit_type"),
-    getDropdownOptions("payment_method"),
-  ]);
+  const { data: assignees } = assigneeIds.length > 0 ? await admin.from("profiles").select("id, first_name, second_name").in("id", assigneeIds) : { data: [] };
+  const employeeMap = new Map((assignees ?? []).map((a: { id: string; first_name: string | null; second_name: string | null }) => [a.id, [a.first_name, a.second_name].filter(Boolean).join(" ")]));
+  const employeeOptions = (assignees ?? []).map((a) => ({ id: a.id, name: [a.first_name, a.second_name].filter(Boolean).join(" ") }));
 
   return (
     <div className="space-y-6">
@@ -151,42 +65,31 @@ export default async function ClientsPage({
         <h1 className="text-2xl font-bold tracking-tight">{tNav("clients")}</h1>
         <div className="flex items-center gap-2">
           {isAdmin && <ColumnConfigModal />}
-          <Link href="/clients/new">
-            <Button>
-              <Plus className="h-4 w-4" />
-              {t("createClient")}
-            </Button>
-          </Link>
+          {isAdmin && (<Link href="/clients/group-add"><Button variant="outline"><Upload className="h-4 w-4" />{t("groupAddUnits")}</Button></Link>)}
+          <Link href="/clients/new"><Button><Plus className="h-4 w-4" />{t("createClient")}</Button></Link>
         </div>
       </div>
-
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">{t("allClients")}</CardTitle>
-        </CardHeader>
+        <CardHeader className="pb-3"><CardTitle className="text-base">{t("allClients")}</CardTitle></CardHeader>
         <CardContent>
-          <ClientFilters
-            customColumns={customCols}
-            rangeLimits={rangeLimits}
-            isAdmin={isAdmin}
-            employees={employees}
-            dynamicOptions={{
-              source: sourceOpts,
-              unit_type: unitTypeOpts,
-              payment_method: paymentOpts,
-              preferred_area: [],
-              preferred_developer: [],
-              bedrooms: [],
-            }}
-          />
-
-          <ClientTable
+          <ClientsClient
+            initialClients={clientsData}
             columns={allColumns}
-            clients={clientsData}
+            customColumns={customCols}
             locale={locale}
+            isAdmin={isAdmin}
+            userId={user.id}
             creatorMap={creatorMap}
             employeeMap={employeeMap}
-            userId={user.id}
+            uniquePaymentMethods={uniquePaymentMethods}
+            uniqueUnitTypes={uniqueUnitTypes}
+            uniqueSources={uniqueSources}
+            uniqueAreas={uniqueAreas}
+            uniqueDevelopers={uniqueDevelopers}
+            uniqueBedrooms={uniqueBedrooms}
+            budgetRange={budgetRange}
+            creatorOptions={creatorOptions}
+            employeeOptions={employeeOptions}
           />
         </CardContent>
       </Card>

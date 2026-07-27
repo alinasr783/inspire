@@ -14,10 +14,7 @@ import { PresenceTd } from "@/components/realtime/presence-td";
 import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 
-type ClientRow = Record<string, unknown> & {
-  id: string;
-  custom_fields: Record<string, unknown>;
-};
+type ClientRow = Record<string, unknown> & { id: string; custom_fields: Record<string, unknown> };
 
 const COL_WIDTHS: Record<string, number> = {
   customer_name: 160, phone: 140, phone_alt: 140, budget_from: 130, budget_to: 130,
@@ -29,6 +26,27 @@ const DEFAULT_WIDTH = 150;
 const MIN_WIDTH = 50;
 const ACTIONS_WIDTH = 130;
 
+const IS_BROWSER = typeof window !== "undefined";
+
+function loadColWidths(uid: string, defaults: Record<string, number>) {
+  if (!IS_BROWSER) return defaults;
+  try {
+    const raw = localStorage.getItem(`inspire_cw_clients_${uid}`);
+    if (raw) {
+      const saved = JSON.parse(raw) as Record<string, number>;
+      const merged = { ...defaults };
+      for (const [k, v] of Object.entries(saved)) { if (typeof v === "number" && v >= 50) merged[k] = v; }
+      return merged;
+    }
+  } catch {}
+  return defaults;
+}
+
+function saveColWidths(uid: string, widths: Record<string, number>) {
+  if (!IS_BROWSER) return;
+  try { localStorage.setItem(`inspire_cw_clients_${uid}`, JSON.stringify(widths)); } catch {}
+}
+
 interface ClientTableProps {
   columns: ColumnConfig[];
   clients: ClientRow[];
@@ -38,12 +56,36 @@ interface ClientTableProps {
   userId: string;
 }
 
+const DROPDOWN_OPTIONS: Record<string, string[]> = {
+  payment_method: ["كاش", "تقسيط", "Cash", "Installment"],
+  unit_type: ["شقة", "فيلا", "دوبلكس", "مكتب", "أرض", "تجاري", "Apartment", "Villa", "Duplex", "Office", "Land", "Commercial"],
+  source: ["Road", "Facebook", "Instagram", "TikTok", "معرض", "فيس", "انستجرام", "تيك توك"],
+  bedrooms: ["1", "2", "3", "4", "5", "6"],
+  preferred_area: [],
+  preferred_developer: [],
+};
+
 /* -- Cell Editor -- */
-const CellEditor = memo(({ defaultValue, type, onSave, onCancel }: { defaultValue: string; type: string; onSave: (v: string) => void; onCancel: () => void }) => {
+const CellEditor = memo(({ defaultValue, type, options, colKey, onSave, onCancel }: { defaultValue: string; type: string; options?: { value: string; label: string }[]; colKey?: string; onSave: (v: string) => void; onCancel: () => void }) => {
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { const el = ref.current; if (el) { el.focus(); el.select(); } }, []);
+
   const commit = useCallback(() => onSave(ref.current?.value ?? ""), [onSave]);
   const keyDown = useCallback((e: React.KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); commit(); } if (e.key === "Escape") onCancel(); }, [commit, onCancel]);
+
+  if (options && options.length > 0) {
+    const listId = `datalist-${colKey || "editor"}`;
+    return (
+      <>
+        <input ref={ref} list={listId} type="text" defaultValue={defaultValue} onBlur={commit} onKeyDown={keyDown}
+          className="block h-full w-full border-none bg-transparent px-3 py-2 text-xs outline-none" />
+        <datalist id={listId}>
+          {options.map((o) => <option key={o.value} value={o.value} />)}
+        </datalist>
+      </>
+    );
+  }
+
   return <input ref={ref} type={type === "date" ? "date" : type === "number" ? "number" : "text"} defaultValue={defaultValue} onBlur={commit} onKeyDown={keyDown} className="block h-full w-full border-none bg-transparent px-3 py-2 text-xs outline-none" />;
 });
 CellEditor.displayName = "CellEditor";
@@ -53,44 +95,27 @@ const CellDisplay = memo(({ col, raw, locale, onEdit }: { col: ColumnConfig; raw
   if (!raw) return <span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate min-h-[1.25rem]">&nbsp;</span>;
 
   if (col.key === "payment_method") {
-    return (
-      <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate">
-        <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">{raw}</span>
-      </span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>
-    );
+    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate"><span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">{raw}</span></span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
   }
   if (col.key === "unit_type") {
-    return (
-      <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate">
-        <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-200">{raw}</span>
-      </span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>
-    );
+    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate"><span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-200">{raw}</span></span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
   }
   if (col.key === "source") {
-    return (
-      <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate">
-        <span className="inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800 dark:bg-orange-900/40 dark:text-orange-200">{raw}</span>
-      </span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>
-    );
+    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate"><span className="inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800 dark:bg-orange-900/40 dark:text-orange-200">{raw}</span></span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
+  }
+  if (col.key === "bedrooms") {
+    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate"><span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-800/40 dark:text-gray-200">{raw}</span></span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
   }
   if (col.key === "budget_from" || col.key === "budget_to") {
-    const n = Number(raw);
-    const display = isNaN(n) ? raw : n.toLocaleString();
-    return (
-      <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate" dir="ltr">{display}</span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>
-    );
+    const n = Number(raw); const display = isNaN(n) ? raw : n.toLocaleString();
+    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate" dir="ltr">{display}</span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
   }
   if (col.key === "last_contact_date") {
-    let display = raw;
-    const d = new Date(raw);
+    let display = raw; const d = new Date(raw);
     if (!isNaN(d.getTime())) display = d.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" });
-    return (
-      <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate">{display}</span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>
-    );
+    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate">{display}</span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
   }
-  return (
-    <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate">{raw}</span></TooltipTrigger><TooltipContent side="bottom" align="start" className="max-w-sm whitespace-pre-wrap break-words">{raw}</TooltipContent></Tooltip>
-  );
+  return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate">{raw}</span></TooltipTrigger><TooltipContent side="bottom" align="start" className="max-w-sm whitespace-pre-wrap break-words">{raw}</TooltipContent></Tooltip>;
 });
 CellDisplay.displayName = "CellDisplay";
 
@@ -98,31 +123,46 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
   const t = useTranslations("Clients");
   const router = useRouter();
   const { notifyCellEdit } = useRealtime();
+
   const { data: liveClients, setInitialData } = useRealtimeSync<ClientRow>("clients");
   useEffect(() => { setInitialData(clients); }, [clients, setInitialData]);
   const clientsData = liveClients.length > 0 ? liveClients : clients;
 
   const enabledColumns = useMemo(() => columns.filter((c) => c.enabled), [columns]);
+  const [localCols, setLocalCols] = useState(enabledColumns);
+
+  useEffect(() => { setLocalCols(enabledColumns); }, [enabledColumns]);
+
+  useEffect(() => {
+    if (!IS_BROWSER || enabledColumns.length === 0) return;
+    const saved = localStorage.getItem("inspire_cw_clients_order");
+    if (saved) {
+      try {
+        const ids = JSON.parse(saved) as string[];
+        const reordered = ids.map((id) => enabledColumns.find((c) => c.id === id)).filter(Boolean) as ColumnConfig[];
+        if (reordered.length === enabledColumns.length) setLocalCols(reordered);
+      } catch {}
+    }
+  }, [enabledColumns]);
 
   const [localClients, setLocalClients] = useState(clientsData);
   const { containerRef, ctrlD } = useTableCellKeyboard(localClients);
   const bgSaveRef = useRef<Set<string>>(new Set());
   const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [localCols, setLocalCols] = useState(enabledColumns);
   const [editingCol, setEditingCol] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const editRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState<{ cid: string; key: string } | null>(null);
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    const init: Record<string, number> = {};
-    for (const col of enabledColumns) init[col.key] = COL_WIDTHS[col.key] ?? DEFAULT_WIDTH;
-    return init;
+    const defaults: Record<string, number> = {};
+    for (const col of enabledColumns) defaults[col.key] = COL_WIDTHS[col.key] ?? DEFAULT_WIDTH;
+    return loadColWidths(userId, defaults);
   });
   const colWidthsRef = useRef(colWidths); colWidthsRef.current = colWidths;
 
   useEffect(() => { setLocalClients(clientsData); }, [clientsData]);
-  useEffect(() => { setLocalCols(enabledColumns); }, [enabledColumns]);
+  useEffect(() => { saveColWidths(userId, colWidths); }, [colWidths, userId]);
   useEffect(() => {
     setColWidths((prev) => {
       let changed = false; const updated = { ...prev };
@@ -133,22 +173,10 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
 
   const handleResizeMouseDown = (e: React.MouseEvent, colKey: string) => {
     e.preventDefault(); e.stopPropagation();
-    const startX = e.clientX;
-    const startWidth = colWidthsRef.current[colKey] ?? DEFAULT_WIDTH;
-    const move = (ev: MouseEvent) => {
-      const delta = ev.clientX - startX;
-      const newW = Math.max(MIN_WIDTH, startWidth + delta);
-      const el = document.querySelector(`col[data-col-key="${colKey}"]`) as HTMLElement | null;
-      if (el) el.style.width = `${newW}px`;
-    };
-    const up = () => {
-      document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up);
-      document.body.style.cursor = ""; document.body.style.userSelect = "";
-      const el = document.querySelector(`col[data-col-key="${colKey}"]`) as HTMLElement | null;
-      if (el) { const w = parseInt(el.style.width, 10); if (!isNaN(w)) setColWidths((prev) => ({ ...prev, [colKey]: w })); }
-    };
-    document.body.style.cursor = "col-resize"; document.body.style.userSelect = "none";
-    document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+    const startX = e.clientX; const startWidth = colWidthsRef.current[colKey] ?? DEFAULT_WIDTH;
+    const move = (ev: MouseEvent) => { const delta = ev.clientX - startX; const newW = Math.max(MIN_WIDTH, startWidth + delta); const el = document.querySelector(`col[data-col-key="${colKey}"]`) as HTMLElement | null; if (el) el.style.width = `${newW}px`; };
+    const up = () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); document.body.style.cursor = ""; document.body.style.userSelect = ""; const el = document.querySelector(`col[data-col-key="${colKey}"]`) as HTMLElement | null; if (el) { const w = parseInt(el.style.width, 10); if (!isNaN(w)) setColWidths((prev) => ({ ...prev, [colKey]: w })); } };
+    document.body.style.cursor = "col-resize"; document.body.style.userSelect = "none"; document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
   };
 
   const handleDragStart = (idx: number) => setDragIdx(idx);
@@ -159,29 +187,21 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
   };
   const handleDrop = async () => {
     setDragIdx(null);
-    await updateColumnOrder(localCols.map((col, i) => ({ id: col.id, sort_order: i })));
+    const updated = localCols.map((col, i) => ({ id: col.id, sort_order: i }));
+    await updateColumnOrder(updated);
+    if (IS_BROWSER) localStorage.setItem("inspire_cw_clients_order", JSON.stringify(localCols.map((c) => c.id)));
     router.refresh();
   };
 
   const handleDoubleClick = (col: ColumnConfig) => { setEditingCol(col.id); setEditValue(locale === "ar" ? col.label_ar : col.label_en); setTimeout(() => editRef.current?.select(), 50); };
-  const handleRename = async (col: ColumnConfig) => {
-    if (!editValue.trim()) return;
-    await renameColumnConfig(col.id, locale === "ar" ? editValue.trim() : col.label_ar, locale === "en" ? editValue.trim() : col.label_en);
-    setEditingCol(null); router.refresh();
-  };
-  const getLabel = (col: ColumnConfig) => {
-    if (editingCol === col.id) return <input ref={editRef} type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={() => handleRename(col)} onKeyDown={(e) => { if (e.key === "Enter") handleRename(col); if (e.key === "Escape") setEditingCol(null); }} className="w-full bg-transparent border-b border-primary px-0 py-0 text-xs font-medium outline-none" autoFocus />;
-    return locale === "ar" ? col.label_ar : col.label_en;
-  };
+  const handleRename = async (col: ColumnConfig) => { if (!editValue.trim()) return; await renameColumnConfig(col.id, locale === "ar" ? editValue.trim() : col.label_ar, locale === "en" ? editValue.trim() : col.label_en); setEditingCol(null); router.refresh(); };
+  const getLabel = (col: ColumnConfig) => editingCol === col.id ? <input ref={editRef} type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={() => handleRename(col)} onKeyDown={(e) => { if (e.key === "Enter") handleRename(col); if (e.key === "Escape") setEditingCol(null); }} className="w-full bg-transparent border-b border-primary px-0 py-0 text-xs font-medium outline-none" autoFocus /> : locale === "ar" ? col.label_ar : col.label_en;
 
   const clientsBuiltin = useRef(new Set([
-    "customer_name","phone","phone_alt","budget_from","budget_to",
-    "payment_method","preferred_area","unit_type","bedrooms",
-    "preferred_developer","source","additional_notes","last_contact_date",
-    "assigned_employee",
+    "customer_name","phone","phone_alt","budget_from","budget_to","payment_method","preferred_area",
+    "unit_type","bedrooms","preferred_developer","source","additional_notes","last_contact_date","assigned_employee",
   ]));
 
-  /* -- Inline cell edit -- */
   const cellEdit = useCallback((cid: string, key: string) => setEditing({ cid, key }), []);
   const cellSave = useCallback((cid: string, key: string, value: string) => {
     setEditing(null);
@@ -204,22 +224,35 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
           const idx = localClients.findIndex((c) => c.id === rowId);
           if (idx <= 0) return null;
           const prev = localClients[idx - 1] as Record<string, unknown>;
-          const val = prev[colKey];
-          return (val != null && val !== "") ? String(val) : null;
+          const val = prev[colKey]; return (val != null && val !== "") ? String(val) : null;
         });
       }
     }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey); return () => document.removeEventListener("keydown", onKey);
   }, [ctrlD, cellSave, localClients]);
-
-  const ed = editing;
 
   const getCellRaw = (col: ColumnConfig, client: ClientRow) => {
     if (col.key === "created_by") return creatorMap.get(String(client[col.key] ?? "")) || String(client[col.key] ?? "");
     if (col.key === "assigned_employee") return employeeMap.get(String(client[col.key] ?? "")) || String(client[col.key] ?? "");
     return col.is_builtin ? String(client[col.key] ?? "") : String((client.custom_fields as Record<string, unknown>)?.[col.key] ?? "");
   };
+
+  const getEditOptions = (col: ColumnConfig): { value: string; label: string }[] | undefined => {
+    if (col.key === "assigned_employee") return Array.from(employeeMap.entries()).map(([id, name]) => ({ value: id, label: name }));
+    const opts = DROPDOWN_OPTIONS[col.key];
+    if (opts && opts.length > 0) return opts.map((o) => ({ value: o, label: o }));
+    if (col.type === "select" && col.options && col.options.length > 0) return col.options.map((o) => ({ value: o, label: o }));
+    return undefined;
+  };
+
+  const getEditType = (col: ColumnConfig): string => {
+    if (getEditOptions(col)) return "select";
+    if (col.key === "budget_from" || col.key === "budget_to") return "number";
+    if (col.key === "last_contact_date" || col.type === "date") return "date";
+    return "text";
+  };
+
+  const ed = editing;
 
   return (
     <TooltipProvider>
@@ -234,13 +267,9 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
               {localCols.map((col, idx) => (
                 <th key={col.id} onDragOver={(e) => handleDragOver(e, idx)} onDrop={handleDrop} onDoubleClick={() => handleDoubleClick(col)}
                   className={`relative select-none border-b border-r px-1.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap ${dragIdx === idx ? "opacity-50" : ""}`}>
-                  <div className="flex items-center gap-1 pr-3" draggable onDragStart={() => handleDragStart(idx)}>
-                    <span className="flex-1">{getLabel(col)}</span>
-                  </div>
-                  <div draggable={false} className="absolute bottom-0 top-0 z-10 -right-px w-2 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 transition-colors"
-                    onMouseDown={(e) => handleResizeMouseDown(e, col.key)}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderRight = "2px solid var(--primary)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderRight = "2px solid transparent"; }} />
+                  <div className="flex items-center gap-1 pr-3" draggable onDragStart={() => handleDragStart(idx)}><span className="flex-1">{getLabel(col)}</span></div>
+                  <div draggable={false} className="absolute bottom-0 top-0 z-10 -right-px w-2 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 transition-colors" onMouseDown={(e) => handleResizeMouseDown(e, col.key)}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderRight = "2px solid var(--primary)"; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderRight = "2px solid transparent"; }} />
                 </th>
               ))}
               <th className="border-b px-3 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">{t("actions")}</th>
@@ -256,15 +285,13 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
                     const key = col.key;
                     const isEdit = ed?.cid === client.id && ed?.key === key;
                     const raw = getCellRaw(col, client);
+                    const editOptions = getEditOptions(col);
                     return (
                       <PresenceTd key={col.id} table="clients" rowId={client.id as string} colKey={key} className="overflow-hidden border-b border-r align-middle">
                         {isEdit ? (
-                          <CellEditor
-                            defaultValue={key === "last_contact_date" ? String(client[key] ?? "") : raw}
-                            type={key === "budget_from" || key === "budget_to" ? "number" : key === "last_contact_date" ? "date" : "text"}
-                            onSave={(v) => cellSave(client.id as string, key, v)}
-                            onCancel={editCancel}
-                          />
+                          <CellEditor defaultValue={key === "assigned_employee" ? String(client[key] ?? "") : raw}
+                            type={getEditType(col)} options={editOptions} colKey={key}
+                            onSave={(v) => cellSave(client.id as string, key, v)} onCancel={editCancel} />
                         ) : (
                           <CellDisplay col={col} raw={raw} locale={locale} onEdit={() => cellEdit(client.id as string, key)} />
                         )}

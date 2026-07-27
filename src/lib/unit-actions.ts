@@ -339,6 +339,14 @@ const NUMERIC_FIELDS = ["area", "cash_required", "remaining"];
 
 function normalizeDate(text: string): string {
   if (!text || !text.trim()) return "";
+  const trimmed = text.trim();
+
+  const num = Number(trimmed);
+  if (!isNaN(num) && num > 30000 && num < 100000) {
+    const jsDate = new Date((num - 25569) * 86400000);
+    if (!isNaN(jsDate.getTime())) return jsDate.toISOString().slice(0, 10);
+  }
+
   const arabicDigits: Record<string, string> = {
     "٠": "0", "١": "1", "٢": "2", "٣": "3", "٤": "4",
     "٥": "5", "٦": "6", "٧": "7", "٨": "8", "٩": "9",
