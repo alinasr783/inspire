@@ -28,6 +28,7 @@ const COLUMN_WIDTHS: Record<string, number> = {
   last_contact_date: 130,
   additional_notes: 180,
   feedback: 220,
+  assigned_employee: 150,
 };
 const DEFAULT_COL_WIDTH = 150;
 const MIN_COL_WIDTH = 50;
@@ -43,13 +44,25 @@ interface UnitTableProps {
   locale: string;
   isAdmin: boolean;
   userId: string;
+  employeeMap: Map<string, string>;
 }
 
 /* -- Cell Editor -- */
 const CellEditor = memo(
-  ({ defaultValue, type, onSave, onCancel }: { defaultValue: string; type: string; onSave: (v: string) => void; onCancel: () => void }) => {
+  ({ defaultValue, type, options, onSave, onCancel }: { defaultValue: string; type: string; options?: { value: string; label: string }[]; onSave: (v: string) => void; onCancel: () => void }) => {
     const ref = useRef<HTMLInputElement>(null);
     useEffect(() => { const el = ref.current; if (el) { el.focus(); el.select(); } }, []);
+
+    if (options && options.length > 0) {
+      return (
+        <select defaultValue={defaultValue} onBlur={(e) => onSave(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}
+          className="block h-full w-full border-none bg-transparent px-2 py-2 text-xs outline-none cursor-pointer" autoFocus>
+          <option value="">—</option>
+          {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      );
+    }
+
     const commit = useCallback(() => onSave(ref.current?.value ?? ""), [onSave]);
     const keyDown = useCallback((e: React.KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); commit(); } if (e.key === "Escape") onCancel(); }, [commit, onCancel]);
     return <input ref={ref} type={type === "date" ? "date" : type === "number" ? "number" : "text"} defaultValue={defaultValue} onBlur={commit} onKeyDown={keyDown} className="block h-full w-full border-none bg-transparent px-3 py-2 text-xs outline-none" />;
@@ -92,9 +105,10 @@ interface RowProps {
   unit: UnitRow; columns: ColumnConfig[]; locale: string; editingField: string | null;
   onCellEdit: (uid: string, field: string) => void; onCellSave: (uid: string, field: string, value: string) => void;
   onEditCancel: () => void; isAdmin: boolean;
+  employeeMap: Map<string, string>;
 }
 
-const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCellSave, onEditCancel, isAdmin }: RowProps) {
+const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCellSave, onEditCancel, isAdmin, employeeMap }: RowProps) {
     const t = useTranslations("Properties");
     const uid = unit.id;
     return (
@@ -103,11 +117,15 @@ const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCe
           const key = col.key;
           const isEdit = editingField === key;
           const canEdit = isAdmin || key === "feedback";
-          const raw = col.is_builtin ? String((unit as Record<string, unknown>)[key] ?? "") : String((unit.custom_fields as Record<string, unknown>)?.[key] ?? "");
+          const rawVal = col.is_builtin ? String((unit as Record<string, unknown>)[key] ?? "") : String((unit.custom_fields as Record<string, unknown>)?.[key] ?? "");
+          const raw = key === "assigned_employee" ? (employeeMap.get(rawVal) || rawVal) : rawVal;
+          const editDefault = key === "assigned_employee" ? rawVal : raw;
+          const editOptions = key === "assigned_employee" ? Array.from(employeeMap.entries()).map(([id, name]) => ({ value: id, label: name })) : undefined;
+          const editType = key === "assigned_employee" ? "select" : (key === "cash_required" || key === "remaining" ? "number" : key === "last_contact_date" ? "date" : "text");
           return (
             <PresenceTd key={col.id} table="properties" rowId={unit.id} colKey={col.key} className="overflow-hidden border-b border-r align-middle">
               {isEdit ? (
-                <CellEditor defaultValue={key === "last_contact_date" ? String((unit as Record<string, unknown>)[key] ?? "") : raw} type={key === "cash_required" || key === "remaining" ? "number" : key === "last_contact_date" ? "date" : "text"} onSave={(v) => onCellSave(uid, key, v)} onCancel={onEditCancel} />
+                <CellEditor defaultValue={editDefault} type={editType} options={editOptions} onSave={(v) => onCellSave(uid, key, v)} onCancel={onEditCancel} />
               ) : (
                 <CellDisplay col={col} raw={raw} locale={locale} onEdit={() => onCellEdit(uid, key)} canEdit={canEdit} />
               )}
@@ -121,7 +139,7 @@ const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCe
     );
   }
 
-export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId }: UnitTableProps) {
+export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId, employeeMap }: UnitTableProps) {
   const t = useTranslations("Properties");
   const router = useRouter();
   const { notifyCellEdit } = useRealtime();
@@ -235,7 +253,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   const unitsBuiltin = useRef(new Set([
     "customer_name","phone","compound_name","area","building_number",
     "finishing_status","rent_sale","unit_type","cash_required","remaining",
-    "last_contact_date","additional_notes","feedback",
+    "last_contact_date","additional_notes","feedback","assigned_employee",
   ]));
 
   /* -- Inline cell edit -- */
@@ -326,7 +344,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
                 <Row key={unit.id} unit={unit} columns={localCols} locale={locale}
                   editingField={ed?.uid === unit.id ? ed.key : null}
                   onCellEdit={cellEdit} onCellSave={cellSave} onEditCancel={editCancel}
-                  isAdmin={isAdmin}
+                  isAdmin={isAdmin} employeeMap={employeeMap}
                 />
               ))
             )}

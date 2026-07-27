@@ -15,6 +15,7 @@ interface PropertiesClientProps {
   locale: string;
   isAdmin: boolean;
   userId: string;
+  employeeMap: Map<string, string>;
   customColumns: ColumnConfig[];
   uniqueFinishing: string[];
   uniqueRentSale: string[];
@@ -69,6 +70,7 @@ export function PropertiesClient({
   locale,
   isAdmin,
   userId,
+  employeeMap,
   customColumns,
   uniqueFinishing,
   uniqueRentSale,
@@ -213,6 +215,7 @@ export function PropertiesClient({
         locale={locale}
         isAdmin={isAdmin}
         userId={userId}
+        employeeMap={employeeMap}
       />
 
       {showCount < filteredUnits.length && (

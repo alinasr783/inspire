@@ -298,7 +298,7 @@ export async function processClientsExcel(fileBase64: string) {
   for (const sheetName of workbook.SheetNames) {
     const ws = workbook.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: "" });
-    if (rows.length > 0) allRows = allRows.concat(rows);
+    if (rows.length > 0) allRows = allRows.concat(rows.map((r) => ({ ...r, _sheet: sheetName })));
   }
   if (allRows.length === 0) throw new Error("excel-empty");
 
@@ -327,6 +327,9 @@ export async function processClientsExcel(fileBase64: string) {
       const fixed = mapClientExcelColumn(excelCol);
       if (fixed && CLIENT_FIXED_COLUMNS.includes(fixed)) mapped[fixed] = val;
       else extra[excelCol] = val;
+    }
+    if (!mapped.preferred_area && (row as any)._sheet) {
+      mapped.preferred_area = (row as any)._sheet;
     }
     return { mapped, extra_data: extra, phone_normalized: "", phone_alt_normalized: "", ai_notes: "" };
   });

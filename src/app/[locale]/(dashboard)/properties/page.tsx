@@ -77,6 +77,12 @@ export default async function PropertiesPage({
     .single();
   const isAdmin = currentProfile?.role === "admin";
 
+  const assigneeIds = [...new Set(unitsData.map((c) => (c as any).assigned_employee).filter(Boolean))] as string[];
+  const { data: assignees } = assigneeIds.length > 0
+    ? await admin.from("profiles").select("id, first_name, second_name").in("id", assigneeIds)
+    : { data: [] };
+  const employeeMap = new Map((assignees ?? []).map((a: { id: string; first_name: string | null; second_name: string | null }) => [a.id, [a.first_name, a.second_name].filter(Boolean).join(" ")]));
+
   const customCols = allColumns.filter((c) => !c.is_builtin && c.enabled);
 
   return (
@@ -112,6 +118,7 @@ export default async function PropertiesPage({
             columns={allColumns}
             locale={locale}
             isAdmin={isAdmin}
+            employeeMap={employeeMap}
             userId={user.id}
             customColumns={customCols}
             uniqueFinishing={uniqueFinishing}

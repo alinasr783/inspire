@@ -23,6 +23,7 @@ export type UnitRow = {
   last_contact_date: string | null;
   additional_notes: string | null;
   feedback: string | null;
+  assigned_employee: string | null;
   custom_fields: Record<string, unknown>;
   created_by: string;
   created_at: string;
@@ -43,6 +44,7 @@ const unitSchema = z.object({
   last_contact_date: z.string().trim().optional(),
   additional_notes: z.string().trim().default(""),
   feedback: z.string().trim().default(""),
+  assigned_employee: z.string().trim().optional(),
   custom_fields: z.record(z.string(), z.any()).optional().default({}),
 });
 
@@ -198,7 +200,7 @@ export async function updateUnitField(unitId: string, field: string, value: stri
   const allowedFields = [
     "customer_name", "phone", "compound_name", "area", "building_number",
     "finishing_status", "rent_sale", "unit_type", "cash_required", "remaining",
-    "last_contact_date", "additional_notes", "feedback",
+    "last_contact_date", "additional_notes", "feedback", "assigned_employee",
   ];
 
   const admin = createAdminClient();
@@ -261,36 +263,33 @@ const UNIT_COLUMN_ALIASES: Record<string, string[]> = {
   last_contact_date: ["last contact", "contact date", "date", "last contacted", "تاريخ التواصل", "تاريخ", "contact", "follow up date"],
   additional_notes: ["notes", "additional notes", "extra notes", "ملاحظات", "ملاحظات إضافية", "تعليقات", "comments", "note"],
   feedback: ["feedback", "فيد باك", "تقييم", "رد", "review", "client feedback"],
+  assigned_employee: ["assigned employee", "employee", "assigned", "موظف مسؤول", "الموظف المسؤول", "مسؤول"],
 };
 
 const UNIT_FIXED_COLUMNS = [
   "customer_name", "phone", "compound_name", "area", "building_number",
   "finishing_status", "rent_sale", "unit_type", "cash_required", "remaining",
-  "last_contact_date", "additional_notes", "feedback",
+  "last_contact_date", "additional_notes", "feedback", "assigned_employee",
 ];
 
 const PHONE_KW = ["phone", "mobile", "tel", "telephone", "هاتف", "تليفون", "موبايل", "جوال", "cell", "موبيل"];
 
 function mapUnitExcelColumn(excelCol: string): string {
-  const cleaned = excelCol.trim().toLowerCase().replace(/[_-]/g, " ");
+  const cleaned = excelCol.trim().replace(/[\s_-]+/g, " ").toLowerCase();
 
-  for (const [fixed, aliases] of Object.entries(UNIT_COLUMN_ALIASES)) {
-    if (aliases.includes(cleaned)) return fixed;
+  if (UNIT_FIXED_COLUMNS.some((c) => c.toLowerCase() === cleaned)) {
+    return UNIT_FIXED_COLUMNS.find((c) => c.toLowerCase() === cleaned)!;
   }
 
-  const isPhone = PHONE_KW.some((kw) => cleaned.includes(kw));
-  if (isPhone) {
-    if (cleaned.includes("alt") || cleaned.includes("2") || cleaned.includes("بديل") || cleaned.includes("اخر") || cleaned.includes("ثاني")) {
-      return "";
-    }
-    return "phone";
+  for (const [fixed, aliases] of Object.entries(UNIT_COLUMN_ALIASES)) {
+    if (aliases.some((a) => a.replace(/[\s_-]+/g, " ").toLowerCase() === cleaned)) return fixed;
   }
 
-  if (cleaned.includes("cash") || cleaned.includes("كاش") || cleaned.includes("مقدم") || cleaned.includes("مطلوب")) return "cash_required";
-  if (cleaned.includes("remaining") || cleaned.includes("متبقي") || cleaned.includes("تقسيط") || cleaned.includes("أقساط")) return "remaining";
-
   for (const [fixed, aliases] of Object.entries(UNIT_COLUMN_ALIASES)) {
-    if (aliases.some((a) => cleaned.includes(a) || a.includes(cleaned))) return fixed;
+    if (aliases.some((a) => {
+      const norm = a.replace(/[\s_-]+/g, " ").toLowerCase();
+      return cleaned.includes(norm) || norm.includes(cleaned);
+    })) return fixed;
   }
 
   return "";
