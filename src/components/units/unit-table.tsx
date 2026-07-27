@@ -5,10 +5,11 @@ import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
-import { Building2 } from "lucide-react";
+import { Building2, Trash2 } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { updateColumnOrder, renameColumnConfig, type ColumnConfig } from "@/lib/unit-config-actions";
 import { updateUnitField } from "@/lib/unit-actions";
+import { deleteUnit } from "@/lib/unit-actions";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { PresenceTd } from "@/components/realtime/presence-td";
 import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
@@ -53,6 +54,18 @@ const CellEditor = memo(
   ({ defaultValue, type, options, colKey, onSave, onCancel }: { defaultValue: string; type: string; options?: { value: string; label: string }[]; colKey?: string; onSave: (v: string) => void; onCancel: () => void }) => {
     const ref = useRef<HTMLInputElement>(null);
     useEffect(() => { const el = ref.current; if (el) { el.focus(); el.select(); } }, []);
+
+    const needsSelect = options?.some((o) => o.value !== o.label);
+
+    if (options !== undefined && needsSelect) {
+      return (
+        <select defaultValue={defaultValue} onBlur={(e) => onSave(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}
+          className="block h-full w-full border-none bg-transparent px-2 py-2 text-xs outline-none cursor-pointer" autoFocus>
+          <option value="">—</option>
+          {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      );
+    }
 
     if (options !== undefined) {
       const listId = `datalist-${colKey || "editor"}`;
@@ -110,12 +123,12 @@ CellDisplay.displayName = "CellDisplay";
 interface RowProps {
   unit: UnitRow; columns: ColumnConfig[]; locale: string; editingField: string | null;
   onCellEdit: (uid: string, field: string) => void; onCellSave: (uid: string, field: string, value: string) => void;
-  onEditCancel: () => void; isAdmin: boolean;
+  onEditCancel: () => void; isAdmin: boolean; onDelete: (uid: string) => void;
   employeeMap: Map<string, string>;
   uniqueValues: { finishing_status: string[]; rent_sale: string[]; unit_type: string[] };
 }
 
-const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCellSave, onEditCancel, isAdmin, employeeMap, uniqueValues }: RowProps) {
+const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCellSave, onEditCancel, isAdmin, onDelete, employeeMap, uniqueValues }: RowProps) {
     const t = useTranslations("Properties");
     const uid = unit.id;
     return (
@@ -145,7 +158,14 @@ const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCe
           );
         })}
         <td className="whitespace-nowrap border-b px-3 py-2 align-middle">
-          <Link href={`/properties/${unit.id}`}><Button variant="outline" size="sm">{t("propertyDetails")}</Button></Link>
+          <div className="flex items-center gap-1">
+            <Link href={`/properties/${unit.id}`}><Button variant="outline" size="sm">{t("propertyDetails")}</Button></Link>
+            {isAdmin && (
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => onDelete(uid)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </td>
       </tr>
     );
@@ -284,6 +304,11 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   }, [notifyCellEdit]);
   const editCancel = useCallback(() => setEditing(null), []);
 
+  const handleDelete = useCallback(async (uid: string) => {
+    setLocalUnits((prev) => prev.filter((u) => u.id !== uid));
+    try { await deleteUnit(uid); router.refresh(); } catch { setLocalUnits(srvRef.current); }
+  }, [router]);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.altKey && e.key === "d") {
@@ -356,7 +381,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
                 <Row key={unit.id} unit={unit} columns={localCols} locale={locale}
                   editingField={ed?.uid === unit.id ? ed.key : null}
                   onCellEdit={cellEdit} onCellSave={cellSave} onEditCancel={editCancel}
-                  isAdmin={isAdmin} employeeMap={employeeMap} uniqueValues={uniqueValues}
+                  isAdmin={isAdmin} employeeMap={employeeMap} uniqueValues={uniqueValues} onDelete={handleDelete}
                 />
               ))
             )}
