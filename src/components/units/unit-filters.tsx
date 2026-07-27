@@ -18,6 +18,7 @@ interface UnitFiltersProps {
   uniqueUnitType: string[];
   uniqueCompounds: string[];
   uniqueAreas: string[];
+  employeeOptions?: { id: string; name: string }[];
   rangeLimits?: {
     cash_required: { min: number; max: number } | null;
     remaining: { min: number; max: number } | null;
@@ -38,6 +39,7 @@ export function UnitFilters({
   uniqueUnitType,
   uniqueCompounds,
   uniqueAreas,
+  employeeOptions,
   rangeLimits,
 }: UnitFiltersProps) {
   const t = useTranslations("Properties");
@@ -128,6 +130,19 @@ export function UnitFilters({
             <option key={a} value={a}>{a}</option>
           ))}
         </select>
+
+        {employeeOptions && employeeOptions.length > 0 && (
+          <select
+            value={val("assigned_employee")}
+            onChange={(e) => setFilter("assigned_employee", e.target.value)}
+            className={selectClass}
+          >
+            <option value="all">Assigned Employee</option>
+            {employeeOptions.map((e) => (
+              <option key={e.id} value={e.id}>{e.name}</option>
+            ))}
+          </select>
+        )}
 
         {rangeLimits?.cash_required && (
           <div className="flex items-center gap-1">

@@ -16,6 +16,7 @@ interface PropertiesClientProps {
   isAdmin: boolean;
   userId: string;
   employeeMap: Map<string, string>;
+  employeeOptions: { id: string; name: string }[];
   customColumns: ColumnConfig[];
   uniqueFinishing: string[];
   uniqueRentSale: string[];
@@ -48,6 +49,7 @@ function buildInitialFilters(customColumns: ColumnConfig[]): Record<string, stri
     cash_to: "",
     remaining_from: "",
     remaining_to: "",
+    assigned_employee: "all",
     last_contact_from: "",
     last_contact_to: "",
   };
@@ -71,6 +73,7 @@ export function PropertiesClient({
   isAdmin,
   userId,
   employeeMap,
+  employeeOptions,
   customColumns,
   uniqueFinishing,
   uniqueRentSale,
@@ -145,6 +148,10 @@ export function PropertiesClient({
       if (!isNaN(max)) result = result.filter((u) => (u.remaining ?? 0) <= max);
     }
 
+    if (filters.assigned_employee && filters.assigned_employee !== "all") {
+      result = result.filter((u) => (u as any).assigned_employee === filters.assigned_employee);
+    }
+
     if (filters.last_contact_from) {
       const from = toDateOnly(filters.last_contact_from);
       if (from) {
@@ -180,7 +187,7 @@ export function PropertiesClient({
 
   const hasActiveFilters = useMemo(() => {
     if (filters.q) return true;
-    for (const key of [...BUILTIN_DROPDOWN_KEYS, ...customColumns.map((c) => c.key)]) {
+    for (const key of [...BUILTIN_DROPDOWN_KEYS, "assigned_employee", ...customColumns.map((c) => c.key)]) {
       if (filters[key] && filters[key] !== "all") return true;
     }
     if (filters.cash_from || filters.cash_to || filters.remaining_from || filters.remaining_to) return true;
@@ -206,6 +213,7 @@ export function PropertiesClient({
         uniqueUnitType={uniqueUnitType}
         uniqueCompounds={uniqueCompounds}
         uniqueAreas={uniqueAreas}
+        employeeOptions={employeeOptions}
         rangeLimits={rangeLimits}
       />
 

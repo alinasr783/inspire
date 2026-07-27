@@ -79,6 +79,7 @@ export default async function PropertiesPage({
 
   const { data: allEmployees } = await admin.from("profiles").select("id, first_name, second_name").eq("approval_status", "approved");
   const employeeMap = new Map((allEmployees ?? []).map((a: { id: string; first_name: string | null; second_name: string | null }) => [a.id, [a.first_name, a.second_name].filter(Boolean).join(" ") || a.id]));
+  const employeeOptions = (allEmployees ?? []).map((a: { id: string; first_name: string | null; second_name: string | null }) => ({ id: a.id, name: [a.first_name, a.second_name].filter(Boolean).join(" ") || a.id }));
 
   const customCols = allColumns.filter((c) => !c.is_builtin && c.enabled);
 
@@ -116,6 +117,7 @@ export default async function PropertiesPage({
             locale={locale}
             isAdmin={isAdmin}
             employeeMap={employeeMap}
+            employeeOptions={employeeOptions}
             userId={user.id}
             customColumns={customCols}
             uniqueFinishing={uniqueFinishing}
