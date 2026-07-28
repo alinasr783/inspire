@@ -171,7 +171,7 @@ export async function deleteClient(id: string) {
   }
 
   if (existing.created_by !== user.id) {
-    const { data: profile } = await supabase
+    const { data: profile } = await admin
       .from("profiles")
       .select("role")
       .eq("id", user.id)
