@@ -320,6 +320,19 @@ export async function updateRecordField(recordId: string, field: string, value: 
   if (error) throw new Error("update-failed");
 }
 
+export async function quickCreateRecord(): Promise<UnconfirmedRecord> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("unconfirmed_records").insert({
+    owner_name: "New Record",
+    owner_phone: "",
+    unit_area: "",
+    building_number: "",
+    unit_number: "",
+  }).select("*").single();
+  if (error) throw new Error(`create-failed: ${error.message}`);
+  return data as UnconfirmedRecord;
+}
+
 export async function getRecord(recordId: string) {
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();

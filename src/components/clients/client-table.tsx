@@ -8,7 +8,7 @@ import { Link } from "@/i18n/navigation";
 import { Users } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { updateColumnOrder, renameColumnConfig, type ColumnConfig } from "@/lib/client-config-actions";
-import { updateClientField } from "@/lib/client-actions";
+import { updateClientField, quickCreateClient } from "@/lib/client-actions";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { PresenceTd } from "@/components/realtime/presence-td";
 import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
@@ -226,6 +226,12 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
           const prev = localClients[idx - 1] as Record<string, unknown>;
           const val = prev[colKey]; return (val != null && val !== "") ? String(val) : null;
         });
+      }
+      if (e.ctrlKey && e.key === "i") {
+        e.preventDefault();
+        quickCreateClient(userId).then((newClient) => {
+          setLocalClients((prev) => [newClient, ...prev]);
+        }).catch(() => {});
       }
     }
     document.addEventListener("keydown", onKey); return () => document.removeEventListener("keydown", onKey);

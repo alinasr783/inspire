@@ -236,6 +236,18 @@ export async function updateClientField(clientId: string, field: string, value: 
   return { success: true };
 }
 
+export async function quickCreateClient(userId: string): Promise<ClientRow> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("clients").insert({
+    customer_name: "New Client",
+    phone: "",
+    created_by: userId,
+    custom_fields: {},
+  }).select("*").single();
+  if (error) throw new Error(`create-failed: ${error.message}`);
+  return data as ClientRow;
+}
+
 /* ── Excel Group Import ── */
 
 import * as XLSX from "xlsx";

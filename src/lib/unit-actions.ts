@@ -209,11 +209,11 @@ export async function updateUnitField(unitId: string, field: string, value: stri
     const { data: current } = await admin.from("units").select("custom_fields").eq("id", unitId).single();
     const customFields = (current?.custom_fields ?? {}) as Record<string, unknown>;
     customFields[field] = value.trim() || null;
-    const { error } = await admin
+    const { error: cfError } = await admin
       .from("units")
       .update({ custom_fields: customFields, updated_at: new Date().toISOString() })
       .eq("id", unitId);
-    if (error) throw new Error("update-failed");
+    if (cfError) throw new Error("update-failed");
     return { success: true };
   }
 
@@ -223,8 +223,14 @@ export async function updateUnitField(unitId: string, field: string, value: stri
     .eq("id", user.id)
     .single();
   const isAdmin = profile?.role === "admin";
+
   if (!isAdmin && field !== "feedback") {
-    throw new Error("unauthorized");
+    const { data: unit } = await admin.from("units").select("created_by, assigned_employee").eq("id", unitId).single();
+    const isOwner = unit?.created_by === user.id;
+    const isAssigned = unit?.assigned_employee === user.id;
+    if (!isOwner && !isAssigned) {
+      throw new Error("unauthorized");
+    }
   }
 
   const numericFields = ["cash_required", "remaining"];
@@ -245,6 +251,19 @@ export async function updateUnitField(unitId: string, field: string, value: stri
   if (error) throw new Error("update-failed");
 
   return { success: true };
+}
+
+export async function quickCreateUnit(userId: string) {
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("units").insert({
+    customer_name: "New Property",
+    phone: "",
+    compound_name: "",
+    created_by: userId,
+    custom_fields: {},
+  }).select("*").single();
+  if (error) throw new Error(`create-failed: ${error.message}`);
+  return data as UnitRow;
 }
 
 /* ── Excel Group Import ── */

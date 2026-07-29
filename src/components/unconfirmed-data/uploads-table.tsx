@@ -8,7 +8,7 @@ import { Link } from "@/i18n/navigation";
 import { FileSpreadsheet, Trash2, Eye, Pencil } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { UnconfirmedRecord } from "@/lib/unconfirmed-data-actions";
-import { deleteRecords, updateRecordField } from "@/lib/unconfirmed-data-actions";
+import { deleteRecords, updateRecordField, quickCreateRecord } from "@/lib/unconfirmed-data-actions";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { PresenceTd } from "@/components/realtime/presence-td";
 import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
@@ -176,6 +176,12 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
           const val = prev[colKey];
           return (val != null && val !== "") ? String(val) : null;
         });
+      }
+      if (e.ctrlKey && e.key === "i") {
+        e.preventDefault();
+        quickCreateRecord().then((newRecord) => {
+          setRecords((prev) => [newRecord, ...prev]);
+        }).catch(() => {});
       }
     }
     document.addEventListener("keydown", onKey);

@@ -8,7 +8,7 @@ import { Link } from "@/i18n/navigation";
 import { Building2, Trash2 } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { updateColumnOrder, renameColumnConfig, type ColumnConfig } from "@/lib/unit-config-actions";
-import { updateUnitField } from "@/lib/unit-actions";
+import { updateUnitField, quickCreateUnit } from "@/lib/unit-actions";
 import { deleteUnit } from "@/lib/unit-actions";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { PresenceTd } from "@/components/realtime/presence-td";
@@ -124,11 +124,12 @@ interface RowProps {
   unit: UnitRow; columns: ColumnConfig[]; locale: string; editingField: string | null;
   onCellEdit: (uid: string, field: string) => void; onCellSave: (uid: string, field: string, value: string) => void;
   onEditCancel: () => void; isAdmin: boolean; onDelete: (uid: string) => void;
+  userId: string;
   employeeMap: Map<string, string>;
   uniqueValues: { finishing_status: string[]; rent_sale: string[]; unit_type: string[] };
 }
 
-const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCellSave, onEditCancel, isAdmin, onDelete, employeeMap, uniqueValues }: RowProps) {
+const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCellSave, onEditCancel, isAdmin, onDelete, userId, employeeMap, uniqueValues }: RowProps) {
     const t = useTranslations("Properties");
     const uid = unit.id;
     return (
@@ -136,7 +137,8 @@ const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCe
         {columns.map((col) => {
           const key = col.key;
           const isEdit = editingField === key;
-          const canEdit = isAdmin || key === "feedback";
+          const isOwner = (unit as any).created_by === userId || (unit as any).assigned_employee === userId;
+          const canEdit = isAdmin || isOwner || key === "feedback";
           const rawVal = col.is_builtin ? String((unit as Record<string, unknown>)[key] ?? "") : String((unit.custom_fields as Record<string, unknown>)?.[key] ?? "");
           const raw = key === "assigned_employee" ? (employeeMap.get(rawVal) || rawVal) : rawVal;
           const editDefault = key === "assigned_employee" ? rawVal : raw;
@@ -320,6 +322,12 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
           return (val != null && val !== "") ? String(val) : null;
         });
       }
+      if (e.ctrlKey && e.key === "i") {
+        e.preventDefault();
+        quickCreateUnit(userId).then((newUnit) => {
+          setLocalUnits((prev) => [newUnit, ...prev]);
+        }).catch(() => {});
+      }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -381,7 +389,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
                 <Row key={unit.id} unit={unit} columns={localCols} locale={locale}
                   editingField={ed?.uid === unit.id ? ed.key : null}
                   onCellEdit={cellEdit} onCellSave={cellSave} onEditCancel={editCancel}
-                  isAdmin={isAdmin} employeeMap={employeeMap} uniqueValues={uniqueValues} onDelete={handleDelete}
+                  isAdmin={isAdmin} employeeMap={employeeMap} uniqueValues={uniqueValues} onDelete={handleDelete} userId={userId}
                 />
               ))
             )}
