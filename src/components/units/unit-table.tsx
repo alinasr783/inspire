@@ -5,14 +5,18 @@ import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
-import { Building2, Trash2 } from "lucide-react";
+import { Building2, Trash2, Eye, Pencil } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "sonner";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { updateColumnOrder, renameColumnConfig, type ColumnConfig } from "@/lib/unit-config-actions";
 import { updateUnitField, quickCreateUnit } from "@/lib/unit-actions";
 import { deleteUnit } from "@/lib/unit-actions";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { PresenceTd } from "@/components/realtime/presence-td";
+import { TableCellContextMenu, type CellInfo } from "@/components/realtime/table-cell-context-menu";
 import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
+import { useCellStyles } from "@/hooks/use-cell-styles";
 import type { UnitRow } from "@/lib/unit-actions";
 
 const COLUMN_WIDTHS: Record<string, number> = {
@@ -60,7 +64,7 @@ const CellEditor = memo(
     if (options !== undefined && needsSelect) {
       return (
         <select defaultValue={defaultValue} onBlur={(e) => onSave(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}
-          className="block h-full w-full border-none bg-transparent px-2 py-2 text-xs outline-none cursor-pointer" autoFocus>
+          className="block h-full w-full border-none bg-transparent px-0 py-0 text-xs outline-none cursor-pointer" autoFocus>
           <option value="">—</option>
           {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
@@ -74,7 +78,7 @@ const CellEditor = memo(
       return (
         <>
           <input ref={ref} list={listId} type="text" defaultValue={defaultValue} onBlur={commit} onKeyDown={keyDown}
-            className="block h-full w-full border-none bg-transparent px-3 py-2 text-xs outline-none" />
+            className="block h-full w-full border-none bg-transparent px-0 py-0 text-xs outline-none" />
           <datalist id={listId}>
             {options.map((o) => <option key={o.value} value={o.label} />)}
           </datalist>
@@ -84,7 +88,7 @@ const CellEditor = memo(
 
     const commit = useCallback(() => onSave(ref.current?.value ?? ""), [onSave]);
     const keyDown = useCallback((e: React.KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); commit(); } if (e.key === "Escape") onCancel(); }, [commit, onCancel]);
-    return <input ref={ref} type={type === "date" ? "date" : type === "number" ? "number" : "text"} defaultValue={defaultValue} onBlur={commit} onKeyDown={keyDown} className="block h-full w-full border-none bg-transparent px-3 py-2 text-xs outline-none" />;
+    return <input ref={ref} type={type === "date" ? "date" : type === "number" ? "number" : "text"} defaultValue={defaultValue} onBlur={commit} onKeyDown={keyDown} className="block h-full w-full border-none bg-transparent px-0 py-0 text-xs outline-none" />;
   }
 );
 CellEditor.displayName = "CellEditor";
@@ -92,7 +96,7 @@ CellEditor.displayName = "CellEditor";
 /* -- Cell Display -- */
 const CellDisplay = memo(
   ({ col, raw, locale, onEdit, canEdit }: { col: ColumnConfig; raw: string; locale: string; onEdit: () => void; canEdit: boolean }) => {
-    const editableSpan = canEdit ? "cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate" : "px-3 py-2 block truncate";
+    const editableSpan = canEdit ? "cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate" : "px-0 py-0 block truncate";
     const clickHandler = canEdit ? onEdit : undefined;
 
     if (!raw) return <span onClick={clickHandler} className={editableSpan}>&nbsp;</span>;
@@ -124,16 +128,16 @@ interface RowProps {
   unit: UnitRow; columns: ColumnConfig[]; locale: string; editingField: string | null;
   onCellEdit: (uid: string, field: string) => void; onCellSave: (uid: string, field: string, value: string) => void;
   onEditCancel: () => void; isAdmin: boolean; onDelete: (uid: string) => void;
-  userId: string;
+  userId: string; onContextMenu: (e: React.MouseEvent, info: CellInfo) => void;
   employeeMap: Map<string, string>;
   uniqueValues: { finishing_status: string[]; rent_sale: string[]; unit_type: string[] };
 }
 
-const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCellSave, onEditCancel, isAdmin, onDelete, userId, employeeMap, uniqueValues }: RowProps) {
+const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCellSave, onEditCancel, isAdmin, onDelete, userId, onContextMenu, employeeMap, uniqueValues }: RowProps) {
     const t = useTranslations("Properties");
     const uid = unit.id;
     return (
-      <tr className="hover:bg-muted/30">
+      <tr className="hover:bg-muted/30" data-row-id={unit.id}>
         {columns.map((col) => {
           const key = col.key;
           const isEdit = editingField === key;
@@ -150,7 +154,7 @@ const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCe
             undefined;
           const editType = key === "assigned_employee" || key === "finishing_status" || key === "rent_sale" || key === "unit_type" ? "select" : (key === "cash_required" || key === "remaining" ? "number" : key === "last_contact_date" ? "date" : "text");
           return (
-            <PresenceTd key={col.id} table="properties" rowId={unit.id} colKey={col.key} className="overflow-hidden border-b border-r align-middle">
+            <PresenceTd key={col.id} table="properties" rowId={unit.id} colKey={col.key} className="overflow-hidden border-b border-r align-middle" onContextMenu={onContextMenu}>
               {isEdit ? (
                 <CellEditor defaultValue={editDefault} type={editType} options={editOptions} colKey={key} onSave={(v) => onCellSave(uid, key, v)} onCancel={onEditCancel} />
               ) : (
@@ -159,13 +163,16 @@ const Row = function Row({ unit, columns, locale, editingField, onCellEdit, onCe
             </PresenceTd>
           );
         })}
-        <td className="whitespace-nowrap border-b px-3 py-2 align-middle">
-          <div className="flex items-center gap-1">
-            <Link href={`/properties/${unit.id}`}><Button variant="outline" size="sm">{t("propertyDetails")}</Button></Link>
-            {isAdmin && (
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => onDelete(uid)}>
+        <td className="whitespace-nowrap border-b px-2 py-2 align-middle">
+          <div className="flex items-center gap-0.5">
+            <Link href={`/properties/${unit.id}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Eye className="h-4 w-4" /></Link>
+            {(isAdmin || (unit as any).created_by === userId || (unit as any).assigned_employee === userId) && (
+              <Link href={`/properties/${unit.id}/edit`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Pencil className="h-4 w-4" /></Link>
+            )}
+            {(isAdmin || (unit as any).created_by === userId) && (
+              <button className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-red-50 text-red-500 hover:text-red-600" onClick={() => onDelete(uid)}>
                 <Trash2 className="h-4 w-4" />
-              </Button>
+              </button>
             )}
           </div>
         </td>
@@ -179,6 +186,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   const { notifyCellEdit } = useRealtime();
   const [localUnits, setLocalUnits] = useState(serverUnits);
   const { containerRef, ctrlD } = useTableCellKeyboard(localUnits);
+  useCellStyles("properties");
   const enabledColumns = useMemo(() => columns.filter((c) => c.enabled), [columns]);
 
   const srvRef = useRef(serverUnits); srvRef.current = serverUnits;
@@ -190,6 +198,33 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   const [editValue, setEditValue] = useState("");
   const editRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState<{ uid: string; key: string } | null>(null);
+
+  const [ctxMenu, setCtxMenu] = useState<{ info: CellInfo; pos: { x: number; y: number }; shortcut?: { scope: "row" | "column"; target: "color_bg" } } | null>(null);
+  const handleContextMenu = useCallback((e: React.MouseEvent, info: CellInfo) => {
+    e.preventDefault();
+    setCtxMenu({ info, pos: { x: e.clientX, y: e.clientY } });
+  }, []);
+
+  const hoverRef = useRef<{ x: number; y: number; rowId: string; colKey: string } | null>(null);
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      const td = target.closest("td[data-row-id]");
+      if (td) hoverRef.current = { x: e.clientX, y: e.clientY, rowId: td.getAttribute("data-row-id") || "", colKey: td.getAttribute("data-col-key") || "" };
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (!e.altKey || !hoverRef.current || ctxMenu) return;
+      const h = hoverRef.current;
+      if (e.key === "r" || e.key === "R") { e.preventDefault(); setCtxMenu({ info: { table: "properties", rowId: h.rowId, colKey: h.colKey, colLabel: h.colKey, rowData: null }, pos: { x: h.x, y: h.y }, shortcut: { scope: "row", target: "color_bg" } }); }
+      if (e.key === "c" || e.key === "C") { e.preventDefault(); setCtxMenu({ info: { table: "properties", rowId: h.rowId, colKey: h.colKey, colLabel: h.colKey, rowData: null }, pos: { x: h.x, y: h.y }, shortcut: { scope: "column", target: "color_bg" } }); }
+    }
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("keydown", onKeyDown);
+    return () => { document.removeEventListener("mousemove", onMouseMove); document.removeEventListener("keydown", onKeyDown); };
+  }, [ctxMenu]);
+
+  const [deleteDialog, setDeleteDialog] = useState<{ uid: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
@@ -307,9 +342,19 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   const editCancel = useCallback(() => setEditing(null), []);
 
   const handleDelete = useCallback(async (uid: string) => {
+    const unit = localUnits.find(u => u.id === uid);
+    setDeleteDialog({ uid, name: (unit as any)?.customer_name || uid.slice(0, 8) });
+  }, [localUnits]);
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteDialog) return;
+    const uid = deleteDialog.uid;
+    setDeleting(true);
     setLocalUnits((prev) => prev.filter((u) => u.id !== uid));
-    try { await deleteUnit(uid); router.refresh(); } catch { setLocalUnits(srvRef.current); }
-  }, [router]);
+    try { await deleteUnit(uid); router.refresh(); toast.success("Deleted successfully"); } catch { setLocalUnits(srvRef.current); toast.error("Delete failed"); }
+    setDeleting(false);
+    setDeleteDialog(null);
+  }, [deleteDialog, router]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -352,6 +397,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDrop={handleDrop}
                   onDoubleClick={() => handleDoubleClick(col)}
+                  data-col-key={col.key}
                   className={`relative select-none border-b border-r px-1.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap ${dragIdx === idx ? "opacity-50" : ""}`}
                 >
                   <div
@@ -389,13 +435,15 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
                 <Row key={unit.id} unit={unit} columns={localCols} locale={locale}
                   editingField={ed?.uid === unit.id ? ed.key : null}
                   onCellEdit={cellEdit} onCellSave={cellSave} onEditCancel={editCancel}
-                  isAdmin={isAdmin} employeeMap={employeeMap} uniqueValues={uniqueValues} onDelete={handleDelete} userId={userId}
+                  isAdmin={isAdmin} employeeMap={employeeMap} uniqueValues={uniqueValues} onDelete={handleDelete} userId={userId} onContextMenu={handleContextMenu}
                 />
               ))
             )}
           </tbody>
         </table>
       </div>
+      <TableCellContextMenu info={ctxMenu?.info ?? null} position={ctxMenu?.pos ?? null} shortcut={ctxMenu?.shortcut ?? null} onClose={() => setCtxMenu(null)} />
+      <ConfirmDialog open={!!deleteDialog} onOpenChange={(o) => { if (!o) setDeleteDialog(null); }} title="Confirm Delete" description={`Delete "${deleteDialog?.name}"? This cannot be undone.`} confirmLabel={deleting ? "Deleting..." : "Delete"} cancelLabel="Cancel" variant="destructive" loading={deleting} onConfirm={confirmDelete} />
     </TooltipProvider>
   );
 }

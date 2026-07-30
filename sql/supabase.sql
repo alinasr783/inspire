@@ -34,8 +34,10 @@ CREATE TABLE public.units (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   compound_name text NOT NULL DEFAULT ''::text,
+  assigned_employee uuid,
   CONSTRAINT units_pkey PRIMARY KEY (id),
-  CONSTRAINT units_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+  CONSTRAINT units_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
+  CONSTRAINT units_assigned_employee_fkey FOREIGN KEY (assigned_employee) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.unit_column_config (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -209,4 +211,56 @@ CREATE TABLE public.unconfirmed_files (
   CONSTRAINT unconfirmed_files_pkey PRIMARY KEY (id),
   CONSTRAINT unconfirmed_files_folder_id_fkey FOREIGN KEY (folder_id) REFERENCES public.unconfirmed_folders(id),
   CONSTRAINT unconfirmed_files_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.unit_type_similarity (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  type_a text NOT NULL,
+  type_b text NOT NULL,
+  similarity integer NOT NULL CHECK (similarity >= 0 AND similarity <= 100),
+  CONSTRAINT unit_type_similarity_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.location_similarity (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  area_a text NOT NULL,
+  area_b text NOT NULL,
+  similarity integer NOT NULL CHECK (similarity >= 0 AND similarity <= 100),
+  CONSTRAINT location_similarity_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.generated_deals (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid NOT NULL,
+  property_id uuid NOT NULL,
+  rank integer NOT NULL,
+  final_score numeric NOT NULL DEFAULT 0,
+  system_score numeric NOT NULL DEFAULT 0,
+  ai_score numeric NOT NULL DEFAULT 0,
+  ai_confidence numeric NOT NULL DEFAULT 0,
+  budget_match numeric NOT NULL DEFAULT 0,
+  unit_type_match numeric NOT NULL DEFAULT 0,
+  bedrooms_match numeric NOT NULL DEFAULT 0,
+  freshness_score numeric NOT NULL DEFAULT 0,
+  hard_filter_results jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ai_analysis jsonb NOT NULL DEFAULT '{}'::jsonb,
+  recommendation_status text NOT NULL DEFAULT 'pending'::text CHECK (recommendation_status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])),
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT generated_deals_pkey PRIMARY KEY (id),
+  CONSTRAINT generated_deals_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
+  CONSTRAINT generated_deals_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.units(id),
+  CONSTRAINT generated_deals_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.cell_styles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  table_name text NOT NULL,
+  element_type text NOT NULL CHECK (element_type = ANY (ARRAY['table'::text, 'column'::text, 'row'::text, 'cell'::text])),
+  element_key text NOT NULL,
+  text_color text,
+  background_color text,
+  font_size integer,
+  font_weight text,
+  border_style text,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT cell_styles_pkey PRIMARY KEY (id),
+  CONSTRAINT cell_styles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );

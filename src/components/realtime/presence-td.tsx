@@ -4,16 +4,18 @@ import { memo } from "react";
 import { useCellPresence } from "@/components/providers/cell-presence-provider";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import type { CellInfo } from "@/components/realtime/table-cell-context-menu";
 
 function userInitials(name: string) {
   return name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 }
 
 export const PresenceTd = memo(function PresenceTd({
-  table, rowId, colKey, children, className,
+  table, rowId, colKey, children, className, onContextMenu,
 }: {
   table: string; rowId: string; colKey: string;
   children: React.ReactNode; className?: string;
+  onContextMenu?: (e: React.MouseEvent, info: CellInfo) => void;
 }) {
   const { cellPresences, broadcastHover, broadcastLeave } = useCellPresence();
   const { cellEditEvents } = useRealtime();
@@ -55,8 +57,9 @@ export const PresenceTd = memo(function PresenceTd({
   const td = (
     <td className={className} style={style} data-row-id={rowId} data-col-key={colKey}
       onMouseEnter={() => { broadcastHover(table, rowId, colKey); }}
-      onMouseLeave={() => { broadcastLeave(table, rowId, colKey); }}>
-      {children}
+      onMouseLeave={() => { broadcastLeave(table, rowId, colKey); }}
+      onContextMenu={(e) => onContextMenu?.(e, { table, rowId, colKey, colLabel: colKey, rowData: null })}
+    >{children}
     </td>
   );
 

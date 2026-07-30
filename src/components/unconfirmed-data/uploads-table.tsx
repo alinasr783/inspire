@@ -11,7 +11,11 @@ import type { UnconfirmedRecord } from "@/lib/unconfirmed-data-actions";
 import { deleteRecords, updateRecordField, quickCreateRecord } from "@/lib/unconfirmed-data-actions";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { PresenceTd } from "@/components/realtime/presence-td";
+import { TableCellContextMenu, type CellInfo } from "@/components/realtime/table-cell-context-menu";
 import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
+import { useCellStyles } from "@/hooks/use-cell-styles";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "sonner";
 
 interface Columns { key: string; label: string; type: string }
 
@@ -38,7 +42,7 @@ const CellEditor = memo(({ defaultValue, type, onSave, onCancel }: { defaultValu
   useEffect(() => { const el = ref.current; if (el) { el.focus(); el.select(); } }, []);
   const commit = useCallback(() => onSave(ref.current?.value ?? ""), [onSave]);
   const keyDown = useCallback((e: React.KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); commit(); } if (e.key === "Escape") onCancel(); }, [commit, onCancel]);
-  return <input ref={ref} type={type === "date" ? "date" : "text"} defaultValue={defaultValue} onBlur={commit} onKeyDown={keyDown} className="block w-full h-full border-none outline-none bg-transparent px-3 py-2 text-xs" />;
+  return <input ref={ref} type={type === "date" ? "date" : "text"} defaultValue={defaultValue} onBlur={commit} onKeyDown={keyDown} className="block w-full h-full border-none outline-none bg-transparent px-0 py-0 text-xs" />;
 });
 CellEditor.displayName = "CellEditor";
 
@@ -49,7 +53,7 @@ const CellDisplay = memo(({ col, record, locale, onEdit, onSave }: { col: Column
     const s = record.whatsapp_state || "";
     return (
       <select value={s} onChange={(e) => onSave(e.target.value)}
-        className={`h-full w-full px-3 py-2 text-xs border-none outline-none bg-transparent cursor-pointer ${s === "send" ? "text-green-700 dark:text-green-300 font-medium" : s === "failed" ? "text-red-700 dark:text-red-300 font-medium" : "text-muted-foreground"}`}>
+        className={`h-full w-full px-0 py-0 text-xs border-none outline-none bg-transparent cursor-pointer ${s === "send" ? "text-green-700 dark:text-green-300 font-medium" : s === "failed" ? "text-red-700 dark:text-red-300 font-medium" : "text-muted-foreground"}`}>
         <option value="">{t("notSent")}</option>
         <option value="send">{t("sent")}</option>
         <option value="failed">{t("sendFailed")}</option>
@@ -59,12 +63,12 @@ const CellDisplay = memo(({ col, record, locale, onEdit, onSave }: { col: Column
   if (col.key === "last_contact_date") {
     const val = record.last_contact_date;
     const text = val ? new Date(val).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" }) : "";
-    return <span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate">{text || "\u00A0"}</span>;
+    return <span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate">{text || "\u00A0"}</span>;
   }
   const v = (record as Record<string, unknown>)[col.key];
   const dv = v == null || v === "" ? "" : String(v);
-  if (!dv) return <span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate min-h-[1.25rem]">&nbsp;</span>;
-  return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate">{dv}</span></TooltipTrigger><TooltipContent side="bottom" align="start" className="max-w-sm whitespace-pre-wrap break-words">{dv}</TooltipContent></Tooltip>;
+  if (!dv) return <span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate min-h-[1.25rem]">&nbsp;</span>;
+  return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate">{dv}</span></TooltipTrigger><TooltipContent side="bottom" align="start" className="max-w-sm whitespace-pre-wrap break-words">{dv}</TooltipContent></Tooltip>;
 });
 CellDisplay.displayName = "CellDisplay";
 
@@ -76,12 +80,13 @@ interface RowProps {
   onCellEdit: (recordId: string, key: string) => void;
   onCellSave: (recordId: string, key: string, value: string) => void;
   onEditCancel: () => void;
+  onContextMenu: (e: React.MouseEvent, info: CellInfo) => void;
 }
 
-const Row = function Row({ record, columns, locale, selectable, isSelected, editingKey, onToggle, onDelete, onCellEdit, onCellSave, onEditCancel }: RowProps) {
+const Row = function Row({ record, columns, locale, selectable, isSelected, editingKey, onToggle, onDelete, onCellEdit, onCellSave, onEditCancel, onContextMenu }: RowProps) {
   const t = useTranslations("UnconfirmedData");
   return (
-    <tr className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
+    <tr className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`} data-row-id={record.id}>
       {selectable && (
         <td className="border-b border-r px-2 py-2 align-middle">
           <input type="checkbox" checked={isSelected} onChange={() => onToggle(record.id)} className="h-4 w-4 cursor-pointer" />
@@ -90,7 +95,7 @@ const Row = function Row({ record, columns, locale, selectable, isSelected, edit
       {columns.map((col) => {
         const isEdit = editingKey === col.key;
         return (
-            <PresenceTd key={col.key} table="unconfirmed" rowId={record.id} colKey={col.key} className="overflow-hidden border-b border-r align-middle">
+            <PresenceTd key={col.key} table="unconfirmed" rowId={record.id} colKey={col.key} className="overflow-hidden border-b border-r align-middle" onContextMenu={onContextMenu}>
             {isEdit ? (
               <CellEditor defaultValue={col.key === "last_contact_date" ? (record.last_contact_date || "") : String((record as any)[col.key] ?? "")} type={col.type} onSave={(v) => onCellSave(record.id, col.key, v)} onCancel={onEditCancel} />
             ) : (
@@ -99,7 +104,7 @@ const Row = function Row({ record, columns, locale, selectable, isSelected, edit
             </PresenceTd>
         );
       })}
-      <td className="whitespace-nowrap border-b px-3 py-2 align-middle">
+      <td className="whitespace-nowrap border-b px-2 py-2 align-middle">
         <div className="flex items-center gap-0.5">
           <Tooltip><TooltipTrigger><Link href={`/unconfirmed-data/${record.id}`} className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted text-muted-foreground"><Eye className="h-3.5 w-3.5" /></Link></TooltipTrigger><TooltipContent>{t("viewDetails")}</TooltipContent></Tooltip>
           <Tooltip><TooltipTrigger><Link href={`/unconfirmed-data/${record.id}/edit`} className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted text-muted-foreground"><Pencil className="h-3.5 w-3.5" /></Link></TooltipTrigger><TooltipContent>{t("edit")}</TooltipContent></Tooltip>
@@ -115,10 +120,36 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   const { notifyCellEdit } = useRealtime();
   const [records, setRecords] = useState(serverRecords);
   const { containerRef, ctrlD } = useTableCellKeyboard(records);
+  useCellStyles("unconfirmed");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selTo, setSelTo] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [editing, setEditing] = useState<{ rid: string; key: string } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ info: CellInfo; pos: { x: number; y: number }; shortcut?: { scope: "row" | "column"; target: "color_bg" } } | null>(null);
+  const handleContextMenu = useCallback((e: React.MouseEvent, info: CellInfo) => {
+    e.preventDefault();
+    setCtxMenu({ info, pos: { x: e.clientX, y: e.clientY } });
+  }, []);
+
+  const hoverRef = useRef<{ x: number; y: number; rowId: string; colKey: string } | null>(null);
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      const td = target.closest("td[data-row-id]");
+      if (td) hoverRef.current = { x: e.clientX, y: e.clientY, rowId: td.getAttribute("data-row-id") || "", colKey: td.getAttribute("data-col-key") || "" };
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (!e.altKey || !hoverRef.current || ctxMenu) return;
+      const h = hoverRef.current;
+      if (e.key === "r" || e.key === "R") { e.preventDefault(); setCtxMenu({ info: { table: "unconfirmed", rowId: h.rowId, colKey: h.colKey, colLabel: h.colKey, rowData: null }, pos: { x: h.x, y: h.y }, shortcut: { scope: "row", target: "color_bg" } }); }
+      if (e.key === "c" || e.key === "C") { e.preventDefault(); setCtxMenu({ info: { table: "unconfirmed", rowId: h.rowId, colKey: h.colKey, colLabel: h.colKey, rowData: null }, pos: { x: h.x, y: h.y }, shortcut: { scope: "column", target: "color_bg" } }); }
+    }
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("keydown", onKeyDown);
+    return () => { document.removeEventListener("mousemove", onMouseMove); document.removeEventListener("keydown", onKeyDown); };
+  }, [ctxMenu]);
+
+  const [deleteOneDialog, setDeleteOneDialog] = useState<{ rid: string; name: string } | null>(null);
   const bgSaveRef = useRef<Set<string>>(new Set());
   const srvRef = useRef(serverRecords); srvRef.current = serverRecords;
 
@@ -160,8 +191,22 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   const tgl = useCallback((id: string) => setSelectedIds((p) => p.includes(id) ? p.filter((i) => i !== id) : [...p, id]), []);
   const tglAll = useCallback(() => { if (records.length > 0 && selectedIds.length === records.length) setSelectedIds([]); else setSelectedIds(records.map((r) => r.id)); }, [records, selectedIds.length]);
   const selN = useCallback(() => { const n = parseInt(selTo, 10); if (!isNaN(n) && n >= 1) setSelectedIds(records.slice(0, Math.min(n, records.length)).map((r) => r.id)); }, [records, selTo]);
-  const delBulk = useCallback(async () => { if (selectedIds.length === 0) return; setDeleting(true); const ids = [...selectedIds]; setSelectedIds([]); setRecords((p) => p.filter((r) => !ids.includes(r.id))); try { await deleteRecords(ids); } catch { setRecords(srvRef.current); } setDeleting(false); }, [selectedIds]);
-  const delOne = useCallback((id: string) => { setRecords((p) => p.filter((r) => r.id !== id)); setSelectedIds((p) => p.filter((i) => i !== id)); deleteRecords([id]).catch(() => setRecords(srvRef.current)); }, []);
+  const delBulk = useCallback(async () => { if (selectedIds.length === 0) return; if (!window.confirm(`Delete ${selectedIds.length} selected records?`)) return; setDeleting(true); const ids = [...selectedIds]; setSelectedIds([]); setRecords((p) => p.filter((r) => !ids.includes(r.id))); try { await deleteRecords(ids); toast.success(`${ids.length} deleted`); } catch { setRecords(srvRef.current); toast.error("Bulk delete failed"); } setDeleting(false); }, [selectedIds]);
+  const delOne = useCallback((id: string) => {
+    const rec = records.find(r => r.id === id);
+    setDeleteOneDialog({ rid: id, name: rec?.owner_name || id.slice(0, 8) });
+  }, [records]);
+
+  const confirmDeleteOne = useCallback(async () => {
+    if (!deleteOneDialog) return;
+    const id = deleteOneDialog.rid;
+    setDeleting(true);
+    setRecords((p) => p.filter((r) => r.id !== id));
+    setSelectedIds((p) => p.filter((i) => i !== id));
+    try { await deleteRecords([id]); toast.success("Deleted"); } catch { setRecords(srvRef.current); toast.error("Delete failed"); }
+    setDeleting(false);
+    setDeleteOneDialog(null);
+  }, [deleteOneDialog]);
   const cellEdit = useCallback((rid: string, key: string) => setEditing({ rid, key }), []);
   const cellSave = useCallback((rid: string, key: string, val: string) => { setEditing(null); setRecords((p) => p.map((r) => (r.id === rid ? { ...r, [key]: val } : r))); notifyCellEdit({ table: "unconfirmed_records", rowId: rid, field: key, action: "update" }); const tag = rid + key; if (!bgSaveRef.current.has(tag)) { bgSaveRef.current.add(tag); updateRecordField(rid, key, val).finally(() => bgSaveRef.current.delete(tag)); }   }, [notifyCellEdit]);
   const editCancel = useCallback(() => setEditing(null), []);
@@ -212,7 +257,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
             <tr className="bg-muted/40">
               {selectable && <th className="border-b border-r px-2 py-2"><input type="checkbox" checked={records.length > 0 && selectedIds.length === records.length} onChange={tglAll} className="h-4 w-4 cursor-pointer" /></th>}
               {columns.map((col) => (
-                <th key={col.key} className="relative select-none border-b border-r px-2 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
+                <th key={col.key} data-col-key={col.key} className="relative select-none border-b border-r px-2 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
                   <span>{col.label}</span>
                   <div draggable={false} className="absolute bottom-0 top-0 z-10 -right-px w-2 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 transition-colors"
                     onMouseDown={(e) => handleResizeMouseDown(e, col.key)}
@@ -228,12 +273,14 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
             {records.map((r) => (
               <Row key={r.id} record={r} columns={columns} locale={locale} selectable={!!selectable} isSelected={ss.has(r.id)}
                 editingKey={ed?.rid === r.id ? ed.key : null}
-                onToggle={tgl} onDelete={delOne} onCellEdit={cellEdit} onCellSave={cellSave} onEditCancel={editCancel}
+                onToggle={tgl} onDelete={delOne} onCellEdit={cellEdit} onCellSave={cellSave} onEditCancel={editCancel} onContextMenu={handleContextMenu}
               />
             ))}
           </tbody>
         </table>
       </div>
+      <TableCellContextMenu info={ctxMenu?.info ?? null} position={ctxMenu?.pos ?? null} shortcut={ctxMenu?.shortcut ?? null} onClose={() => setCtxMenu(null)} />
+      <ConfirmDialog open={!!deleteOneDialog} onOpenChange={(o) => { if (!o) setDeleteOneDialog(null); }} title="Confirm Delete" description={`Delete "${deleteOneDialog?.name}"? This cannot be undone.`} confirmLabel={deleting ? "Deleting..." : "Delete"} cancelLabel="Cancel" variant="destructive" loading={deleting} onConfirm={confirmDeleteOne} />
     </div>
   );
 }

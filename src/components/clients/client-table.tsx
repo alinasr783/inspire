@@ -5,14 +5,18 @@ import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
-import { Users } from "lucide-react";
+import { Users, Eye, Pencil, Trash2 } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { updateColumnOrder, renameColumnConfig, type ColumnConfig } from "@/lib/client-config-actions";
-import { updateClientField, quickCreateClient } from "@/lib/client-actions";
+import { updateClientField, quickCreateClient, deleteClient } from "@/lib/client-actions";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { PresenceTd } from "@/components/realtime/presence-td";
+import { TableCellContextMenu, type CellInfo } from "@/components/realtime/table-cell-context-menu";
 import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
+import { useCellStyles } from "@/hooks/use-cell-styles";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "sonner";
 
 type ClientRow = Record<string, unknown> & { id: string; custom_fields: Record<string, unknown> };
 
@@ -78,7 +82,7 @@ const CellEditor = memo(({ defaultValue, type, options, colKey, onSave, onCancel
     return (
       <>
         <input ref={ref} list={listId} type="text" defaultValue={defaultValue} onBlur={commit} onKeyDown={keyDown}
-          className="block h-full w-full border-none bg-transparent px-3 py-2 text-xs outline-none" />
+          className="block h-full w-full border-none bg-transparent px-0 py-0 text-xs outline-none" />
         <datalist id={listId}>
           {options.map((o) => <option key={o.value} value={o.value} />)}
         </datalist>
@@ -86,36 +90,36 @@ const CellEditor = memo(({ defaultValue, type, options, colKey, onSave, onCancel
     );
   }
 
-  return <input ref={ref} type={type === "date" ? "date" : type === "number" ? "number" : "text"} defaultValue={defaultValue} onBlur={commit} onKeyDown={keyDown} className="block h-full w-full border-none bg-transparent px-3 py-2 text-xs outline-none" />;
+  return <input ref={ref} type={type === "date" ? "date" : type === "number" ? "number" : "text"} defaultValue={defaultValue} onBlur={commit} onKeyDown={keyDown} className="block h-full w-full border-none bg-transparent px-0 py-0 text-xs outline-none" />;
 });
 CellEditor.displayName = "CellEditor";
 
 /* -- Cell Display -- */
 const CellDisplay = memo(({ col, raw, locale, onEdit }: { col: ColumnConfig; raw: string; locale: string; onEdit: () => void }) => {
-  if (!raw) return <span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate min-h-[1.25rem]">&nbsp;</span>;
+  if (!raw) return <span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate min-h-[1.25rem]">&nbsp;</span>;
 
   if (col.key === "payment_method") {
-    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate"><span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">{raw}</span></span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
+    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate"><span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">{raw}</span></span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
   }
   if (col.key === "unit_type") {
-    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate"><span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-200">{raw}</span></span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
+    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate"><span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-200">{raw}</span></span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
   }
   if (col.key === "source") {
-    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate"><span className="inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800 dark:bg-orange-900/40 dark:text-orange-200">{raw}</span></span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
+    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate"><span className="inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800 dark:bg-orange-900/40 dark:text-orange-200">{raw}</span></span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
   }
   if (col.key === "bedrooms") {
-    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate"><span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-800/40 dark:text-gray-200">{raw}</span></span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
+    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate"><span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-800/40 dark:text-gray-200">{raw}</span></span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
   }
   if (col.key === "budget_from" || col.key === "budget_to") {
     const n = Number(raw); const display = isNaN(n) ? raw : n.toLocaleString();
-    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate" dir="ltr">{display}</span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
+    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate" dir="ltr">{display}</span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
   }
   if (col.key === "last_contact_date") {
     let display = raw; const d = new Date(raw);
     if (!isNaN(d.getTime())) display = d.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" });
-    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate">{display}</span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
+    return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate">{display}</span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
   }
-  return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-3 py-2 block truncate">{raw}</span></TooltipTrigger><TooltipContent side="bottom" align="start" className="max-w-sm whitespace-pre-wrap break-words">{raw}</TooltipContent></Tooltip>;
+  return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate">{raw}</span></TooltipTrigger><TooltipContent side="bottom" align="start" className="max-w-sm whitespace-pre-wrap break-words">{raw}</TooltipContent></Tooltip>;
 });
 CellDisplay.displayName = "CellDisplay";
 
@@ -126,6 +130,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
 
   const { data: liveClients, setInitialData } = useRealtimeSync<ClientRow>("clients");
   useEffect(() => { setInitialData(clients); }, [clients, setInitialData]);
+  useCellStyles("clients");
   const clientsData = liveClients.length > 0 ? liveClients : clients;
 
   const enabledColumns = useMemo(() => columns.filter((c) => c.enabled), [columns]);
@@ -153,6 +158,41 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
   const [editValue, setEditValue] = useState("");
   const editRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState<{ cid: string; key: string } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ info: CellInfo; pos: { x: number; y: number }; shortcut?: { scope: "row" | "column"; target: "color_bg" } } | null>(null);
+  const handleContextMenu = useCallback((e: React.MouseEvent, info: CellInfo) => {
+    e.preventDefault();
+    setCtxMenu({ info, pos: { x: e.clientX, y: e.clientY } });
+  }, []);
+
+  const hoverRef = useRef<{ x: number; y: number; rowId: string; colKey: string } | null>(null);
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      const td = target.closest("td[data-row-id]");
+      if (td) hoverRef.current = { x: e.clientX, y: e.clientY, rowId: td.getAttribute("data-row-id") || "", colKey: td.getAttribute("data-col-key") || "" };
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (!e.altKey || !hoverRef.current || ctxMenu) return;
+      const h = hoverRef.current;
+      if (e.key === "r" || e.key === "R") { e.preventDefault(); setCtxMenu({ info: { table: "clients", rowId: h.rowId, colKey: h.colKey, colLabel: h.colKey, rowData: null }, pos: { x: h.x, y: h.y }, shortcut: { scope: "row", target: "color_bg" } }); }
+      if (e.key === "c" || e.key === "C") { e.preventDefault(); setCtxMenu({ info: { table: "clients", rowId: h.rowId, colKey: h.colKey, colLabel: h.colKey, rowData: null }, pos: { x: h.x, y: h.y }, shortcut: { scope: "column", target: "color_bg" } }); }
+    }
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("keydown", onKeyDown);
+    return () => { document.removeEventListener("mousemove", onMouseMove); document.removeEventListener("keydown", onKeyDown); };
+  }, [ctxMenu]);
+
+  const [deleteDialog, setDeleteDialog] = useState<{ cid: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteDialog) return;
+    const cid = deleteDialog.cid;
+    setDeleting(true);
+    try { await deleteClient(cid); setLocalClients((prev) => prev.filter((c) => c.id !== cid)); toast.success("Client deleted"); } catch { toast.error("Delete failed"); }
+    setDeleting(false);
+    setDeleteDialog(null);
+  }, [deleteDialog]);
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     const defaults: Record<string, number> = {};
@@ -271,7 +311,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
           <thead>
             <tr className="bg-muted/40">
               {localCols.map((col, idx) => (
-                <th key={col.id} onDragOver={(e) => handleDragOver(e, idx)} onDrop={handleDrop} onDoubleClick={() => handleDoubleClick(col)}
+                <th key={col.id} data-col-key={col.key} onDragOver={(e) => handleDragOver(e, idx)} onDrop={handleDrop} onDoubleClick={() => handleDoubleClick(col)}
                   className={`relative select-none border-b border-r px-1.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap ${dragIdx === idx ? "opacity-50" : ""}`}>
                   <div className="flex items-center gap-1 pr-3" draggable onDragStart={() => handleDragStart(idx)}><span className="flex-1">{getLabel(col)}</span></div>
                   <div draggable={false} className="absolute bottom-0 top-0 z-10 -right-px w-2 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 transition-colors" onMouseDown={(e) => handleResizeMouseDown(e, col.key)}
@@ -286,14 +326,14 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
               <tr><td colSpan={localCols.length + 1} className="px-3 py-12 text-center text-muted-foreground"><Users className="mx-auto mb-2 h-8 w-8 opacity-50" />{t("empty")}</td></tr>
             ) : (
               localClients.map((client) => (
-                <tr key={client.id} className="border-b last:border-0 hover:bg-muted/30">
+                <tr key={client.id} className="border-b last:border-0 hover:bg-muted/30" data-row-id={client.id as string}>
                   {localCols.map((col) => {
                     const key = col.key;
                     const isEdit = ed?.cid === client.id && ed?.key === key;
                     const raw = getCellRaw(col, client);
                     const editOptions = getEditOptions(col);
                     return (
-                      <PresenceTd key={col.id} table="clients" rowId={client.id as string} colKey={key} className="overflow-hidden border-b border-r align-middle">
+                      <PresenceTd key={col.id} table="clients" rowId={client.id as string} colKey={key} className="overflow-hidden border-b border-r align-middle" onContextMenu={handleContextMenu}>
                         {isEdit ? (
                           <CellEditor defaultValue={key === "assigned_employee" ? String(client[key] ?? "") : raw}
                             type={getEditType(col)} options={editOptions} colKey={key}
@@ -304,8 +344,12 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
                       </PresenceTd>
                     );
                   })}
-                  <td className="whitespace-nowrap px-3 py-2">
-                    <Link href={`/clients/${client.id}`}><Button variant="outline" size="sm">{t("clientDetails")}</Button></Link>
+                  <td className="whitespace-nowrap px-2 py-2">
+                    <div className="flex items-center gap-0.5">
+                      <Link href={`/clients/${client.id}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Eye className="h-4 w-4" /></Link>
+                      <Link href={`/clients/${client.id}/edit`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Pencil className="h-4 w-4" /></Link>
+                      <button className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-red-50 text-red-500 hover:text-red-600" onClick={() => { const c = clientsData.find(x => x.id === client.id); setDeleteDialog({ cid: client.id as string, name: (c as any)?.customer_name || (client.id as string).slice(0, 8) }); }}><Trash2 className="h-4 w-4" /></button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -313,6 +357,8 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
           </tbody>
         </table>
       </div>
+      <TableCellContextMenu info={ctxMenu?.info ?? null} position={ctxMenu?.pos ?? null} shortcut={ctxMenu?.shortcut ?? null} onClose={() => setCtxMenu(null)} />
+      <ConfirmDialog open={!!deleteDialog} onOpenChange={(o) => { if (!o) setDeleteDialog(null); }} title="Confirm Delete" description={`Delete "${deleteDialog?.name}"? This cannot be undone.`} confirmLabel={deleting ? "Deleting..." : "Delete"} cancelLabel="Cancel" variant="destructive" loading={deleting} onConfirm={confirmDelete} />
     </TooltipProvider>
   );
 }
