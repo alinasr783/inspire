@@ -8,17 +8,16 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type");
   const locale = request.nextUrl.pathname.split("/")[1] ?? "en";
 
-  const supabase = await createClient();
-
   if (!tokenHash || !type) {
     return NextResponse.redirect(
       new URL(`/${locale}/auth/login?error=invalid-link`, request.nextUrl.origin)
     );
   }
 
+  const supabase = await createClient();
   const { error } = await supabase.auth.verifyOtp({
     token_hash: tokenHash,
-    type: "magiclink",
+    type: type as "magiclink",
   });
 
   if (error) {

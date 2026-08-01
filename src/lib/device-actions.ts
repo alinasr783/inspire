@@ -55,10 +55,10 @@ export async function registerDevice(input: {
   return { success: true };
 }
 
-// ── Generate a fresh magic-link QR for device login ──
+// ── Generate a fresh magic-link token and encode it in a QR ──
 export async function createDeviceQr(
   locale: string
-): Promise<ActionResult & { qrDataUrl?: string; url?: string }> {
+): Promise<ActionResult & { qrDataUrl?: string }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -70,22 +70,22 @@ export async function createDeviceQr(
   const { data, error } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email: user.email,
-    options: {
-      redirectTo: `${await getOrigin()}/${locale}/auth/device/complete`,
-    },
   });
 
   if (error) return { success: false, error: "link-failed" };
 
-  const link = data.properties.action_link;
+  const hashedToken = data.properties.hashed_token;
+  const verificationType = data.properties.verification_type;
 
-  const qrDataUrl = await QRCode.toDataURL(link, {
+  const loginUrl = `${await getOrigin()}/${locale}/auth/device?token_hash=${encodeURIComponent(hashedToken)}&type=${encodeURIComponent(verificationType)}`;
+
+  const qrDataUrl = await QRCode.toDataURL(loginUrl, {
     width: 260,
     margin: 1,
     errorCorrectionLevel: "M",
   });
 
-  return { success: true, qrDataUrl, url: link };
+  return { success: true, qrDataUrl };
 }
 
 // ── Remove a device from the list (does not force-sign-out the session) ──

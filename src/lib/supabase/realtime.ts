@@ -1,7 +1,12 @@
-import { createClient } from "@/lib/supabase/client";
+import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+
+let _realtimeClient: ReturnType<typeof createSupabaseClient> | null = null;
 
 export function createRealtimeClient() {
-  return createClient();
+  if (!_realtimeClient) {
+    _realtimeClient = createSupabaseClient();
+  }
+  return _realtimeClient;
 }
 
 export type RealtimeEvent = "INSERT" | "UPDATE" | "DELETE" | "*";
