@@ -158,7 +158,7 @@ interface NavItem {
 
 function ColorGrid({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [hex, setHex] = useState(value || "#000000");
-  const visible = C.slice(0, 27);
+  const visible = C.slice(0, 18);
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-9 gap-1.5">
@@ -748,8 +748,9 @@ export function TableCellContextMenu({ info, position, onClose, shortcut }: { in
 
   const panelLeft = Math.min(position.x - 20, window.innerWidth - 340);
   const panelTop = (() => {
-    const h = 560;
-    let t = position.y - 10;
+    const isSeriousness = nav.length > 0 && nav[nav.length - 1] === "seriousness_highlight";
+    const h = isSeriousness ? 650 : 560;
+    let t = position.y - (isSeriousness ? 40 : 10);
     if (t + h > window.innerHeight - 20) t = Math.max(10, window.innerHeight - h - 20);
     return t;
   })();
