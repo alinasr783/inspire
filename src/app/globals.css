@@ -178,3 +178,33 @@
 .overflow-x-auto::-webkit-scrollbar-thumb:hover {
   background-color: var(--muted-foreground);
 }
+
+/* ── Stale contact highlight (clients table) ─── */
+tr[data-stale="true"] {
+  background-color: #1e293b !important;
+}
+
+tr[data-stale="true"] td {
+  color: #ffffff !important;
+}
+
+tr[data-stale="true"] td span {
+  color: #ffffff !important;
+  background-color: transparent !important;
+}
+
+tr[data-stale="true"] td input,
+tr[data-stale="true"] td select {
+  color: #ffffff !important;
+  background-color: transparent !important;
+  caret-color: #ffffff;
+}
+
+tr[data-stale="true"] td input::placeholder {
+  color: #94a3b8 !important;
+}
+
+tr[data-stale="true"] td input:hover,
+tr[data-stale="true"] td select:hover {
+  background-color: transparent !important;
+}

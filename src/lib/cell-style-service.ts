@@ -52,3 +52,13 @@ export async function deleteCellStyle(
     .eq("element_key", elementKey);
   if (error) throw error;
 }
+
+export async function deleteAllCellStyles(userId: string, tableName: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("cell_styles")
+    .delete()
+    .eq("user_id", userId)
+    .eq("table_name", tableName);
+  if (error) throw error;
+}

@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { X, Palette, Clock, Table, Columns2, Rows3, Grid3X3, ChevronRight, ArrowLeft, Type, PaintBucket, Braces, Box, Undo2, AlignLeft, AlignCenter, AlignRight, ArrowUp, Minus, ArrowDown, EyeOff, SlidersHorizontal } from "lucide-react";
 import { useRealtime } from "@/components/providers/realtime-provider";
-import { upsertCellStyle, deleteCellStyle } from "@/lib/cell-style-service";
+import { upsertCellStyle, deleteCellStyle, deleteAllCellStyles } from "@/lib/cell-style-service";
 
 export interface CellInfo {
   table: string;
@@ -58,6 +58,10 @@ function getTableColsFromDOM() {
 }
 
 function isCellEmpty(td: HTMLElement): boolean {
+  const input = td.querySelector("input") as HTMLInputElement | null;
+  if (input) return input.value.trim() === "";
+  const select = td.querySelector("select") as HTMLSelectElement | null;
+  if (select) return select.value.trim() === "";
   const text = (td.textContent || "").replace(/\s/g, "");
   return text === "" || text === "\u00A0";
 }
@@ -66,7 +70,7 @@ function ensureDisplayNoCSS() {
   if (!document.getElementById("inspire-display-no-css")) {
     const s = document.createElement("style");
     s.id = "inspire-display-no-css";
-    s.textContent = `.inspire-display-no td{background-color:#ef4444!important;color:#fff!important}`;
+    s.textContent = `.inspire-display-no td{background-color:#ef4444!important;color:#fff!important}.inspire-display-no td input,.inspire-display-no td select{background-color:transparent!important;color:#fff!important}`;
     document.head.appendChild(s);
   }
 }
@@ -132,6 +136,25 @@ export function applyElStyle(info: CellInfo, scope: "table" | "column" | "row" |
     else if (prop === "textAlign") h.style.textAlign = value;
     else if (prop === "verticalAlign") h.style.verticalAlign = value;
   });
+}
+
+const USER_STYLE_PROPS = ["color", "backgroundColor", "fontSize", "fontWeight", "border", "borderStyle", "borderColor", "borderWidth", "textAlign", "verticalAlign"] as const;
+
+function getTableEl(info: CellInfo): HTMLTableElement | null {
+  if (info.rowId) {
+    const tr = document.querySelector(`tr[data-row-id="${info.rowId}"]`);
+    if (tr) return tr.closest("table");
+  }
+  return document.querySelector("table");
+}
+
+function clearUserStyles(root: Element) {
+  root.querySelectorAll("tr, td, th").forEach((el) => {
+    const style = (el as HTMLElement).style;
+    for (const p of USER_STYLE_PROPS) (style as unknown as Record<string, string>)[p] = "";
+  });
+  const style = (root as HTMLElement).style;
+  for (const p of USER_STYLE_PROPS) (style as unknown as Record<string, string>)[p] = "";
 }
 
 function GlassBackdrop({ onClick, children }: { onClick?: () => void; children?: React.ReactNode }) {
@@ -222,7 +245,7 @@ export function TableCellContextMenu({ info, position, onClose, shortcut }: { in
   const [talign, setTalign] = useState("");
   const [valign, setValign] = useState("");
   const [activeDisplayNo, setActiveDisplayNo] = useState<Set<string>>(new Set());
-  const [showAllDno, setShowAllDno] = useState(false);
+  const [showAllDno, setShowAllDno] = useState(true);
   const [seriousnessThreshold, setSeriousnessThreshold] = useState(7);
   const [seriousnessBgColor, setSeriousnessBgColor] = useState("#fef3c7");
   const [seriousnessTxtColor, setSeriousnessTxtColor] = useState("#92400e");
@@ -247,7 +270,6 @@ export function TableCellContextMenu({ info, position, onClose, shortcut }: { in
       setNav([shortcut.scope, "style", shortcut.target]);
     } else {
       setNav([]);
-      setShowAllDno(false);
       columnOverride.current = null;
     }
     setTxtColor(""); setBgColor(""); setFs(13); setFw("400");
@@ -317,6 +339,26 @@ export function TableCellContextMenu({ info, position, onClose, shortcut }: { in
     }
   };
 
+  const handleResetDefaults = async () => {
+    if (styleScope.current === "table") {
+      const tableEl = getTableEl(info);
+      if (tableEl) clearUserStyles(tableEl);
+      document.querySelectorAll(".inspire-display-no").forEach((el) => el.classList.remove("inspire-display-no"));
+      document.querySelectorAll(".inspire-seriousness-highlight").forEach((el) => el.classList.remove("inspire-seriousness-highlight"));
+      document.getElementById("inspire-display-no-css")?.remove();
+      document.getElementById("inspire-seriousness-css")?.remove();
+      setActiveDisplayNo(new Set());
+      setTxtColor(""); setBgColor(""); setFs(13); setFw("400"); setBorderVal(""); setBs("solid"); setBc("#e2e8f0"); setBw(1); setTalign(""); setValign("");
+      if (currentUser?.id) {
+        try { await deleteAllCellStyles(currentUser.id, info.table); } catch (e) { console.error("Failed to reset table styles:", e); }
+      }
+      window.dispatchEvent(new CustomEvent("inspire:table-reset", { detail: { table: info.table } }));
+    } else {
+      apply("reset", "");
+    }
+    pop();
+  };
+
   const mainItems: NavItem[] = [
     { key: "table", icon: Table, label: "Table", desc: "Global table settings", color: "text-blue-500 bg-blue-50 dark:bg-blue-950" },
     { key: "column", icon: Columns2, label: "Column", desc: colLabel(), color: "text-purple-500 bg-purple-50 dark:bg-purple-950" },
@@ -383,7 +425,7 @@ export function TableCellContextMenu({ info, position, onClose, shortcut }: { in
             </button>
           ))}
           <div className="pt-2 space-y-1">
-            <button onClick={() => { apply("reset", ""); pop(); }} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all">
+            <button onClick={() => { handleResetDefaults(); }} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all">
               <Undo2 className="h-4 w-4" />Reset to Defaults
             </button>
           </div>
@@ -718,17 +760,19 @@ export function TableCellContextMenu({ info, position, onClose, shortcut }: { in
               </div>
               <ChevronRight className="h-4 w-4 text-zinc-300" />
             </button>
-            <button onClick={() => push("seriousness_highlight")}
-              className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-xs transition-all duration-150 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 active:scale-[0.98]">
-              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-green-100 dark:bg-green-950 text-green-500">
-                <SlidersHorizontal className="h-4 w-4" />
-              </div>
-              <div className="flex-1 text-start">
-                <p className="font-medium text-zinc-900 dark:text-zinc-100">Seriousness Highlight</p>
-                <p className="text-[10px] text-zinc-400">Highlight by rating</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-zinc-300" />
-            </button>
+            {current === "table" && info.table === "clients" && (
+              <button onClick={() => push("seriousness_highlight")}
+                className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-xs transition-all duration-150 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 active:scale-[0.98]">
+                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-green-100 dark:bg-green-950 text-green-500">
+                  <SlidersHorizontal className="h-4 w-4" />
+                </div>
+                <div className="flex-1 text-start">
+                  <p className="font-medium text-zinc-900 dark:text-zinc-100">Seriousness Highlight</p>
+                  <p className="text-[10px] text-zinc-400">Highlight by rating</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-zinc-300" />
+              </button>
+            )}
             <button onClick={() => push("columns_settings")}
               className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-xs transition-all duration-150 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 active:scale-[0.98]">
               <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-500">

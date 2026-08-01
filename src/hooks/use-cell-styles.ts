@@ -24,6 +24,7 @@ export function useCellStyles(tableName: string) {
           if (s.element_type === "column") colKey = s.element_key;
           if (s.element_type === "table") { rowId = ""; colKey = ""; }
           if (s.element_type === "conditional" && s.element_key === "seriousness_highlight") {
+            if (tableName !== "clients") continue;
             const threshold = s.font_size || 7;
             const bg = s.background_color || "#fef3c7";
             const txt = s.text_color || "#92400e";

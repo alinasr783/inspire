@@ -108,7 +108,10 @@ export default async function PropertiesPage({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">{t("allProperties")}</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base">
+            {t("allProperties")}
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">{unitsData.length}</span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <PropertiesClient

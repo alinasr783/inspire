@@ -20,6 +20,16 @@ import { toast } from "sonner";
 
 type ClientRow = Record<string, unknown> & { id: string; custom_fields: Record<string, unknown> };
 
+const STALE_DAYS = 7;
+
+function isStaleContact(client: ClientRow): boolean {
+  const raw = client.last_contact_date;
+  if (!raw) return false;
+  const date = new Date(String(raw));
+  if (isNaN(date.getTime())) return false;
+  return Date.now() - date.getTime() > STALE_DAYS * 24 * 60 * 60 * 1000;
+}
+
 const COL_WIDTHS: Record<string, number> = {
   customer_name: 160, phone: 140, phone_alt: 140, budget_from: 130, budget_to: 130,
   payment_method: 120, preferred_area: 140, unit_type: 120, bedrooms: 100,
@@ -233,6 +243,19 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
     });
   }, [enabledColumns]);
 
+  useEffect(() => {
+    function onTableReset(e: Event) {
+      const detail = (e as CustomEvent<{ table: string }>).detail;
+      if (!detail || detail.table !== "clients") return;
+      if (IS_BROWSER) localStorage.removeItem(`inspire_cw_clients_${userId}`);
+      const defaults: Record<string, number> = {};
+      for (const col of enabledColumns) defaults[col.key] = COL_WIDTHS[col.key] ?? DEFAULT_WIDTH;
+      setColWidths(defaults);
+    }
+    window.addEventListener("inspire:table-reset", onTableReset);
+    return () => window.removeEventListener("inspire:table-reset", onTableReset);
+  }, [enabledColumns, userId]);
+
   const handleResizeMouseDown = (e: React.MouseEvent, colKey: string) => {
     e.preventDefault(); e.stopPropagation();
     const startX = e.clientX; const startWidth = colWidthsRef.current[colKey] ?? DEFAULT_WIDTH;
@@ -351,8 +374,8 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
               <tr><td colSpan={localCols.length + 2} className="px-3 py-12 text-center text-muted-foreground"><Users className="mx-auto mb-2 h-8 w-8 opacity-50" />{t("empty")}</td></tr>
             ) : (
               localClients.map((client, index) => (
-                <tr key={client.id}                   className="border-b last:border-0 hover:bg-muted/30" data-row-id={client.id as string} data-seriousness={String(client.seriousness_rating ?? "")}>
-                  <td className="px-2 py-2 text-center text-xs text-muted-foreground tabular-nums">{index + 1}</td>
+                <tr key={client.id}                   className={`border-b last:border-0 hover:bg-muted/30 ${isStaleContact(client) ? "inspire-stale-contact" : ""}`} data-row-id={client.id as string} data-seriousness={String(client.seriousness_rating ?? "")} data-stale={isStaleContact(client) ? "true" : undefined}>
+                  <td className="border-b border-r px-2 py-2 text-center text-xs tabular-nums text-muted-foreground">{index + 1}</td>
                   {localCols.map((col) => {
                     const key = col.key;
                     const isEdit = ed?.cid === client.id && ed?.key === key;

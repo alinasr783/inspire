@@ -162,6 +162,18 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
 
   useEffect(() => { setRecords(serverRecords); }, [serverRecords]);
 
+  useEffect(() => {
+    function onTableReset(e: Event) {
+      const detail = (e as CustomEvent<{ table: string }>).detail;
+      if (!detail || detail.table !== "unconfirmed") return;
+      const defaults: Record<string, number> = {};
+      for (const col of columns) defaults[col.key] = COL_WIDTHS[col.key] ?? DEFAULT_WIDTH;
+      setColWidths(defaults);
+    }
+    window.addEventListener("inspire:table-reset", onTableReset);
+    return () => window.removeEventListener("inspire:table-reset", onTableReset);
+  }, [columns]);
+
   const handleResizeMouseDown = (e: React.MouseEvent, colKey: string) => {
     e.preventDefault();
     e.stopPropagation();
