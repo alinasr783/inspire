@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useTransition } from "react";
+import { useState, useEffect, useCallback, useMemo, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,6 @@ function userName(u: UserProfile) {
 
 export function UsersTable() {
   const t = useTranslations("Admin");
-  const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
@@ -59,38 +58,41 @@ export function UsersTable() {
   const { data: liveProfiles, setInitialData } = useRealtimeSync<UserProfile>("profiles");
 
   const fetchUsers = useCallback(async () => {
-    const data = await getUsers({
-      status: filter === "all" ? undefined : filter,
-      search: search || undefined,
-    });
-    setUsers(data);
+    const data = await getUsers({});
+    setInitialData(data);
     setLoading(false);
-  }, [filter, search]);
+  }, [setInitialData]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    let cancelled = false;
+    getUsers({}).then((data) => {
+      if (cancelled) return;
+      setInitialData(data);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [setInitialData]);
 
-  useEffect(() => {
-    setInitialData(users);
-  }, [users, setInitialData]);
-
-  useEffect(() => {
-    if (liveProfiles.length > 0) {
-      const filtered = liveProfiles.filter((u) => {
-        if (filter !== "all" && u.approval_status !== filter) return false;
-        if (search) {
-          const s = search.toLowerCase();
-          const name = userName(u).toLowerCase();
-          return name.includes(s) || u.email.toLowerCase().includes(s);
-        }
-        return true;
-      });
-      setUsers(filtered.sort((a, b) => {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      }));
-    }
-  }, [liveProfiles, filter, search]);
+  const users = useMemo(
+    () =>
+      liveProfiles
+        .filter((u) => {
+          if (filter !== "all" && u.approval_status !== filter) return false;
+          if (search) {
+            const s = search.toLowerCase();
+            const name = userName(u).toLowerCase();
+            return name.includes(s) || u.email.toLowerCase().includes(s);
+          }
+          return true;
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        ),
+    [liveProfiles, filter, search]
+  );
 
   const counts = {
     all: users.length,

@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Copy } from "lucide-react";
 
-export function CopyButton({ value }: { value: string }) {
-  const t = useTranslations("Clients");
+export function CopyButton({ value, ns = "Clients" }: { value: string; ns?: string }) {
+  const t = useTranslations(ns);
   const [copied, setCopied] = useState(false);
 
   if (!value) return null;

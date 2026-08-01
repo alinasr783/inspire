@@ -2,6 +2,7 @@
 
 import { RealtimeProvider, useRealtime } from "@/components/providers/realtime-provider";
 import { CursorsOverlay } from "@/components/realtime/cursors-overlay";
+import { DeviceTracker } from "@/components/devices/device-tracker";
 
 type ConnectionState = "connected" | "connecting" | "disconnected";
 
@@ -36,6 +37,7 @@ export function DashboardClientShell({
   return (
     <RealtimeProvider user={user}>
       <RealtimeShell>{children}</RealtimeShell>
+      <DeviceTracker />
     </RealtimeProvider>
   );
 }

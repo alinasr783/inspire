@@ -12,6 +12,7 @@
     "tasks": "Tasks",
     "reports": "Reports",
     "settings": "Settings",
+    "devices": "Connected Devices",
     "users": "Users"
   },
   "Common": {
@@ -87,6 +88,8 @@
       "email-send-failed": "Failed to send confirmation email. The mail system may be unavailable. Contact the site admin or try again later.",
       "signup-failed": "Could not create the account, please try again later.",
       "default": "An unexpected error occurred, please try again.",
+      "loginLinkInvalid": "This sign-in link is invalid. Please scan a new QR code from the Connected Devices page.",
+      "loginLinkExpired": "This sign-in link has expired or was already used. Please scan a new QR code from the Connected Devices page.",
       "firstNameRequired": "First name is required",
       "secondNameRequired": "Second name is required",
       "emailRequired": "Email is required",
@@ -180,6 +183,22 @@
     "addNewOption": "Add \"{value}\"",
     "createdAt": "Created At",
     "updatedAt": "Updated At",
+    "whatsapp": "WhatsApp",
+    "telegram": "Telegram",
+    "call": "Call",
+    "listedSince": "Listed since",
+    "assignedEmployee": "Assigned Employee",
+    "propertyInformation": "Property Information",
+    "customFields": "Custom Fields",
+    "assignment": "Assignment",
+    "activity": "Activity",
+    "healthy": "Healthy",
+    "needsAttention": "Needs Attention",
+    "stale": "Stale",
+    "notContacted": "Not Contacted",
+    "deleting": "Deleting...",
+    "copy": "Copy",
+    "copied": "Copied",
     "notFound": "Property not found",
     "showMore": "Show More",
     "errors": {
@@ -451,5 +470,19 @@
     "viewUsers": "View users",
     "noSearchResults": "No results found",
     "loading": "Loading..."
+  },
+  "Devices": {
+    "title": "Connected Devices",
+    "subtitle": "Devices that have accessed your account, and a QR code to sign in on a new device without a password.",
+    "qrTitle": "Scan to sign in on another device",
+    "qrHint": "Open your phone's camera, scan the code, and you'll be signed in automatically. Each code works once, so generate a new one if needed.",
+    "regenerate": "Generate new code",
+    "qrError": "Could not generate the sign-in code. Please try again.",
+    "listTitle": "Devices",
+    "empty": "No devices connected yet. Devices appear here the first time your account is opened on a new browser.",
+    "thisDevice": "This device",
+    "lastSeen": "Active {time}",
+    "remove": "Remove device",
+    "removeFailed": "Could not remove this device. Please try again."
   }
 }
