@@ -22,5 +22,6 @@ insert into public.client_column_config (key, label_ar, label_en, type, sort_ord
   ('last_contact_date', 'تاريخ آخر تواصل', 'Last Contact', 'date', 11, true, true),
   ('additional_notes', 'ملاحظات إضافية', 'Additional Notes', 'textarea', 12, true, true),
   ('assigned_employee', 'الموظف المسؤول', 'Assigned Employee', 'text', 13, true, true),
-  ('created_by', 'تمت الإضافة بواسطة', 'Created By', 'text', 14, true, true)
+  ('created_by', 'تمت الإضافة بواسطة', 'Created By', 'text', 14, true, true),
+  ('seriousness_rating', 'تقييم الجدية', 'Seriousness Rating', 'number', 15, true, true)
 on conflict (key) do nothing;

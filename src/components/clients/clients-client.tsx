@@ -55,24 +55,30 @@ export function ClientsClient({
   const [budgetTo, setBudgetTo] = useState("");
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
+  const [seriousnessOpen, setSeriousnessOpen] = useState(false);
   const [lastContactFrom, setLastContactFrom] = useState("");
   const [lastContactTo, setLastContactTo] = useState("");
+  const [seriousnessMin, setSeriousnessMin] = useState("");
+  const [seriousnessMax, setSeriousnessMax] = useState("");
   const [customFilters, setCustomFilters] = useState<Record<string, string>>({});
   const [showCount, setShowCount] = useState(50);
 
   const dateRef = useRef<HTMLDivElement>(null);
   const budgetRef = useRef<HTMLDivElement>(null);
+  const seriousnessRef = useRef<HTMLDivElement>(null);
 
   const dateActive = !!(lastContactFrom || lastContactTo);
   const budgetActive = !!(budgetFrom || budgetTo);
+  const seriousnessActive = !!(seriousnessMin || seriousnessMax);
 
   useEffect(() => {
     function clickOut(e: MouseEvent) {
       if (dateRef.current && !dateRef.current.contains(e.target as Node)) setDateOpen(false);
       if (budgetRef.current && !budgetRef.current.contains(e.target as Node)) setBudgetOpen(false);
+      if (seriousnessRef.current && !seriousnessRef.current.contains(e.target as Node)) setSeriousnessOpen(false);
     }
-    if (dateOpen || budgetOpen) { document.addEventListener("mousedown", clickOut); return () => document.removeEventListener("mousedown", clickOut); }
-  }, [dateOpen, budgetOpen]);
+    if (dateOpen || budgetOpen || seriousnessOpen) { document.addEventListener("mousedown", clickOut); return () => document.removeEventListener("mousedown", clickOut); }
+  }, [dateOpen, budgetOpen, seriousnessOpen]);
 
   const selectCustom = customColumns.filter((c) => c.enabled && c.type === "select");
 
@@ -97,6 +103,8 @@ export function ClientsClient({
     if (budgetTo) { const m = Number(budgetTo); if (!isNaN(m)) result = result.filter((c) => (Number(c.budget_from) || 0) <= m); }
     if (lastContactFrom) { const f = toDateOnly(lastContactFrom); if (f) result = result.filter((c) => c.last_contact_date ? toDateOnly(String(c.last_contact_date)) >= f : false); }
     if (lastContactTo) { const t = toDateOnly(lastContactTo); if (t) result = result.filter((c) => c.last_contact_date ? toDateOnly(String(c.last_contact_date)) <= t : false); }
+    if (seriousnessMin) { const m = Number(seriousnessMin); if (!isNaN(m)) result = result.filter((c) => (Number(c.seriousness_rating) || 0) >= m); }
+    if (seriousnessMax) { const m = Number(seriousnessMax); if (!isNaN(m)) result = result.filter((c) => (Number(c.seriousness_rating) || 0) <= m); }
     for (const col of selectCustom) {
       const v = customFilters[col.key];
       if (v && v !== "all") { const term = v.toLowerCase(); result = result.filter((c) => { const cv = (c.custom_fields as Record<string, unknown>)?.[col.key]; return cv ? String(cv).toLowerCase().includes(term) : false; }); }
@@ -110,10 +118,11 @@ export function ClientsClient({
     setSearch(""); setPaymentMethod("all"); setUnitType("all"); setSource("all"); setArea("all");
     setDeveloper("all"); setBedrooms("all"); setAssigned("all"); setCreatedBy("all");
     setBudgetFrom(""); setBudgetTo(""); setLastContactFrom(""); setLastContactTo("");
+    setSeriousnessMin(""); setSeriousnessMax("");
     setCustomFilters({}); setShowCount(50);
   };
 
-  const hasActive = !!(search || paymentMethod !== "all" || unitType !== "all" || source !== "all" || area !== "all" || developer !== "all" || bedrooms !== "all" || assigned !== "all" || createdBy !== "all" || budgetFrom || budgetTo || lastContactFrom || lastContactTo || Object.values(customFilters).some((v) => v && v !== "all"));
+  const hasActive = !!(search || paymentMethod !== "all" || unitType !== "all" || source !== "all" || area !== "all" || developer !== "all" || bedrooms !== "all" || assigned !== "all" || createdBy !== "all" || budgetFrom || budgetTo || lastContactFrom || lastContactTo || seriousnessMin || seriousnessMax || Object.values(customFilters).some((v) => v && v !== "all"));
 
   return (
     <>
@@ -184,6 +193,23 @@ export function ClientsClient({
                   </div>
                 </div>
               </>
+            )}
+          </div>
+
+          <div className="relative" ref={seriousnessRef}>
+            <button type="button" onClick={() => setSeriousnessOpen((p) => !p)}
+              className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${seriousnessActive ? "border-primary/50 bg-primary/10 text-primary" : "border-input bg-background text-foreground hover:bg-muted/50"}`}>
+              <SlidersHorizontal className="h-3.5 w-3.5" />{t("seriousnessFilter")}
+            </button>
+            {seriousnessOpen && (
+              <div className="absolute start-0 top-full z-50 mt-1 rounded-md border bg-background p-3 shadow-lg">
+                <p className="mb-2 text-xs font-semibold">{t("seriousnessFilter")}</p>
+                <div className="flex items-center gap-1">
+                  <Input type="number" min="1" max="10" placeholder="1" value={seriousnessMin} onChange={(e) => { setSeriousnessMin(e.target.value); setShowCount(50); }} className="h-8 w-20 text-xs" />
+                  <span className="text-xs text-muted-foreground">-</span>
+                  <Input type="number" min="1" max="10" placeholder="10" value={seriousnessMax} onChange={(e) => { setSeriousnessMax(e.target.value); setShowCount(50); }} className="h-8 w-20 text-xs" />
+                </div>
+              </div>
             )}
           </div>
 

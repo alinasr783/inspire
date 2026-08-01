@@ -4,7 +4,7 @@ export interface CellStyle {
   id?: string;
   user_id: string;
   table_name: string;
-  element_type: "table" | "column" | "row" | "cell";
+  element_type: "table" | "column" | "row" | "cell" | "conditional";
   element_key: string;
   text_color?: string | null;
   background_color?: string | null;

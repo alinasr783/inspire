@@ -32,6 +32,7 @@ const baseSchema = z.object({
   additional_notes: z.string().trim().optional().default(""),
   last_contact_date: z.string().trim().optional().default(""),
   assigned_employee: z.string().trim().optional().default(""),
+  seriousness_rating: z.coerce.number().int().min(1).max(10),
 });
 
 type FormValues = z.output<typeof baseSchema>;
@@ -100,6 +101,7 @@ export function ClientForm({ mode, defaultValues, clientId, customColumns, assig
       additional_notes: "",
       last_contact_date: "",
       assigned_employee: assignedEmployeeValue || "",
+      seriousness_rating: 5,
       ...defaultValues,
     },
   });
@@ -208,6 +210,34 @@ export function ClientForm({ mode, defaultValues, clientId, customColumns, assig
         {renderDynamicSelect(t("bedrooms"), "bedrooms", "bedrooms")}
         {renderDynamicSelect(t("preferredDeveloper"), "preferred_developer", "preferred_developer")}
         {renderDynamicSelect(t("source"), "source", "source")}
+
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="seriousness_rating">{t("seriousnessRating")} *</Label>
+          <div className="flex items-center gap-1 flex-wrap">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => {
+              const selected = Number(watch("seriousness_rating")) === val;
+              const colorClass =
+                val <= 3 ? "bg-red-100 text-red-700 border-red-300 hover:bg-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800"
+                : val <= 5 ? "bg-orange-100 text-orange-700 border-orange-300 hover:bg-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800"
+                : val <= 7 ? "bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800"
+                : "bg-green-100 text-green-700 border-green-300 hover:bg-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800";
+              const selectedClass = "ring-2 ring-primary scale-110 font-bold";
+              return (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setValue("seriousness_rating", val, { shouldValidate: true })}
+                  className={`h-9 w-9 rounded-lg border transition-all duration-150 text-sm font-medium ${colorClass} ${selected ? selectedClass : ""}`}
+                >
+                  {val}
+                </button>
+              );
+            })}
+          </div>
+          {errors.seriousness_rating && (
+            <p className="text-sm text-destructive">{t("errors.createFailed")}</p>
+          )}
+        </div>
 
         <div className="space-y-2">
           <Label htmlFor="last_contact_date">{t("lastContactDate")}</Label>

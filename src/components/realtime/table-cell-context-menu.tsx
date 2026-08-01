@@ -35,7 +35,7 @@ const FW = [
   { w: "900", label: "Black" },
 ];
 
-type NavStack = "main" | "table" | "column" | "row" | "cell" | "style" | "color_text" | "color_bg" | "font_size" | "font_weight" | "border" | "alignment" | "display_no" | "columns_settings";
+type NavStack = "main" | "table" | "column" | "row" | "cell" | "style" | "color_text" | "color_bg" | "font_size" | "font_weight" | "border" | "alignment" | "display_no" | "columns_settings" | "seriousness_highlight";
 
 const BORDER_STYLES = [
   { key: "none", label: "None", css: "none" },
@@ -69,6 +69,29 @@ function ensureDisplayNoCSS() {
     s.textContent = `.inspire-display-no td{background-color:#ef4444!important;color:#fff!important}`;
     document.head.appendChild(s);
   }
+}
+
+export function ensureSeriousnessHighlightCSS(bg: string, txt: string) {
+  const id = "inspire-seriousness-css";
+  const existing = document.getElementById(id);
+  if (existing) existing.remove();
+  if (!bg && !txt) return;
+  const s = document.createElement("style");
+  s.id = id;
+  s.textContent = `.inspire-seriousness-highlight td{${bg ? `background-color:${bg}!important;` : ""}${txt ? `color:${txt}!important;` : ""}}`;
+  document.head.appendChild(s);
+}
+
+function refreshSeriousnessHighlight(threshold: number, bg: string, txt: string) {
+  document.querySelectorAll(".inspire-seriousness-highlight").forEach((el) => el.classList.remove("inspire-seriousness-highlight"));
+  ensureSeriousnessHighlightCSS(bg, txt);
+  if (!threshold) return;
+  document.querySelectorAll("tr[data-seriousness]").forEach((el) => {
+    const val = Number((el as HTMLElement).getAttribute("data-seriousness") || "0");
+    if (!isNaN(val) && val >= threshold) {
+      el.classList.add("inspire-seriousness-highlight");
+    }
+  });
 }
 
 function refreshDisplayNoHighlights(activeCols: Set<string>) {
@@ -200,6 +223,9 @@ export function TableCellContextMenu({ info, position, onClose, shortcut }: { in
   const [valign, setValign] = useState("");
   const [activeDisplayNo, setActiveDisplayNo] = useState<Set<string>>(new Set());
   const [showAllDno, setShowAllDno] = useState(false);
+  const [seriousnessThreshold, setSeriousnessThreshold] = useState(7);
+  const [seriousnessBgColor, setSeriousnessBgColor] = useState("#fef3c7");
+  const [seriousnessTxtColor, setSeriousnessTxtColor] = useState("#92400e");
   const columnOverride = useRef<{ key: string; label: string } | null>(null);
 
   useEffect(() => {
@@ -549,6 +575,77 @@ export function TableCellContextMenu({ info, position, onClose, shortcut }: { in
       );
     }
 
+    if (current === "seriousness_highlight") {
+      return (
+        <div className="w-80 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <button onClick={pop} className="rounded-full p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><ArrowLeft className="h-4 w-4" /></button>
+            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Seriousness Highlight</span>
+            <button onClick={onClose} className="rounded-full p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><X className="h-3.5 w-3.5 text-zinc-400" /></button>
+          </div>
+          <p className="text-[11px] text-zinc-500 mb-4 ml-1">Highlight rows where seriousness is above threshold</p>
+
+          <div className="space-y-4">
+            <div>
+              <p className="text-[11px] font-medium text-zinc-500 mb-2 ml-1">Threshold (≥)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => (
+                  <button key={val} onClick={() => setSeriousnessThreshold(val)}
+                    className={`h-8 w-8 rounded-lg text-xs font-medium transition-all duration-150 hover:scale-105 active:scale-95
+                      ${seriousnessThreshold === val ? "bg-primary text-primary-foreground shadow-md" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300"}`}>
+                    {val}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-medium text-zinc-500 mb-2 ml-1">Background Color</p>
+              <ColorGrid value={seriousnessBgColor} onChange={setSeriousnessBgColor} />
+            </div>
+
+            <div>
+              <p className="text-[11px] font-medium text-zinc-500 mb-2 ml-1">Text Color</p>
+              <ColorGrid value={seriousnessTxtColor} onChange={setSeriousnessTxtColor} />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => {
+                refreshSeriousnessHighlight(seriousnessThreshold, seriousnessBgColor, seriousnessTxtColor);
+                if (currentUser?.id) {
+                  upsertCellStyle({
+                    user_id: currentUser.id,
+                    table_name: info.table,
+                    element_type: "conditional",
+                    element_key: "seriousness_highlight",
+                    background_color: seriousnessBgColor || null,
+                    text_color: seriousnessTxtColor || null,
+                    font_size: seriousnessThreshold,
+                  }).catch(console.error);
+                }
+                onClose();
+              }}
+                className="flex-1 h-10 rounded-2xl text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-all active:scale-[0.98]">
+                Apply
+              </button>
+              <button onClick={() => {
+                document.querySelectorAll(".inspire-seriousness-highlight").forEach((el) => el.classList.remove("inspire-seriousness-highlight"));
+                const el = document.getElementById("inspire-seriousness-css");
+                if (el) el.remove();
+                if (currentUser?.id) {
+                  deleteCellStyle(currentUser.id, info.table, "conditional", "seriousness_highlight").catch(console.error);
+                }
+                onClose();
+              }}
+                className="h-10 rounded-2xl px-4 text-sm font-medium bg-red-50 dark:bg-red-950/30 text-red-500 hover:bg-red-100 dark:hover:bg-red-950/50 transition-all active:scale-[0.98]">
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     if (current === "columns_settings") {
       const tableCols = getTableColsFromDOM();
       return (
@@ -618,6 +715,17 @@ export function TableCellContextMenu({ info, position, onClose, shortcut }: { in
               <div className="flex-1 text-start">
                 <p className="font-medium text-zinc-900 dark:text-zinc-100">Display with no</p>
                 <p className="text-[10px] text-zinc-400">Highlight empty values</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-zinc-300" />
+            </button>
+            <button onClick={() => push("seriousness_highlight")}
+              className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-xs transition-all duration-150 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 active:scale-[0.98]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-green-100 dark:bg-green-950 text-green-500">
+                <SlidersHorizontal className="h-4 w-4" />
+              </div>
+              <div className="flex-1 text-start">
+                <p className="font-medium text-zinc-900 dark:text-zinc-100">Seriousness Highlight</p>
+                <p className="text-[10px] text-zinc-400">Highlight by rating</p>
               </div>
               <ChevronRight className="h-4 w-4 text-zinc-300" />
             </button>

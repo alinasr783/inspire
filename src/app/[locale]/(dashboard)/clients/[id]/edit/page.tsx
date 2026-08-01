@@ -76,6 +76,7 @@ export default async function EditClientPage({
               additional_notes: clientData.additional_notes ?? "",
               last_contact_date: clientData.last_contact_date ?? "",
               assigned_employee: clientData.assigned_employee ?? "",
+              seriousness_rating: clientData.seriousness_rating ?? 5,
             }}
           />
         </CardContent>

@@ -24,7 +24,7 @@ const COL_WIDTHS: Record<string, number> = {
   customer_name: 160, phone: 140, phone_alt: 140, budget_from: 130, budget_to: 130,
   payment_method: 120, preferred_area: 140, unit_type: 120, bedrooms: 100,
   preferred_developer: 150, source: 130, additional_notes: 180, last_contact_date: 130,
-  assigned_employee: 150, created_by: 140,
+  assigned_employee: 150, created_by: 140, seriousness_rating: 120,
 };
 const DEFAULT_WIDTH = 150;
 const MIN_WIDTH = 50;
@@ -118,6 +118,28 @@ const CellDisplay = memo(({ col, raw, locale, onEdit }: { col: ColumnConfig; raw
     let display = raw; const d = new Date(raw);
     if (!isNaN(d.getTime())) display = d.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" });
     return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate">{display}</span></TooltipTrigger><TooltipContent side="bottom" align="start">{raw}</TooltipContent></Tooltip>;
+  }
+  if (col.key === "seriousness_rating") {
+    const n = Number(raw);
+    const colorClass = isNaN(n) ? "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+      : n <= 3 ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+      : n <= 5 ? "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300"
+      : n <= 7 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300"
+      : "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300";
+    const filled = isNaN(n) ? 0 : Math.min(10, Math.max(0, Math.round(n)));
+    const stars = "★".repeat(filled) + "☆".repeat(10 - filled);
+    return (
+      <Tooltip>
+        <TooltipTrigger>
+          <span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block">
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${colorClass}`}>
+              <span className="text-[11px] leading-none">{stars}</span>
+            </span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" align="start">{raw}/10</TooltipContent>
+      </Tooltip>
+    );
   }
   return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate">{raw}</span></TooltipTrigger><TooltipContent side="bottom" align="start" className="max-w-sm whitespace-pre-wrap break-words">{raw}</TooltipContent></Tooltip>;
 });
@@ -240,6 +262,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
   const clientsBuiltin = useRef(new Set([
     "customer_name","phone","phone_alt","budget_from","budget_to","payment_method","preferred_area",
     "unit_type","bedrooms","preferred_developer","source","additional_notes","last_contact_date","assigned_employee",
+    "seriousness_rating",
   ]));
 
   const cellEdit = useCallback((cid: string, key: string) => setEditing({ cid, key }), []);
@@ -326,7 +349,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
               <tr><td colSpan={localCols.length + 1} className="px-3 py-12 text-center text-muted-foreground"><Users className="mx-auto mb-2 h-8 w-8 opacity-50" />{t("empty")}</td></tr>
             ) : (
               localClients.map((client) => (
-                <tr key={client.id} className="border-b last:border-0 hover:bg-muted/30" data-row-id={client.id as string}>
+                <tr key={client.id}                   className="border-b last:border-0 hover:bg-muted/30" data-row-id={client.id as string} data-seriousness={String(client.seriousness_rating ?? "")}>
                   {localCols.map((col) => {
                     const key = col.key;
                     const isEdit = ed?.cid === client.id && ed?.key === key;

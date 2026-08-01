@@ -23,6 +23,7 @@ export type ClientRow = {
   additional_notes: string | null;
   last_contact_date: string | null;
   assigned_employee: string | null;
+  seriousness_rating: number;
   custom_fields: Record<string, unknown>;
   created_by: string;
   created_at: string;
@@ -44,6 +45,7 @@ const clientSchema = z.object({
   additional_notes: z.string().trim().optional(),
   last_contact_date: z.string().trim().optional(),
   assigned_employee: z.string().trim().optional(),
+  seriousness_rating: z.coerce.number().int().min(1).max(10),
   custom_fields: z.record(z.string(), z.any()).optional().default({}),
 });
 
@@ -200,7 +202,7 @@ export async function updateClientField(clientId: string, field: string, value: 
     "customer_name", "phone", "phone_alt", "budget_from", "budget_to",
     "payment_method", "preferred_area", "unit_type", "bedrooms",
     "preferred_developer", "source", "additional_notes", "last_contact_date",
-    "assigned_employee",
+    "assigned_employee", "seriousness_rating",
   ];
 
   const admin = createAdminClient();
@@ -217,7 +219,7 @@ export async function updateClientField(clientId: string, field: string, value: 
     return { success: true };
   }
 
-  const numericFields = ["budget_from", "budget_to"];
+  const numericFields = ["budget_from", "budget_to", "seriousness_rating"];
   let updateValue: unknown = value;
   if (numericFields.includes(field)) {
     const trimmed = value.trim();
@@ -243,6 +245,7 @@ export async function quickCreateClient(userId: string): Promise<ClientRow> {
     phone: "",
     created_by: userId,
     custom_fields: {},
+    seriousness_rating: 5,
   }).select("*").single();
   if (error) throw new Error(`create-failed: ${error.message}`);
   return data as ClientRow;
@@ -267,6 +270,7 @@ const CLIENT_COLUMN_ALIASES: Record<string, string[]> = {
   additional_notes: ["notes","additional notes","extra notes","ملاحظات","ملاحظات إضافية"],
   last_contact_date: ["last contact","contact date","date","تاريخ التواصل","تاريخ","last contacted"],
   assigned_employee: ["assigned employee","employee","assigned","موظف مسؤول","الموظف المسؤول","مسؤول"],
+  seriousness_rating: ["seriousness","rating","seriousness rating","جدية","تقييم الجدية","مدى الجدية","تقييم","serious","score"],
 };
 
 function mapClientExcelColumn(excelCol: string): string {
@@ -294,7 +298,7 @@ const CLIENT_FIXED_COLUMNS = [
   "customer_name","phone","phone_alt","budget_from","budget_to",
   "payment_method","preferred_area","unit_type","bedrooms",
   "preferred_developer","source","additional_notes","last_contact_date",
-  "assigned_employee",
+  "assigned_employee","seriousness_rating",
 ];
 
 export async function processClientsExcel(fileBase64: string) {
@@ -382,6 +386,10 @@ export async function confirmGroupClients(rows: Array<{ mapped: Record<string, s
     if (bf && !isNaN(Number(bf)) && Number(bf) > 30000 && Number(bf) < 100000) bf = "";
     if (bt && !isNaN(Number(bt)) && Number(bt) > 30000 && Number(bt) < 100000) bt = "";
 
+    let sr = r.mapped.seriousness_rating?.trim();
+    let seriousnessRating = sr ? Number(sr) : 5;
+    if (isNaN(seriousnessRating) || seriousnessRating < 1 || seriousnessRating > 10) seriousnessRating = 5;
+
     validRows.push({
       customer_name: name,
       phone,
@@ -398,6 +406,7 @@ export async function confirmGroupClients(rows: Array<{ mapped: Record<string, s
       last_contact_date: lastContact || null,
       assigned_employee: r.mapped.assigned_employee?.trim() || null,
       custom_fields: {},
+      seriousness_rating: seriousnessRating,
       created_by: user.id,
     });
   }
