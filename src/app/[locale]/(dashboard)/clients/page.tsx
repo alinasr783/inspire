@@ -70,7 +70,12 @@ export default async function ClientsPage({
         </div>
       </div>
       <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-base">{t("allClients")}</CardTitle></CardHeader>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            {t("allClients")}
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">{clientsData.length}</span>
+          </CardTitle>
+        </CardHeader>
         <CardContent>
           <ClientsClient
             initialClients={clientsData}

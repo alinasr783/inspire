@@ -192,6 +192,7 @@
   "Clients": {
     "title": "العملاء",
     "allClients": "كل العملاء",
+    "id": "id",
     "createClient": "إضافة عميل",
     "editClient": "تعديل العميل",
     "clientDetails": "تفاصيل العميل",

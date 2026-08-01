@@ -328,11 +328,13 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
       <div ref={containerRef} className="overflow-x-auto rounded-lg border">
         <table className="border-collapse text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
+            <col style={{ width: 60 }} />
             {localCols.map((col) => <col key={col.id} data-col-key={col.key} style={{ width: colWidths[col.key] ?? COL_WIDTHS[col.key] ?? DEFAULT_WIDTH }} />)}
             <col style={{ width: ACTIONS_WIDTH }} />
           </colgroup>
           <thead>
             <tr className="bg-muted/40">
+              <th className="border-b border-r px-2 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">{t("id")}</th>
               {localCols.map((col, idx) => (
                 <th key={col.id} data-col-key={col.key} onDragOver={(e) => handleDragOver(e, idx)} onDrop={handleDrop} onDoubleClick={() => handleDoubleClick(col)}
                   className={`relative select-none border-b border-r px-1.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap ${dragIdx === idx ? "opacity-50" : ""}`}>
@@ -346,10 +348,11 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
           </thead>
           <tbody>
             {clientsData.length === 0 ? (
-              <tr><td colSpan={localCols.length + 1} className="px-3 py-12 text-center text-muted-foreground"><Users className="mx-auto mb-2 h-8 w-8 opacity-50" />{t("empty")}</td></tr>
+              <tr><td colSpan={localCols.length + 2} className="px-3 py-12 text-center text-muted-foreground"><Users className="mx-auto mb-2 h-8 w-8 opacity-50" />{t("empty")}</td></tr>
             ) : (
-              localClients.map((client) => (
+              localClients.map((client, index) => (
                 <tr key={client.id}                   className="border-b last:border-0 hover:bg-muted/30" data-row-id={client.id as string} data-seriousness={String(client.seriousness_rating ?? "")}>
+                  <td className="px-2 py-2 text-center text-xs text-muted-foreground tabular-nums">{index + 1}</td>
                   {localCols.map((col) => {
                     const key = col.key;
                     const isEdit = ed?.cid === client.id && ed?.key === key;

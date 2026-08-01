@@ -192,6 +192,7 @@
   "Clients": {
     "title": "Clients",
     "allClients": "All Clients",
+    "id": "id",
     "createClient": "Add Client",
     "editClient": "Edit Client",
     "clientDetails": "Client Details",
