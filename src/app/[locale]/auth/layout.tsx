@@ -8,10 +8,12 @@ export default async function AuthLayout({
   const t = await getTranslations("App");
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 px-4 py-10">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-10">
       <div className="w-full max-w-md">
-        <div className="mb-6 text-center text-2xl font-bold tracking-tight">
-          {t("name")}
+        <div className="mb-8 flex justify-center">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
+            <span className="text-xs font-bold text-primary-foreground">IN</span>
+          </div>
         </div>
         {children}
       </div>

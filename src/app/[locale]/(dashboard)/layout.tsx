@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { DashboardClientShell } from "@/components/providers/dashboard-client-shell";
 
 export default async function DashboardLayout({
@@ -55,10 +56,11 @@ export default async function DashboardLayout({
       <div className="flex min-h-screen">
         <Sidebar role={profile.role} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <Topbar role={profile.role} />
-          <main className="flex-1 p-4 md:p-6">{children}</main>
+          <Topbar />
+          <main className="flex-1 overflow-x-hidden p-3 sm:p-4 md:p-6" style={{ paddingBottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px))" }}>{children}</main>
         </div>
       </div>
+      <BottomTabBar role={profile.role} />
     </DashboardClientShell>
   );
 }
