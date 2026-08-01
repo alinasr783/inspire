@@ -51,11 +51,11 @@ export default async function DashboardLayout({
   }
 
   return (
-    <DashboardClientShell user={shellUser}>
+    <DashboardClientShell user={shellUser} initialPending={initialPending}>
       <div className="flex min-h-screen">
-        <Sidebar role={profile.role} initialPending={initialPending} />
+        <Sidebar role={profile.role} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <Topbar role={profile.role} initialPending={initialPending} />
+          <Topbar role={profile.role} />
           <main className="flex-1 p-4 md:p-6">{children}</main>
         </div>
       </div>

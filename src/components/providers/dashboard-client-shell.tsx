@@ -3,6 +3,7 @@
 import { RealtimeProvider, useRealtime } from "@/components/providers/realtime-provider";
 import { CursorsOverlay } from "@/components/realtime/cursors-overlay";
 import { DeviceTracker } from "@/components/devices/device-tracker";
+import { PendingCountProvider } from "@/components/providers/pending-count-provider";
 
 type ConnectionState = "connected" | "connecting" | "disconnected";
 
@@ -22,6 +23,7 @@ function RealtimeShell({ children }: { children: React.ReactNode }) {
 export function DashboardClientShell({
   children,
   user,
+  initialPending = 0,
 }: {
   children: React.ReactNode;
   user: {
@@ -31,13 +33,16 @@ export function DashboardClientShell({
     email?: string;
     role?: string;
   } | null;
+  initialPending?: number;
 }) {
   if (!user) return <>{children}</>;
 
   return (
     <RealtimeProvider user={user}>
-      <RealtimeShell>{children}</RealtimeShell>
-      <DeviceTracker />
+      <PendingCountProvider role={user.role} initialPending={initialPending}>
+        <RealtimeShell>{children}</RealtimeShell>
+        <DeviceTracker />
+      </PendingCountProvider>
     </RealtimeProvider>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useMemo } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { navItems } from "@/lib/nav-items";
@@ -15,30 +15,19 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
-import { toast } from "sonner";
 import { useRealtime } from "@/components/providers/realtime-provider";
-import { createRealtimeClient } from "@/lib/supabase/realtime";
-import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
-
-type ProfileChange = {
-  id: string;
-  approval_status: string;
-};
+import { usePendingCount } from "@/components/providers/pending-count-provider";
 
 function SidebarContent({
   role,
-  initialPending,
 }: {
   role?: string;
-  initialPending: number;
 }) {
   const t = useTranslations("Nav");
   const tApp = useTranslations("App");
-  const tAdmin = useTranslations("Admin");
   const pathname = usePathname();
-  const [pendingCount, setPendingCount] = useState(initialPending);
-  const prevCountRef = useRef(initialPending);
-  const { cursors, onlineUsers, cellEditEvents } = useRealtime();
+  const pendingCount = usePendingCount();
+  const { onlineUsers, cellEditEvents } = useRealtime();
 
   const pageUsers = useMemo(() => {
     const map = new Map<string, { userId: string; color: string; initials: string; firstName: string; secondName: string }[]>();
@@ -55,44 +44,6 @@ function SidebarContent({
     }
     return map;
   }, [onlineUsers]);
-
-  useEffect(() => {
-    if (role !== "admin") return;
-
-    const supabase = createRealtimeClient();
-    const channel = supabase.channel("realtime:profiles:pending");
-
-    channel.on(
-      "postgres_changes" as never,
-      { event: "*", schema: "public", table: "profiles" },
-      (payload: RealtimePostgresChangesPayload<ProfileChange>) => {
-        const eventType = payload.eventType;
-        const newStatus = (payload.new as ProfileChange | undefined)?.approval_status;
-        const oldStatus = (payload.old as Partial<ProfileChange> | undefined)?.approval_status;
-
-        setPendingCount((prev) => {
-          let next = prev;
-          if (eventType === "INSERT" && newStatus === "pending") next = prev + 1;
-          else if (eventType === "UPDATE") {
-            if (oldStatus === "pending" && newStatus !== "pending") next = Math.max(0, prev - 1);
-            else if (oldStatus !== "pending" && newStatus === "pending") next = prev + 1;
-          } else if (eventType === "DELETE" && oldStatus === "pending") next = Math.max(0, prev - 1);
-
-          if (next > prev && prev > 0) {
-            toast(tAdmin("newPendingToast", { count: next }), {
-              action: { label: tAdmin("viewUsers"), onClick: () => (window.location.href = "/ar/admin/users") },
-              duration: 6000,
-            });
-          }
-          prevCountRef.current = next;
-          return next;
-        });
-      }
-    );
-
-    channel.subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [role, tAdmin]);
 
   return (
     <div className="flex h-full flex-col">
@@ -179,7 +130,7 @@ function SidebarContent({
   );
 }
 
-function SidebarBadge({ role, initialPending }: { role?: string; initialPending: number }) {
+function SidebarBadge({ role }: { role?: string }) {
   const t = useTranslations("App");
   const locale = useLocale();
 
@@ -190,20 +141,20 @@ function SidebarBadge({ role, initialPending }: { role?: string; initialPending:
       </SheetTrigger>
       <SheetContent side={locale === "ar" ? "right" : "left"} className="w-64 p-0">
         <SheetHeader className="sr-only"><SheetTitle>{t("name")}</SheetTitle></SheetHeader>
-        <SidebarContent role={role} initialPending={initialPending} />
+        <SidebarContent role={role} />
       </SheetContent>
     </Sheet>
   );
 }
 
-export function Sidebar({ role, initialPending }: { role?: string; initialPending?: number }) {
+export function Sidebar({ role }: { role?: string }) {
   return (
     <aside className="hidden w-64 shrink-0 border-e bg-card md:block">
-      <SidebarContent role={role} initialPending={initialPending ?? 0} />
+      <SidebarContent role={role} />
     </aside>
   );
 }
 
-export function MobileSidebar({ role, initialPending }: { role?: string; initialPending?: number }) {
-  return <SidebarBadge role={role} initialPending={initialPending ?? 0} />;
+export function MobileSidebar({ role }: { role?: string }) {
+  return <SidebarBadge role={role} />;
 }
