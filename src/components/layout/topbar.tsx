@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { LocaleSwitcher } from "@/components/layout/locale-switcher";
 import { OnlineAvatars } from "@/components/realtime/online-avatars";
@@ -66,6 +66,7 @@ export function Topbar() {
         <LocaleSwitcher />
         <ThemeToggle />
         <Avatar className="h-7 w-7 shrink-0">
+          <AvatarImage src={currentUser?.avatarUrl ?? undefined} />
           <AvatarFallback className="text-[10px]">
             {currentUser?.initials ?? "IN"}
           </AvatarFallback>

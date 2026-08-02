@@ -14,6 +14,7 @@ import {
   BarChart3,
   Settings,
   MonitorSmartphone,
+  UserCircle,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ const MORE_ITEMS = [
   { key: "deals", href: "/deals", icon: Handshake },
   { key: "reports", href: "/reports", icon: BarChart3 },
   { key: "devices", href: "/devices", icon: MonitorSmartphone },
+  { key: "profile", href: "/profile", icon: UserCircle },
   { key: "settings", href: "/settings", icon: Settings },
 ] as const;
 

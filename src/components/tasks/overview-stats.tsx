@@ -2,25 +2,31 @@
 
 import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ListChecks, AlertTriangle, CheckCircle2, Users } from "lucide-react";
-import type { OverviewStats as Stats } from "@/lib/task-types";
+import { ListChecks, Circle, Play, CheckCircle2 } from "lucide-react";
+import type { OverviewStats } from "@/lib/task-types";
 
 const statConfig = [
-  { key: "activeTasks" as const, icon: ListChecks, color: "text-sky-600 dark:text-sky-400" },
-  { key: "overdue" as const, icon: AlertTriangle, color: "text-amber-600 dark:text-amber-400" },
-  { key: "completedToday" as const, icon: CheckCircle2, color: "text-emerald-600 dark:text-emerald-400" },
-  { key: "employeesAvailable" as const, icon: Users, color: "text-purple-600 dark:text-purple-400" },
+  { key: "total" as const, icon: ListChecks, color: "text-muted-foreground" },
+  { key: "todo" as const, icon: Circle, color: "text-blue-600 dark:text-blue-400" },
+  { key: "inProgress" as const, icon: Play, color: "text-amber-600 dark:text-amber-400" },
+  { key: "done" as const, icon: CheckCircle2, color: "text-emerald-600 dark:text-emerald-400" },
 ];
 
-export function OverviewStats({ stats }: { stats: Stats }) {
+export function OverviewStats({ stats }: { stats: OverviewStats }) {
   const t = useTranslations("Tasks");
+  const labels: Record<string, string> = {
+    total: t("totalTasks"),
+    todo: t("columnTodo"),
+    inProgress: t("columnInProgress"),
+    done: t("columnDone"),
+  };
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {statConfig.map(({ key, icon: Icon, color }) => (
         <Card key={key}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t(key)}</CardTitle>
+            <CardTitle className="text-sm font-medium">{labels[key]}</CardTitle>
             <Icon className={`h-4 w-4 ${color}`} />
           </CardHeader>
           <CardContent>

@@ -26,9 +26,11 @@ type RealtimeContextValue = {
     role: string;
     color: string;
     initials: string;
+    avatarUrl: string | null;
   } | null;
   cellEditEvents: CellEditPayload[];
   notifyCellEdit: (payload: Omit<CellEditPayload, "userId" | "userName" | "userColor" | "initials" | "ts">) => void;
+  refreshCurrentUser: (data: { firstName?: string; secondName?: string; avatarUrl?: string | null }) => void;
 };
 
 const RealtimeContext = createContext<RealtimeContextValue>({
@@ -39,6 +41,7 @@ const RealtimeContext = createContext<RealtimeContextValue>({
   currentUser: null,
   cellEditEvents: [],
   notifyCellEdit: () => {},
+  refreshCurrentUser: () => {},
 });
 
 export function useRealtime() {
@@ -56,11 +59,17 @@ export function RealtimeProvider({
     secondName?: string;
     email?: string;
     role?: string;
+    avatarUrl?: string | null;
   } | null;
 }) {
   const [cursors, setCursors] = useState<RemoteCursor[]>([]);
   const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
   const [cellEditEvents, setCellEditEvents] = useState<CellEditPayload[]>([]);
+  const [userData, setUserData] = useState<{
+    firstName?: string;
+    secondName?: string;
+    avatarUrl?: string | null;
+  }>({});
   const pathname = usePathname();
 
   const { onlineUsers, onlineCount } = usePresence(
@@ -119,19 +128,29 @@ export function RealtimeProvider({
   }, [user?.id]);
 
   const color = user ? getUserColor(user.id) : "";
-  const initials = user ? getUserInitials(user.firstName, user.secondName) : "";
+  const firstName = userData.firstName ?? user?.firstName ?? "";
+  const secondName = userData.secondName ?? user?.secondName ?? "";
+  const initials = user ? getUserInitials(firstName, secondName) : "";
 
   const currentUser = user
     ? {
         id: user.id,
-        firstName: user.firstName ?? "",
-        secondName: user.secondName ?? "",
+        firstName,
+        secondName,
         email: user.email ?? "",
         role: user.role ?? "user",
         color,
         initials,
+        avatarUrl: userData.avatarUrl !== undefined ? userData.avatarUrl : (user.avatarUrl ?? null),
       }
     : null;
+
+  const refreshCurrentUser = useCallback(
+    (data: { firstName?: string; secondName?: string; avatarUrl?: string | null }) => {
+      setUserData((prev) => ({ ...prev, ...data }));
+    },
+    []
+  );
 
   const handleCursors = useCallback((newCursors: RemoteCursor[]) => {
     setCursors(newCursors);
@@ -187,6 +206,7 @@ export function RealtimeProvider({
         currentUser,
         cellEditEvents,
         notifyCellEdit,
+        refreshCurrentUser,
       }}
     >
       {children}

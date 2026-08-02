@@ -1,8 +1,12 @@
+export type TaskStatus = "todo" | "in_progress" | "done";
+
 export type TaskRow = {
   id: string;
   title: string;
+  description: string | null;
   progress: number;
-  status: "active" | "overdue" | "completed";
+  target: number | null;
+  status: TaskStatus;
   due_date: string;
   assigned_to: string;
   created_by: string;
@@ -26,10 +30,11 @@ export type EmployeeWithTasks = {
 };
 
 export type OverviewStats = {
-  activeTasks: number;
+  total: number;
+  todo: number;
+  inProgress: number;
+  done: number;
   overdue: number;
-  completedToday: number;
-  employeesAvailable: number;
 };
 
 export function getEmployeeDisplayName(
@@ -58,37 +63,29 @@ export function combineEmployeesWithTasks(
 }
 
 export function calculateOverviewStats(employees: EmployeeWithTasks[]): OverviewStats {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
 
-  let activeTasks = 0;
+  let total = 0;
+  let todo = 0;
+  let inProgress = 0;
+  let done = 0;
   let overdue = 0;
-  let completedToday = 0;
-  let employeesAvailable = 0;
 
   for (const emp of employees) {
-    let hasActiveTasks = false;
-
     for (const task of emp.tasks) {
-      if (task.status === "active") {
-        activeTasks++;
-        hasActiveTasks = true;
-      } else if (task.status === "overdue") {
-        overdue++;
-        hasActiveTasks = true;
-      } else if (task.status === "completed") {
-        const completedDate = new Date(task.due_date);
-        completedDate.setHours(0, 0, 0, 0);
-        if (completedDate.getTime() === today.getTime()) {
-          completedToday++;
-        }
-      }
-    }
+      total++;
+      if (task.status === "todo") todo++;
+      else if (task.status === "in_progress") inProgress++;
+      else if (task.status === "done") done++;
 
-    if (!hasActiveTasks) {
-      employeesAvailable++;
+      const due = new Date(task.due_date);
+      due.setHours(0, 0, 0, 0);
+      if (task.status !== "done" && due.getTime() < now.getTime()) {
+        overdue++;
+      }
     }
   }
 
-  return { activeTasks, overdue, completedToday, employeesAvailable };
+  return { total, todo, inProgress, done, overdue };
 }

@@ -32,6 +32,7 @@ export function DashboardClientShell({
     secondName?: string;
     email?: string;
     role?: string;
+    avatarUrl?: string | null;
   } | null;
   initialPending?: number;
 }) {

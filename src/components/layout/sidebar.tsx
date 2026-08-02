@@ -188,7 +188,7 @@ function SidebarContent({ role }: { role?: string }) {
 
 export function Sidebar({ role }: { role?: string }) {
   return (
-    <aside className="hidden w-[232px] shrink-0 border-e border-sidebar-border bg-sidebar md:flex">
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[232px] border-e border-sidebar-border bg-sidebar md:flex">
       <SidebarContent role={role} />
     </aside>
   );

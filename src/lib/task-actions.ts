@@ -1,24 +1,40 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
-import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  combineEmployeesWithTasks,
-  getEmployeeDisplayName,
-  calculateOverviewStats,
-} from "@/lib/task-types";
-import type { EmployeeRow } from "@/lib/task-types";
+import { combineEmployeesWithTasks, calculateOverviewStats } from "@/lib/task-types";
+import type { TaskStatus } from "@/lib/task-types";
 
-export async function fetchEmployeesAndTasks() {
+export type ActionResult = { success: true } | { success: false; error: string };
+
+async function getCurrentUser() {
   const supabase = await createClient();
-  const admin = createAdminClient();
+  const { data } = await supabase.auth.getUser();
+  return data.user ?? null;
+}
 
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (!user || userError) return null;
+async function isAdmin(): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (!user) return false;
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  return data?.role === "admin";
+}
+
+// ── fetch for admin ──
+export async function fetchEmployeesAndTasks() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const admin = createAdminClient();
 
   const { data: profiles } = await admin
     .from("profiles")
@@ -37,16 +53,31 @@ export async function fetchEmployeesAndTasks() {
   return { employees: employeeList, stats };
 }
 
-export async function fetchEmployeeWithTasks(employeeId: string) {
-  const supabase = await createClient();
+// ── fetch current user's own tasks (employee view) ──
+export async function fetchMyTasks() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
   const admin = createAdminClient();
+  const { data: tasks } = await admin
+    .from("tasks")
+    .select("*")
+    .eq("assigned_to", user.id)
+    .order("created_at", { ascending: false });
 
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (!user || userError) return null;
+  return (tasks ?? []) as import("@/lib/task-types").TaskRow[];
+}
 
+// ── fetch single employee's tasks (admin drilling in) ──
+export async function fetchEmployeeTasks(employeeId: string) {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  if (!(await isAdmin())) return null;
+
+  const admin = createAdminClient();
   const { data: profile } = await admin
     .from("profiles")
-    .select("id, first_name, second_name, email, position")
+    .select("id, first_name, second_name, position")
     .eq("id", employeeId)
     .single();
 
@@ -56,67 +87,203 @@ export async function fetchEmployeeWithTasks(employeeId: string) {
     .from("tasks")
     .select("*")
     .eq("assigned_to", employeeId)
-    .order("created_at", { ascending: false });
+    .order("due_date", { ascending: true });
 
   return {
     employee: {
       id: profile.id,
-      name: getEmployeeDisplayName(profile),
+      name: [profile.first_name, profile.second_name].filter(Boolean).join(" "),
       position: profile.position ?? "",
-      tasks: tasks ?? [],
     },
+    tasks: (tasks ?? []) as import("@/lib/task-types").TaskRow[],
   };
 }
 
-const taskSchema = z.object({
-  title: z.string().trim().min(1, "title-required"),
-  progress: z.coerce.number().min(0).max(100).default(0),
-  status: z.enum(["active", "overdue", "completed"]).default("active"),
-  due_date: z.string().trim().min(1, "due-date-required"),
-  assigned_to: z.string().trim().min(1, "assigned-to-required"),
-});
+// ── create task (admin only) ──
+export async function createTask(data: {
+  title: string;
+  description?: string;
+  progress?: number;
+  target?: number;
+  status?: TaskStatus;
+  due_date: string;
+  assigned_to: string;
+}): Promise<ActionResult> {
+  if (!(await isAdmin())) return { success: false, error: "unauthorized" };
 
-export async function createTask(formData: FormData) {
-  const locale = await getLocale();
-  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "unauthorized" };
 
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (!user || userError) redirect(`/${locale}/auth/login`);
-
-  const parsed = taskSchema.safeParse({
-    title: formData.get("title"),
-    progress: formData.get("progress"),
-    status: formData.get("status"),
-    due_date: formData.get("due_date"),
-    assigned_to: formData.get("assigned_to"),
-  });
-
-  if (!parsed.success) {
-    redirect(`/${locale}/tasks?error=validation`);
-  }
-
-  const { error } = await supabase.from("tasks").insert({
-    ...parsed.data,
+  const admin = createAdminClient();
+  const { error } = await admin.from("tasks").insert({
+    title: data.title,
+    description: data.description ?? null,
+    progress: data.progress ?? 0,
+    target: data.target ?? null,
+    status: data.status ?? "todo",
+    due_date: data.due_date,
+    assigned_to: data.assigned_to,
     created_by: user.id,
   });
 
-  if (error) {
-    redirect(`/${locale}/tasks?error=create-failed`);
-  }
-
-  redirect(`/${locale}/tasks`);
+  if (error) return { success: false, error: "create-failed" };
+  revalidatePath("/", "layout");
+  return { success: true };
 }
 
-export async function updateTaskProgress(taskId: string, progress: number) {
-  const locale = await getLocale();
+// ── update task status (employee drags to new column, or admin changes) ──
+export async function updateTaskStatus(
+  taskId: string,
+  status: TaskStatus
+): Promise<ActionResult> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "unauthorized" };
+
   const admin = createAdminClient();
+
+  const isUserAdmin = await isAdmin();
+  if (!isUserAdmin) {
+    // Employee: only own tasks, only status change
+    const { data: task } = await admin
+      .from("tasks")
+      .select("assigned_to")
+      .eq("id", taskId)
+      .single();
+    if (!task || task.assigned_to !== user.id) return { success: false, error: "unauthorized" };
+  }
+
+  const { error } = await admin
+    .from("tasks")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", taskId);
+
+  if (error) return { success: false, error: "update-failed" };
+  revalidatePath("/", "layout");
+  return { success: true };
+}
+
+// ── update task (admin only, full edit) ──
+export async function updateTask(
+  taskId: string,
+  data: {
+    title?: string;
+    description?: string;
+    progress?: number;
+    target?: number;
+    status?: TaskStatus;
+    due_date?: string;
+    assigned_to?: string;
+  }
+): Promise<ActionResult> {
+  if (!(await isAdmin())) return { success: false, error: "unauthorized" };
+
+  const admin = createAdminClient();
+  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.progress !== undefined) updateData.progress = data.progress;
+  if (data.target !== undefined) updateData.target = data.target;
+  if (data.status !== undefined) updateData.status = data.status;
+  if (data.due_date !== undefined) updateData.due_date = data.due_date;
+  if (data.assigned_to !== undefined) updateData.assigned_to = data.assigned_to;
+
+  const { error } = await admin.from("tasks").update(updateData).eq("id", taskId);
+  if (error) return { success: false, error: "update-failed" };
+  revalidatePath("/", "layout");
+  return { success: true };
+}
+
+// ── delete task (admin only) ──
+export async function deleteTask(taskId: string): Promise<ActionResult> {
+  if (!(await isAdmin())) return { success: false, error: "unauthorized" };
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("tasks").delete().eq("id", taskId);
+  if (error) return { success: false, error: "delete-failed" };
+  revalidatePath("/", "layout");
+  return { success: true };
+}
+
+// ── update task progress (employee updates their own task progress) ──
+export async function updateTaskProgress(
+  taskId: string,
+  progress: number
+): Promise<ActionResult> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "unauthorized" };
+
+  const admin = createAdminClient();
+  const { data: task } = await admin
+    .from("tasks")
+    .select("assigned_to")
+    .eq("id", taskId)
+    .single();
+
+  if (!task || task.assigned_to !== user.id) {
+    if (!(await isAdmin())) return { success: false, error: "unauthorized" };
+  }
 
   const { error } = await admin
     .from("tasks")
     .update({ progress, updated_at: new Date().toISOString() })
     .eq("id", taskId);
 
-  if (error) {
-    redirect(`/${locale}/tasks?error=update-failed`);
+  if (error) return { success: false, error: "update-failed" };
+  revalidatePath("/", "layout");
+  return { success: true };
+}
+
+// ── fetch single task for detail sheet ──
+export async function fetchTask(taskId: string) {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const admin = createAdminClient();
+
+  if (await isAdmin()) {
+    const { data } = await admin.from("tasks").select("*").eq("id", taskId).single();
+    return (data as import("@/lib/task-types").TaskRow) ?? null;
   }
+
+  // Employee: only own tasks
+  const { data } = await admin
+    .from("tasks")
+    .select("*")
+    .eq("id", taskId)
+    .eq("assigned_to", user.id)
+    .single();
+
+  return (data as import("@/lib/task-types").TaskRow) ?? null;
+}
+
+// ── legacy redirect-based create (keeping for compat) ──
+export async function createTaskLegacy(formData: FormData) {
+  const locale = await getLocale();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect(`/${locale}/auth/login`);
+
+  const result = await createTask({
+    title: (formData.get("title") as string) ?? "",
+    description: (formData.get("description") as string) ?? "",
+    target: formData.get("target") ? Number(formData.get("target")) : undefined,
+    due_date: (formData.get("due_date") as string) ?? "",
+    assigned_to: (formData.get("assigned_to") as string) ?? "",
+    status: (formData.get("status") as TaskStatus) ?? "todo",
+  });
+
+  if (!result.success) redirect(`/${locale}/tasks?error=${result.error}`);
+  redirect(`/${locale}/tasks`);
+}
+
+// ── legacy progress update (keeping for compat) ──
+export async function updateTaskProgressLegacy(taskId: string, progress: number) {
+  const locale = await getLocale();
+  const result = await updateTaskProgress(taskId, progress);
+  if (!result.success) redirect(`/${locale}/tasks?error=${result.error}`);
+}
+
+// ── legacy employee fetch (keeping for compat with existing page) ──
+export async function fetchEmployeeWithTasks(employeeId: string) {
+  return fetchEmployeeTasks(employeeId);
 }

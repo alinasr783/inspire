@@ -8,6 +8,7 @@ import {
   Settings,
   FileSpreadsheet,
   MonitorSmartphone,
+  UserCircle,
 } from "lucide-react";
 
 export const navItems = [
@@ -19,6 +20,7 @@ export const navItems = [
   { key: "tasks", href: "/tasks", icon: ListChecks },
   { key: "reports", href: "/reports", icon: BarChart3 },
   { key: "devices", href: "/devices", icon: MonitorSmartphone },
+  { key: "profile", href: "/profile", icon: UserCircle },
   { key: "settings", href: "/settings", icon: Settings },
 ] as const;
 

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Link } from "@/i18n/navigation";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
@@ -181,13 +182,31 @@ export default async function DashboardPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const { data: profile } = user
-    ? await admin
+
+  let profile: {
+    first_name: string | null;
+    second_name: string | null;
+    role: string;
+    avatar_url: string | null;
+  } | null = null;
+
+  if (user) {
+    try {
+      const { data } = await admin
+        .from("profiles")
+        .select("first_name, second_name, role, avatar_url")
+        .eq("id", user.id)
+        .single();
+      profile = data;
+    } catch {
+      const { data } = await admin
         .from("profiles")
         .select("first_name, second_name, role")
         .eq("id", user.id)
-        .single()
-    : { data: null };
+        .single();
+      profile = data ? { ...data, avatar_url: null } : null;
+    }
+  }
 
   const userName = profile
     ? [profile.first_name, profile.second_name].filter(Boolean).join(" ")
@@ -436,14 +455,17 @@ export default async function DashboardPage({
       <Card className="border-0 bg-gradient-to-br from-card via-card to-muted/40 shadow-sm">
         <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3 sm:gap-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-base font-semibold text-primary-foreground shadow-sm sm:size-14 sm:text-lg">
-              {userName
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .slice(0, 2)
-                .toUpperCase() || <Building2 className="size-5 sm:size-6" />}
-            </div>
+            <Avatar className="size-12 shrink-0 rounded-2xl shadow-sm sm:size-14">
+              <AvatarImage src={profile?.avatar_url ?? undefined} />
+              <AvatarFallback className="rounded-2xl bg-primary text-base font-semibold text-primary-foreground sm:text-lg">
+                {userName
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase() || "IN"}
+              </AvatarFallback>
+            </Avatar>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">

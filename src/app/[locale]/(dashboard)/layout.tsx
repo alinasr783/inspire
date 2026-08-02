@@ -24,11 +24,30 @@ export default async function DashboardLayout({
   }
 
   const admin = createAdminClient();
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("approval_status, role, first_name, second_name")
-    .eq("id", user.id)
-    .single();
+
+  let profile: {
+    approval_status: string;
+    role: string;
+    first_name: string;
+    second_name: string;
+    avatar_url: string | null;
+  } | null = null;
+
+  try {
+    const { data } = await admin
+      .from("profiles")
+      .select("approval_status, role, first_name, second_name, avatar_url")
+      .eq("id", user.id)
+      .single();
+    profile = data;
+  } catch {
+    const { data } = await admin
+      .from("profiles")
+      .select("approval_status, role, first_name, second_name")
+      .eq("id", user.id)
+      .single();
+    profile = data ? { ...data, avatar_url: null } : null;
+  }
 
   if (!profile || profile.approval_status !== "approved") {
     redirect(`/${locale}/auth/pending`);
@@ -40,6 +59,7 @@ export default async function DashboardLayout({
     secondName: profile.second_name,
     email: user.email,
     role: profile.role,
+    avatarUrl: profile.avatar_url,
   };
 
   let initialPending = 0;
@@ -53,11 +73,11 @@ export default async function DashboardLayout({
 
   return (
     <DashboardClientShell user={shellUser} initialPending={initialPending}>
-      <div className="flex min-h-screen">
+      <div className="h-screen overflow-hidden">
         <Sidebar role={profile.role} />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex h-full min-w-0 flex-col md:pl-[232px]">
           <Topbar />
-          <main className="flex-1 overflow-x-hidden p-3 sm:p-4 md:p-6" style={{ paddingBottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px))" }}>{children}</main>
+          <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6" style={{ paddingBottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px))" }}>{children}</main>
         </div>
       </div>
       <BottomTabBar role={profile.role} />
