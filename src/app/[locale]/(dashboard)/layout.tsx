@@ -7,6 +7,7 @@ import { Topbar } from "@/components/layout/topbar";
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { DashboardClientShell } from "@/components/providers/dashboard-client-shell";
 import { ThemeColorProvider } from "@/components/providers/theme-color-provider";
+import { getCrmLogoUrl } from "@/lib/crm-actions";
 
 export default async function DashboardLayout({
   children,
@@ -73,11 +74,13 @@ export default async function DashboardLayout({
     initialPending = count ?? 0;
   }
 
+  const logoUrl = await getCrmLogoUrl();
+
   return (
     <DashboardClientShell user={shellUser} initialPending={initialPending}>
       <ThemeColorProvider initialColor={profile.primary_color}>
         <div className="h-screen overflow-hidden">
-          <Sidebar role={profile.role} />
+          <Sidebar role={profile.role} logoUrl={logoUrl} />
           <div className="flex h-full min-w-0 flex-col md:pl-[232px]">
             <Topbar />
             <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8" style={{ paddingBottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px))" }}>{children}</main>

@@ -80,6 +80,7 @@ export function RealtimeProvider({
           secondName: user.secondName,
           email: user.email,
           role: user.role,
+          avatarUrl: userData.avatarUrl !== undefined ? userData.avatarUrl : (user.avatarUrl ?? null),
           page: pathname,
         }
       : null

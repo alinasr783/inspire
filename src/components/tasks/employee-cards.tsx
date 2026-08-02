@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   ChevronRight,
   Users,
@@ -58,6 +58,7 @@ export function EmployeeCards({
             <div className="p-4">
               <div className="flex items-start gap-3">
                 <Avatar size="lg" className="shrink-0">
+                  <AvatarImage src={emp.avatarUrl ?? undefined} />
                   <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
                     {getInitials(emp.name)}
                   </AvatarFallback>

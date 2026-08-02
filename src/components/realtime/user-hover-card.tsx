@@ -84,10 +84,14 @@ export function UserHoverCard({ user, children }: { user: PresenceState; childre
           <div className="animate-in fade-in zoom-in-95 duration-200 rounded-xl border bg-card p-4 shadow-xl">
             <div className="flex items-center gap-3">
               <div
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ring-2 ring-background"
-                style={{ backgroundColor: user.color }}
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ring-2 ring-background overflow-hidden"
+                style={{ backgroundColor: user.avatarUrl ? "transparent" : user.color }}
               >
-                {user.initials}
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt={user.initials} className="h-full w-full object-cover" />
+                ) : (
+                  user.initials
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{user.firstName} {user.secondName}</p>

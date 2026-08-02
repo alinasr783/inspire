@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EmployeeKanbanClient } from "./employee-kanban-client";
@@ -37,7 +37,8 @@ export default async function EmployeeDetailPage({
     tasks = [];
   }
 
-  const { employee } = result as { employee: { id: string; name: string; position: string } };
+  const { employee } = result as { employee: { id: string; name: string; position: string; avatar_url: string | null } };
+  const employeeAvatarUrl = employee.avatar_url;
 
   // Fetch all employees for add-task dialog
   const { data: profiles } = await admin
@@ -62,6 +63,7 @@ export default async function EmployeeDetailPage({
             </Button>
           </Link>
           <Avatar size="default" className="shrink-0">
+            <AvatarImage src={employeeAvatarUrl ?? undefined} />
             <AvatarFallback className="text-sm font-semibold bg-primary/10 text-primary">
               {employee.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
             </AvatarFallback>

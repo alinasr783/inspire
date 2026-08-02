@@ -9,7 +9,7 @@ import { UsersRound, Pencil, Plus, Trash2 } from "lucide-react";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { usePendingCount } from "@/components/providers/pending-count-provider";
 
-function SidebarContent({ role }: { role?: string }) {
+function SidebarContent({ role, logoUrl }: { role?: string; logoUrl: string | null }) {
   const t = useTranslations("Nav");
   const tApp = useTranslations("App");
   const pathname = usePathname();
@@ -25,6 +25,7 @@ function SidebarContent({ role }: { role?: string }) {
         initials: string;
         firstName: string;
         secondName: string;
+        avatarUrl: string | null;
       }[]
     >();
     for (const u of onlineUsers) {
@@ -36,6 +37,7 @@ function SidebarContent({ role }: { role?: string }) {
         initials: u.initials,
         firstName: u.firstName,
         secondName: u.secondName,
+        avatarUrl: u.avatarUrl,
       });
     }
     return map;
@@ -44,11 +46,13 @@ function SidebarContent({ role }: { role?: string }) {
   return (
     <div className="flex h-screen flex-col">
       <div className="flex h-14 items-center gap-2.5 px-5">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-          <span className="text-[10px] font-bold text-primary-foreground">
-            IN
-          </span>
-        </div>
+        {logoUrl ? (
+          <img src={logoUrl} alt="Logo" className="h-7 w-7 rounded-lg object-cover" />
+        ) : (
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
+            <span className="text-[10px] font-bold text-primary-foreground">IN</span>
+          </div>
+        )}
         <span className="text-sm font-semibold tracking-tight">
           {tApp("name")}
         </span>
@@ -87,11 +91,16 @@ function SidebarContent({ role }: { role?: string }) {
                   {users.slice(0, 2).map((u) => (
                     <span
                       key={u.userId}
-                      className="flex h-[18px] w-[18px] items-center justify-center rounded-full text-[7px] font-bold text-white ring-1 ring-background"
-                      style={{ backgroundColor: u.color }}
+                      className="flex h-[18px] w-[18px] items-center justify-center rounded-full text-[7px] font-bold text-white ring-1 ring-background overflow-hidden"
                       title={`${u.firstName} ${u.secondName}`.trim() || u.userId}
                     >
-                      {u.initials}
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} alt={u.initials} className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center" style={{ backgroundColor: u.color }}>
+                          {u.initials}
+                        </span>
+                      )}
                     </span>
                   ))}
                   {users.length > 2 && (
@@ -186,10 +195,10 @@ function SidebarContent({ role }: { role?: string }) {
   );
 }
 
-export function Sidebar({ role }: { role?: string }) {
+export function Sidebar({ role, logoUrl }: { role?: string; logoUrl?: string | null }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-[232px] border-e border-sidebar-border bg-sidebar md:flex">
-      <SidebarContent role={role} />
+      <SidebarContent role={role} logoUrl={logoUrl ?? null} />
     </aside>
   );
 }

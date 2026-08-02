@@ -4,7 +4,7 @@ import { useState, useRef, useTransition, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { toast } from "sonner";
-import { Camera, Bell, Shield, Trash2, Loader2, Upload, Palette, Check } from "lucide-react";
+import { Camera, Bell, Shield, Trash2, Loader2, Upload, Palette, Check, Image } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { useThemeColor } from "@/components/providers/theme-color-provider";
 import { updateProfile, removeAvatar, updateProfileSettings } from "@/lib/profile-actions";
+import { uploadCrmLogo } from "@/lib/crm-actions";
 import { THEME_COLORS } from "@/lib/theme-colors";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ interface ProfileFormProps {
   primaryColor: string | null;
   notificationPrefs: Record<string, boolean>;
   role: string;
+  logoUrl: string | null;
 }
 
 const USER_NOTIFICATIONS: { key: string; label: string }[] = [
@@ -49,6 +51,7 @@ export function ProfileForm({
   primaryColor: initialPrimaryColor,
   notificationPrefs: initialNotificationPrefs,
   role,
+  logoUrl: initialLogoUrl,
 }: ProfileFormProps) {
   const t = useTranslations("Profile");
   const router = useRouter();
@@ -67,6 +70,9 @@ export function ProfileForm({
   const [selectedColor, setSelectedColor] = useState<string | null>(initialPrimaryColor);
   const [pendingColor, setPendingColor] = useState<string | null>(null);
   const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>(initialNotificationPrefs);
+  const [logoUrl, setLogoUrl] = useState<string | null>(initialLogoUrl);
+  const [isUploadingLogo, startUploadLogo] = useTransition();
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const initials = `${initialFirstName?.[0] ?? ""}${initialSecondName?.[0] ?? ""}`.toUpperCase() || "IN";
   const displayAvatar = previewUrl ?? avatarUrl;
@@ -204,6 +210,24 @@ export function ProfileForm({
         setNotifPrefs(notifPrefs);
         toast.error(t("saveFailed"));
       }
+    });
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    startUploadLogo(async () => {
+      const f = new FormData();
+      f.set("logo", file);
+      const r = await uploadCrmLogo(f);
+      if (r.success && r.logoUrl) {
+        setLogoUrl(r.logoUrl);
+        toast.success(t("savedSuccess"));
+        router.refresh();
+      } else {
+        toast.error(t("uploadFailed"));
+      }
+      e.target.value = "";
     });
   };
 
@@ -345,6 +369,44 @@ export function ProfileForm({
               <p className="text-xs text-muted-foreground">{t("emailHint")}</p>
             </div>
 
+            {isAdmin && (
+              <div className="space-y-2">
+                <Label>{t("crmLogo")}</Label>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={handleLogoUpload}
+                />
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden border">
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="CRM Logo" className="h-full w-full object-cover" />
+                    ) : (
+                      <Image className="h-5 w-5 text-muted-foreground/40" />
+                    )}
+                  </div>
+                  <div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => logoInputRef.current?.click()}
+                      disabled={isUploadingLogo}
+                    >
+                      {isUploadingLogo ? (
+                        <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />{t("uploading")}</>
+                      ) : (
+                        <><Upload className="mr-1.5 h-3.5 w-3.5" />{logoUrl ? t("changeLogo") : t("uploadLogo")}</>
+                      )}
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground mt-1">{t("crmLogoDesc")}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-3 border-t pt-5">
               <Button
                 onClick={handleSave}
@@ -359,16 +421,18 @@ export function ProfileForm({
                 </span>
               )}
             </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
         <div className="flex flex-col gap-4">
           <Card className="group transition-shadow hover:shadow-md">
             <CardHeader className="pb-3 px-5 pt-5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-                <Palette className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                  <Palette className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <CardTitle className="text-sm">{t("appearance")}</CardTitle>
               </div>
-              <CardTitle className="text-sm mt-3">{t("appearance")}</CardTitle>
             </CardHeader>
             <CardContent className="px-5 pb-5 space-y-3">
               <CardDescription className="text-xs">
@@ -402,10 +466,12 @@ export function ProfileForm({
 
           <Card className="group transition-shadow hover:shadow-md">
             <CardHeader className="pb-3 px-5 pt-5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-                <Bell className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                  <Bell className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <CardTitle className="text-sm">{t("notifications")}</CardTitle>
               </div>
-              <CardTitle className="text-sm mt-3">{t("notifications")}</CardTitle>
             </CardHeader>
             <CardContent className="px-5 pb-5 space-y-1">
               <CardDescription className="text-xs mb-3">
@@ -434,10 +500,12 @@ export function ProfileForm({
 
           <Card className="group transition-shadow hover:shadow-md">
             <CardHeader className="pb-3 px-5 pt-5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-                <Shield className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                  <Shield className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <CardTitle className="text-sm">{t("security")}</CardTitle>
               </div>
-              <CardTitle className="text-sm mt-3">{t("security")}</CardTitle>
             </CardHeader>
             <CardContent className="px-5 pb-5">
               <CardDescription className="text-xs leading-relaxed">

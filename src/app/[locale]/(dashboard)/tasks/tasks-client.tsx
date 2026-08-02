@@ -71,6 +71,7 @@ export function TasksClient({
       second_name: e.name.split(" ").slice(1).join(" ") ?? null,
       email: null,
       position: e.position ?? null,
+      avatar_url: e.avatarUrl,
     })) as EmployeeRow[];
     const combined = combineEmployeesWithTasks(employeeRows, currentTasks);
     const stats = calculateOverviewStats(combined);

@@ -3,7 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, ClipboardList } from "lucide-react";
@@ -65,6 +65,7 @@ export function EmployeeCard({ employee }: { employee: EmployeeWithTasks }) {
     <Card className="flex flex-col">
       <CardHeader className="flex flex-row items-center gap-3">
         <Avatar size="lg" className="shrink-0">
+          <AvatarImage src={employee.avatarUrl ?? undefined} />
           <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">

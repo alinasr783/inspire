@@ -24,14 +24,26 @@ export function OnlineAvatars({
       {visible.map((user, idx) => (
         <UserHoverCard key={user.userId} user={user}>
           <div
-            className="relative flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-semibold text-white ring-2 ring-background animate-in fade-in zoom-in"
+            className="relative flex h-8 w-8 items-center justify-center rounded-full ring-2 ring-background animate-in fade-in zoom-in overflow-hidden"
             style={{
-              backgroundColor: user.color,
               zIndex: 10 - idx,
               animationDelay: `${idx * 50}ms`,
             }}
           >
-            {user.initials}
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.initials}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span
+                className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-white"
+                style={{ backgroundColor: user.color }}
+              >
+                {user.initials}
+              </span>
+            )}
             <span className="absolute -bottom-px -right-px flex h-3 w-3 rounded-full border-2 border-background bg-green-500" />
           </div>
         </UserHoverCard>
@@ -58,4 +70,3 @@ export function OnlineAvatars({
     </div>
   );
 }
-

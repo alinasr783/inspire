@@ -26,7 +26,7 @@ export default async function TasksPage({
   // Fetch all approved employees (for admin view, or employees list for add-task dialog)
   const { data: profiles } = await admin
     .from("profiles")
-    .select("id, first_name, second_name, position")
+    .select("id, first_name, second_name, position, avatar_url")
     .eq("approval_status", "approved")
     .order("first_name", { ascending: true });
 

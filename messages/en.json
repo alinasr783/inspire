@@ -576,7 +576,12 @@
     "notificationsDesc": "Choose which events you want to be notified about.",
     "security": "Security",
     "securityDesc": "Update your password and manage connected devices.",
-    "comingSoon": "Coming Soon"
+    "comingSoon": "Coming Soon",
+    "crmLogo": "CRM Logo",
+    "crmLogoDesc": "Upload your company logo to appear in the app header and sidebar.",
+    "uploadLogo": "Upload Logo",
+    "changeLogo": "Change Logo",
+    "uploading": "Uploading..."
   },
   "Devices": {
     "title": "Connected Devices",

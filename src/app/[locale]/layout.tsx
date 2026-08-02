@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Amiri, Cause } from "next/font/google";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
@@ -25,6 +25,14 @@ export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
+export const viewport: Viewport = {
+  themeColor: "#06c167",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export async function generateMetadata({
   params,
 }: {
@@ -38,6 +46,13 @@ export async function generateMetadata({
       template: `%s · ${t("name")}`,
     },
     description: t("tagline"),
+    manifest: "/manifest",
+    appleWebApp: {
+      capable: true,
+      title: t("name"),
+      statusBarStyle: "black-translucent",
+    },
+    applicationName: t("name"),
   };
 }
 

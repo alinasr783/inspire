@@ -41,6 +41,7 @@ export type PresenceState = {
   role: string;
   color: string;
   initials: string;
+  avatarUrl: string | null;
   page: string;
   onlineAt: string;
 };

@@ -38,7 +38,7 @@ export async function fetchEmployeesAndTasks() {
 
   const { data: profiles } = await admin
     .from("profiles")
-    .select("id, first_name, second_name, email, position")
+    .select("id, first_name, second_name, email, position, avatar_url")
     .eq("approval_status", "approved")
     .order("first_name", { ascending: true });
 
@@ -77,7 +77,7 @@ export async function fetchEmployeeTasks(employeeId: string) {
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("profiles")
-    .select("id, first_name, second_name, position")
+    .select("id, first_name, second_name, position, avatar_url")
     .eq("id", employeeId)
     .single();
 
@@ -94,6 +94,7 @@ export async function fetchEmployeeTasks(employeeId: string) {
       id: profile.id,
       name: [profile.first_name, profile.second_name].filter(Boolean).join(" "),
       position: profile.position ?? "",
+      avatar_url: profile.avatar_url ?? null,
     },
     tasks: (tasks ?? []) as import("@/lib/task-types").TaskRow[],
   };

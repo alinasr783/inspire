@@ -20,12 +20,14 @@ export type EmployeeRow = {
   second_name: string | null;
   email: string | null;
   position: string | null;
+  avatar_url: string | null;
 };
 
 export type EmployeeWithTasks = {
   id: string;
   name: string;
   position: string;
+  avatarUrl: string | null;
   tasks: TaskRow[];
 };
 
@@ -58,6 +60,7 @@ export function combineEmployeesWithTasks(
     id: emp.id,
     name: getEmployeeDisplayName(emp),
     position: emp.position ?? "",
+    avatarUrl: emp.avatar_url ?? null,
     tasks: taskMap.get(emp.id) ?? [],
   }));
 }

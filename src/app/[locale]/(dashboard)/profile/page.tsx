@@ -3,6 +3,7 @@ import { setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ProfileForm } from "@/components/profile/profile-form";
+import { getCrmLogoUrl } from "@/lib/crm-actions";
 
 export default async function ProfilePage({
   params,
@@ -49,6 +50,8 @@ export default async function ProfilePage({
 
   if (!profile) redirect(`/${locale}/auth/login`);
 
+  const logoUrl = await getCrmLogoUrl();
+
   return (
     <ProfileForm
       firstName={profile.first_name ?? ""}
@@ -58,6 +61,7 @@ export default async function ProfilePage({
       primaryColor={profile.primary_color ?? null}
       notificationPrefs={profile.notification_prefs ?? {}}
       role={profile.role}
+      logoUrl={logoUrl}
     />
   );
 }

@@ -13,6 +13,7 @@ export function usePresence(user: {
   secondName?: string;
   email?: string;
   role?: string;
+  avatarUrl?: string | null;
   page?: string;
 } | null) {
   const [onlineUsers, setOnlineUsers] = useState<PresenceState[]>([]);
@@ -45,6 +46,7 @@ export function usePresence(user: {
       role: user.role ?? "user",
       color,
       initials,
+      avatarUrl: user.avatarUrl ?? null,
       page: user.page ?? "/",
       onlineAt: new Date().toISOString(),
     };
@@ -82,7 +84,7 @@ export function usePresence(user: {
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [user?.id, user?.firstName, user?.secondName, user?.email, user?.role, user?.page, mergeStates]);
+  }, [user?.id, user?.firstName, user?.secondName, user?.email, user?.role, user?.page, user?.avatarUrl, mergeStates]);
 
   return {
     onlineUsers,
