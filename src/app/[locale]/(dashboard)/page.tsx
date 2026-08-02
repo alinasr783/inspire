@@ -5,6 +5,7 @@ import { Link } from "@/i18n/navigation";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { MonthlyTrendChart, type MonthlyPoint } from "@/components/dashboard/dashboard-charts";
 import { cn } from "@/lib/utils";
 import {
@@ -20,6 +21,9 @@ import {
   Target,
   CalendarDays,
   ChevronRight,
+  Home,
+  Trophy,
+  Info,
 } from "lucide-react";
 
 // ── helpers ──
@@ -195,6 +199,9 @@ export default async function DashboardPage({
     { data: allClients },
     { data: allDeals },
     { data: allTasks },
+    { data: cheapRentUnits },
+    { data: cheapSaleUnits },
+    { data: saleUnitsWithArea },
   ] = await Promise.all([
     admin
       .from("units")
@@ -208,12 +215,101 @@ export default async function DashboardPage({
       .from("generated_deals")
       .select("created_at, recommendation_status, final_score"),
     admin.from("tasks").select("created_at, status, progress, due_date"),
+    admin
+      .from("units")
+      .select(
+        "id, customer_name, cash_required, remaining, area, compound_name, building_number"
+      )
+      .ilike("rent_sale", "%يجار%")
+      .not("cash_required", "is", null)
+      .order("cash_required", { ascending: true })
+      .limit(3),
+    admin
+      .from("units")
+      .select(
+        "id, customer_name, cash_required, remaining, area, compound_name, building_number"
+      )
+      .ilike("rent_sale", "%بيع%")
+      .not("cash_required", "is", null)
+      .order("cash_required", { ascending: true })
+      .limit(3),
+    admin
+      .from("units")
+      .select("id, customer_name, cash_required, remaining, area, compound_name, building_number, unit_type")
+      .ilike("rent_sale", "%بيع%")
+      .not("cash_required", "is", null)
+      .not("area", "is", null)
+      .order("cash_required", { ascending: true }),
   ]);
 
   const units = (allUnits ?? []) as Record<string, unknown>[];
   const clients = (allClients ?? []) as Record<string, unknown>[];
   const deals = (allDeals ?? []) as Record<string, unknown>[];
   const tasks = (allTasks ?? []) as Record<string, unknown>[];
+  const cheapRent = (cheapRentUnits ?? []) as {
+    id: string;
+    customer_name: string;
+    cash_required: number;
+    remaining: number | null;
+    area: string | null;
+    compound_name: string | null;
+    building_number: string | null;
+  }[];
+  const cheapSale = (cheapSaleUnits ?? []) as {
+    id: string;
+    customer_name: string;
+    cash_required: number;
+    remaining: number | null;
+    area: string | null;
+    compound_name: string | null;
+    building_number: string | null;
+  }[];
+
+  // ── distinguished sale: score = normArea × (1-normCash) × (1-normRemaining) × 100 ──
+  const rawSaleWithArea = (saleUnitsWithArea ?? []) as {
+    id: string;
+    customer_name: string;
+    cash_required: number | null;
+    remaining: number | null;
+    area: string | null;
+    compound_name: string | null;
+    building_number: string | null;
+    unit_type: string | null;
+  }[];
+
+  const salePool = rawSaleWithArea
+    .map((u) => {
+      const areaNum = parseFloat(u.area ?? "");
+      const cash = u.cash_required;
+      if (!areaNum || areaNum <= 0 || !cash || cash <= 0) return null;
+      const remaining = u.remaining ?? 0;
+      return { ...u, cash_required: cash, remaining, areaNumeric: areaNum };
+    })
+    .filter((u): u is NonNullable<typeof u> => u !== null);
+
+  const areas = salePool.map((u) => u.areaNumeric);
+  const cashes = salePool.map((u) => u.cash_required);
+  const remainings = salePool.map((u) => u.remaining);
+  const minA = Math.min(...areas);
+  const maxA = Math.max(...areas);
+  const minC = Math.min(...cashes);
+  const maxC = Math.max(...cashes);
+  const minR = Math.min(...remainings);
+  const maxR = Math.max(...remainings);
+  const rangeA = maxA - minA || 1;
+  const rangeC = maxC - minC || 1;
+  const rangeR = maxR - minR || 1;
+
+  const distinguished = salePool
+    .map((u) => {
+      const normArea = (u.areaNumeric - minA) / rangeA;
+      const normCash = (u.cash_required - minC) / rangeC;
+      const normRemaining = (u.remaining - minR) / rangeR;
+      const score = Math.round(normArea * (1 - normCash) * (1 - normRemaining) * 100);
+      return { ...u, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
 
   // ── counts ──
   const propsCount = units.length;
@@ -304,19 +400,19 @@ export default async function DashboardPage({
     <div className="space-y-6">
       {/* Hero */}
       <Card className="border-0 bg-gradient-to-br from-card via-card to-muted/40 shadow-sm">
-        <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-lg font-semibold text-primary-foreground shadow-sm">
+        <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-base font-semibold text-primary-foreground shadow-sm sm:size-14 sm:text-lg">
               {userName
                 .split(" ")
                 .map((n) => n[0])
                 .join("")
                 .slice(0, 2)
-                .toUpperCase() || <Building2 className="size-6" />}
+                .toUpperCase() || <Building2 className="size-5 sm:size-6" />}
             </div>
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">
                   {t("welcomeBack", { name: userName })}
                 </h1>
                 {profile?.role === "admin" && (
@@ -325,27 +421,27 @@ export default async function DashboardPage({
                   </Badge>
                 )}
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                <CalendarDays className="me-1.5 inline size-3.5" />
+              <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                <CalendarDays className="me-1 inline size-3 sm:size-3.5" />
                 {today}
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/properties/new">
-              <Button variant="outline" size="sm" className="gap-1.5">
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+            <Link href="/properties/new" className="sm:w-auto">
+              <Button variant="outline" size="sm" className="w-full gap-1.5">
                 <Plus className="size-3.5" />
                 {t("addProperty")}
               </Button>
             </Link>
-            <Link href="/clients/new">
-              <Button variant="outline" size="sm" className="gap-1.5">
+            <Link href="/clients/new" className="sm:w-auto">
+              <Button variant="outline" size="sm" className="w-full gap-1.5">
                 <Plus className="size-3.5" />
                 {t("addClient")}
               </Button>
             </Link>
-            <Link href="/deals">
-              <Button size="sm" className="gap-1.5">
+            <Link href="/deals" className="sm:w-auto">
+              <Button size="sm" className="w-full gap-1.5">
                 <Target className="size-3.5" />
                 {t("generateDeals")}
               </Button>
@@ -520,6 +616,193 @@ export default async function DashboardPage({
           color="#276ef1"
         />
       </div>
+
+      {/* Cheap Units */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Cheapest Rent */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Home className="size-4 text-blue-600" />
+              {t("cheapestRent")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {cheapRent.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                {t("noUnitsFound")}
+              </p>
+            ) : (
+              <ul className="divide-y">
+                {cheapRent.map((unit) => (
+                  <li key={unit.id}>
+                    <Link
+                      href={`/properties/${unit.id}`}
+                      className="flex items-center justify-between gap-3 py-3 transition-colors hover:bg-muted/30 -mx-2 px-2 rounded-lg"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          {unit.customer_name || "—"}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {[unit.compound_name, unit.area, unit.building_number]
+                            .filter(Boolean)
+                            .join(" · ") || "—"}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-sm font-bold text-emerald-600">
+                          {unit.cash_required.toLocaleString()}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {t("price")}
+                        </p>
+                      </div>
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Cheapest Sale */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Home className="size-4 text-purple-600" />
+              {t("cheapestSale")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {cheapSale.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                {t("noUnitsFound")}
+              </p>
+            ) : (
+              <ul className="divide-y">
+                {cheapSale.map((unit) => (
+                  <li key={unit.id}>
+                    <Link
+                      href={`/properties/${unit.id}`}
+                      className="flex items-center justify-between gap-3 py-3 transition-colors hover:bg-muted/30 -mx-2 px-2 rounded-lg"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          {unit.customer_name || "—"}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {[unit.compound_name, unit.area, unit.building_number]
+                            .filter(Boolean)
+                            .join(" · ") || "—"}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-sm font-bold text-emerald-600">
+                          {unit.cash_required.toLocaleString()}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {t("price")}
+                        </p>
+                      </div>
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Distinguished Sale Units */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Trophy className="size-4 text-amber-500" />
+            {t("mostDistinguishedSale")}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      className="inline-flex cursor-help text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Info className="size-3.5" />
+                    </button>
+                  }
+                />
+                <TooltipContent
+                  side="top"
+                  align="center"
+                  className="max-w-[280px] whitespace-pre-line p-3 text-[12px] leading-relaxed"
+                >
+                  {t("distinctionExplain")}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {distinguished.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              {t("noUnitsFound")}
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {distinguished.map((unit, i) => (
+                <Link
+                  key={unit.id}
+                  href={`/properties/${unit.id}`}
+                  className="flex items-center gap-4 rounded-xl border p-3 transition-colors hover:bg-muted/30 sm:p-4"
+                >
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-sm font-bold text-muted-foreground">
+                    {i + 1}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">
+                      {unit.customer_name || "—"}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {[unit.compound_name, unit.area, unit.building_number]
+                        .filter(Boolean)
+                        .join(" · ") || "—"}
+                    </p>
+                  </div>
+                  <div className="hidden shrink-0 flex-col items-end sm:flex">
+                    <p className="text-sm font-semibold">
+                      {unit.cash_required.toLocaleString()}{" "}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        {t("price")}
+                      </span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("areaSqm", { area: unit.areaNumeric })}
+                    </p>
+                  </div>
+                  <div className="hidden shrink-0 flex-col items-center gap-1 md:flex">
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                      {t("distinctionScore")}
+                    </span>
+                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-amber-500 transition-all"
+                        style={{ width: `${unit.score}%` }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-semibold text-amber-600">
+                      {unit.score}%
+                    </span>
+                  </div>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                </Link>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Charts */}
       <MonthlyTrendChart data={monthlyData} />

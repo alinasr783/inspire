@@ -13,7 +13,8 @@
     "reports": "Reports",
     "settings": "Settings",
     "devices": "Connected Devices",
-    "users": "Users"
+    "users":  "Users",
+    "more":  "More"
   },
   "Common": {
     "language": "Language",
@@ -21,7 +22,8 @@
     "light": "Light",
     "dark": "Dark",
     "search": "Search",
-    "logout": "Logout"
+    "logout": "Logout",
+    "more": "More"
   },
   "Home": {
     "welcome": "Welcome to Inspire CRM",
@@ -55,7 +57,15 @@
     "totalRemaining": "Total Remaining",
     "monthlyTrend": "Monthly Additions",
     "chartNoData": "No data available yet",
-    "viewAll": "View all"
+    "viewAll": "View all",
+    "cheapestRent": "Cheapest Rent Units",
+    "cheapestSale": "Cheapest Sale Units",
+    "noUnitsFound": "No units found",
+    "price": "Price",
+    "mostDistinguishedSale": "Most Distinguished Sale Units",
+    "distinctionScore": "Distinction",
+    "areaSqm": "{area} m²",
+    "distinctionExplain": "Units are ranked by a composite distinction score:\n1. Area is normalized to 0–1 (largest = 1)\n2. Down payment is normalized to 0–1 (highest = 1)\n3. Remaining balance is normalized to 0–1 (highest = 1)\n4. Score = normArea × (1−normCash) × (1−normRemaining) × 100\n\nA unit scores high only when it is spacious, requires a low down payment, and has little balance remaining. If any single factor is poor, the score drops significantly."
   },
   "Placeholder": {
     "text": "This section is under development. Content will be added soon."
