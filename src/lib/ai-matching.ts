@@ -19,9 +19,11 @@ export type AIMatchResult = {
     unit_type: string;
     unit_finishing: string;
     unit_area: string;
-    unit_price: string;
+    unit_cash: number;
+    unit_remaining: number;
     unit_rent_sale: string;
     unit_phone: string;
+    unit_employee: string;
   }[];
 };
 
@@ -227,6 +229,7 @@ async function buildCompactData(admin: ReturnType<typeof createAdminClient>) {
     notes: sanitizeText(u.additional_notes ?? ""),
     fb: sanitizeText(u.feedback ?? ""),
     last: u.last_contact_date ?? "",
+    emp: u.assigned_employee ?? "",
   }));
 
   return { clients: clientsCompact, units: unitsCompact };
@@ -251,8 +254,21 @@ export async function runAIMatching(clientIds?: string[]): Promise<{
 
   const fullUnits = allUnits as {
     id: string; n: string; comp: string; type: string; fin: string;
-    msq: string; cash: number; rem: number; rs: string; ph: string;
+    msq: string; cash: number; rem: number; rs: string; ph: string; emp: string;
   }[];
+
+  const employeeIds = [...new Set(fullUnits.map((u) => u.emp).filter(Boolean))];
+  const employeeMap = new Map<string, string>();
+
+  if (employeeIds.length > 0) {
+    const { data: employees } = await admin
+      .from("profiles")
+      .select("id, first_name, second_name")
+      .in("id", employeeIds);
+    for (const e of (employees ?? [])) {
+      employeeMap.set(e.id, [e.first_name, e.second_name].filter(Boolean).join(" "));
+    }
+  }
 
   const unitLookup = new Map(fullUnits.map((u) => [u.id, u]));
   const clientLookup = new Map(
@@ -262,7 +278,7 @@ export async function runAIMatching(clientIds?: string[]): Promise<{
   const fieldMap = `
 مفاتيح مختصرة:
 العملاء: n=اسم, ph=تليفون, bud=[من,إلى], pay=دفع, area=منطقة, type=نوع, bed=غرف, dev=مطور, notes=ملاحظات, last=آخ اتصال
-الوحدات: n=مالك, ph=تليفون, msq=مساحة, bld=عمارة, fin=تشطيب, rs=إيجار/بيع, type=نوع, cash=مقدم, rem=متبقي, comp=كمبوند, notes=ملاحظات, fb=فيدباك, last=آخر اتصال`;
+الوحدات: n=مالك, ph=تليفون, msq=مساحة, bld=عمارة, fin=تشطيب, rs=إيجار/بيع, type=نوع, cash=مقدم, rem=متبقي, comp=كمبوند, notes=ملاحظات, fb=فيدباك, last=آخر اتصال, emp=الموظف المسؤول`;
 
   const BATCH_SIZE = 3;
   const allMatches: AIMatchResult[] = [];
@@ -313,7 +329,6 @@ ${JSON.stringify(fullUnits)}
           top_units: topUnits.map((u) => {
             const uId = String(u.unit_id ?? "");
             const ul = unitLookup.get(uId);
-            const totalPrice = (ul?.cash ?? 0) + (ul?.rem ?? 0);
             return {
               unit_id: uId,
               rank: Number(u.rank ?? 0),
@@ -324,9 +339,11 @@ ${JSON.stringify(fullUnits)}
               unit_type: ul?.type ?? "",
               unit_finishing: ul?.fin ?? "",
               unit_area: ul?.msq ?? "",
-              unit_price: ul ? `${totalPrice.toLocaleString()}` : "",
+              unit_cash: ul?.cash ?? 0,
+              unit_remaining: ul?.rem ?? 0,
               unit_rent_sale: ul?.rs ?? "",
               unit_phone: ul?.ph ?? "",
+              unit_employee: employeeMap.get(ul?.emp ?? "") ?? "",
             };
           }),
         });

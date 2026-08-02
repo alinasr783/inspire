@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { toast } from "sonner";
@@ -19,7 +19,6 @@ import {
   ChevronDown,
   ArrowRight,
   Save,
-  CheckCheck,
   Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { runAIMatching, saveSelectedMatches, type AIMatchResult } from "@/lib/ai-matching";
 import { updateDealStatus, deleteDeal, type DealRow } from "@/lib/deal-actions";
+import { DealClientTable } from "@/components/deals/deal-client-table";
 
 interface ClientOption {
   id: string;
@@ -60,23 +60,6 @@ function formatPrice(amount: number | null | undefined) {
   if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;
   if (amount >= 1_000) return `${(amount / 1_000).toFixed(0)}K`;
   return String(amount);
-}
-
-function AnimatedScoreBar({ value, animate }: { value: number; animate: boolean }) {
-  const [w, setW] = useState(animate ? 0 : value);
-  useEffect(() => { if (animate) setTimeout(() => setW(value), 100); }, [animate, value]);
-
-  const pct = Math.min(100, Math.max(0, w));
-  const color = pct >= 70 ? "var(--primary)" : pct >= 40 ? "var(--chart-4)" : "var(--destructive)";
-
-  return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-      <div
-        className="h-full rounded-full transition-all duration-1000 ease-out"
-        style={{ width: `${pct}%`, backgroundColor: color }}
-      />
-    </div>
-  );
 }
 
 export function DealsPage({ initialDeals, userId, clients }: DealsPageProps) {
@@ -207,96 +190,22 @@ export function DealsPage({ initialDeals, userId, clients }: DealsPageProps) {
         </div>
 
         {aiResults.map((client) => (
-          <Card key={client.client_id} className="overflow-hidden">
-            <CardHeader className="bg-muted/30 border-b px-6 py-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-base font-bold text-primary">
-                    {initialsOf(client.client_name)}
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold">{client.client_name}</h3>
-                    <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      {client.client_phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{client.client_phone}</span>}
-                      {client.client_type && <Badge variant="outline" className="text-[10px] h-5">{client.client_type}</Badge>}
-                      {client.client_budget && <span className="flex items-center gap-1"><Banknote className="h-3 w-3" />{client.client_budget} EGP</span>}
-                    </div>
-                  </div>
-                </div>
-                <Button variant="ghost" size="sm" onClick={() => {
-                  const keys = client.top_units.map((u) => `${client.client_id}::${u.unit_id}`);
-                  const all = keys.every((k) => selectedMatches.has(k));
-                  setSelectedMatches((prev) => {
-                    const n = new Set(prev);
-                    if (all) keys.forEach((k) => n.delete(k));
-                    else keys.forEach((k) => n.add(k));
-                    return n;
-                  });
-                }} className="text-xs">
-                  <CheckCheck className="mr-1.5 h-3.5 w-3.5" />
-                  {client.top_units.every((u) => selectedMatches.has(`${client.client_id}::${u.unit_id}`)) ? t("deselectAll") : t("selectAll")}
-                </Button>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b bg-muted/20">
-                      <th className="w-10 px-4 py-3"></th>
-                      <th className="px-4 py-3 text-left text-[11px] font-medium text-muted-foreground">#</th>
-                      <th className="px-4 py-3 text-left text-[11px] font-medium text-muted-foreground">{t("property")}</th>
-                      <th className="px-4 py-3 text-left text-[11px] font-medium text-muted-foreground">{t("details")}</th>
-                      <th className="px-4 py-3 text-left text-[11px] font-medium text-muted-foreground">{t("price")}</th>
-                      <th className="px-4 py-3 text-left text-[11px] font-medium text-muted-foreground">{t("matchScore")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {client.top_units.map((unit) => {
-                      const key = `${client.client_id}::${unit.unit_id}`;
-                      return (
-                        <tr key={unit.unit_id} className={cn("border-b last:border-b-0 transition-colors hover:bg-muted/20", selectedMatches.has(key) && "bg-primary/5")}>
-                          <td className="px-4 py-3.5">
-                            <input type="checkbox" checked={selectedMatches.has(key)} onChange={() => handleToggleMatch(client.client_id, unit.unit_id)} className="h-4 w-4 rounded accent-primary" />
-                          </td>
-                          <td className="px-4 py-3.5">
-                            <Badge variant={unit.rank === 1 ? "default" : "outline"} className="text-[10px] h-5">#{unit.rank}</Badge>
-                          </td>
-                          <td className="px-4 py-3.5 min-w-[160px]">
-                            <div>
-                              <p className="text-sm font-medium">{unit.unit_name}</p>
-                              <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                                <MapPin className="h-3 w-3" />{unit.unit_compound || "—"}
-                              </p>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3.5 min-w-[140px]">
-                            <div className="flex flex-wrap gap-1">
-                              {unit.unit_type && <Badge variant="outline" className="text-[10px] h-5">{unit.unit_type}</Badge>}
-                              {unit.unit_finishing && <Badge variant="outline" className="text-[10px] h-5">{unit.unit_finishing}</Badge>}
-                              {unit.unit_area && <Badge variant="outline" className="text-[10px] h-5">{unit.unit_area} m²</Badge>}
-                              {unit.unit_rent_sale && <Badge variant="outline" className="text-[10px] h-5">{unit.unit_rent_sale}</Badge>}
-                            </div>
-                            <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed line-clamp-2">{unit.reasoning}</p>
-                          </td>
-                          <td className="px-4 py-3.5 font-medium tabular-nums text-sm whitespace-nowrap">{unit.unit_price} EGP</td>
-                          <td className="px-4 py-3.5 min-w-[180px]">
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className={cn("text-base font-bold tabular-nums", unit.score >= 70 ? "text-primary" : unit.score >= 40 ? "text-amber-500" : "text-destructive")}>{Math.round(unit.score)}%</span>
-                              </div>
-                              <AnimatedScoreBar value={unit.score} animate />
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          <DealClientTable
+            key={client.client_id}
+            client={client}
+            selectedMatches={selectedMatches}
+            onToggleMatch={handleToggleMatch}
+            onToggleAll={(cid, uids) => {
+              const keys = uids.map((uid) => `${cid}::${uid}`);
+              const all = keys.every((k) => selectedMatches.has(k));
+              setSelectedMatches((prev) => {
+                const n = new Set(prev);
+                if (all) keys.forEach((k) => n.delete(k));
+                else keys.forEach((k) => n.add(k));
+                return n;
+              });
+            }}
+          />
         ))}
       </div>
     );

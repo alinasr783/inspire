@@ -650,6 +650,20 @@
     "generateFor": "توليد",
     "property": "العقار",
     "details": "التفاصيل",
-    "price": "السعر"
+    "price": "السعر",
+    "ownerName": "المالك",
+    "phone": "التليفون",
+    "compound": "الكمبوند",
+    "area": "المساحة",
+    "type": "النوع",
+    "finishing": "التشطيب",
+    "employee": "الموظف المسؤول",
+    "cashRequired": "المقدم",
+    "remaining": "المتبقي",
+    "scoreComparison": "مقارنة النتائج",
+    "avgScore": "متوسط الدرجة",
+    "matches": "تطابقات",
+    "priceRange": "نطاق السعر",
+    "topScore": "أعلى درجة"
   }
 }

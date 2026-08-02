@@ -38,7 +38,7 @@ function Switch({
       <span
         className={cn(
           "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform",
-          checked ? "translate-x-[18px]" : "translate-x-[2px]"
+          checked ? "translate-x-[18px] rtl:-translate-x-[18px]" : "translate-x-[2px] rtl:-translate-x-[2px]"
         )}
       />
     </label>

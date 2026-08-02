@@ -649,6 +649,20 @@
     "generateFor": "Generate",
     "property": "Property",
     "details": "Details",
-    "price": "Price"
+    "price": "Price",
+    "ownerName": "Owner",
+    "phone": "Phone",
+    "compound": "Compound",
+    "area": "Area",
+    "type": "Type",
+    "finishing": "Finishing",
+    "employee": "Assigned To",
+    "cashRequired": "Cash Required",
+    "remaining": "Remaining",
+    "scoreComparison": "Score Comparison",
+    "avgScore": "Avg Score",
+    "matches": "Matches",
+    "priceRange": "Price Range",
+    "topScore": "Top Score"
   }
 }
