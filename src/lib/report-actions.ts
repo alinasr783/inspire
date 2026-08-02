@@ -16,6 +16,9 @@ export type ReportData = {
   clientsByUnitType: CategoryData;
   clientsBySource: CategoryData;
   tasksByStatus: CategoryData;
+  contactHealthUnits: CategoryData;
+  contactHealthClients: CategoryData;
+  contactHealthUnconfirmed: CategoryData;
   totalUnits: number;
   totalClients: number;
   totalTasks: number;
@@ -91,10 +94,11 @@ export async function fetchReports(rangeMonths: number = 12): Promise<ReportData
 
   const endDate = new Date();
 
-  const unitQuery = admin.from("units").select("created_at, unit_type, finishing_status, rent_sale, cash_required, remaining, compound_name, created_by, assigned_employee");
-  const clientQuery = admin.from("clients").select("created_at, unit_type, source, created_by, assigned_employee");
+  const unitQuery = admin.from("units").select("created_at, unit_type, finishing_status, rent_sale, cash_required, remaining, compound_name, created_by, assigned_employee, last_contact_date");
+  const clientQuery = admin.from("clients").select("created_at, unit_type, source, created_by, assigned_employee, last_contact_date");
   const taskQuery = admin.from("tasks").select("status, created_by, assigned_to");
   const dealQuery = admin.from("generated_deals").select("recommendation_status, created_by");
+  const unconfirmedQuery = admin.from("unconfirmed_records").select("last_contact_date, created_at");
 
   if (!isAdmin) {
     unitQuery.or(`created_by.eq.${userId},assigned_employee.eq.${userId}`);
@@ -103,13 +107,14 @@ export async function fetchReports(rangeMonths: number = 12): Promise<ReportData
     dealQuery.eq("created_by", userId);
   }
 
-  const [{ data: units }, { data: clients }, { data: tasks }, { data: deals }] =
-    await Promise.all([unitQuery, clientQuery, taskQuery, dealQuery]);
+  const [{ data: units }, { data: clients }, { data: tasks }, { data: deals }, { data: unconfirmed }] =
+    await Promise.all([unitQuery, clientQuery, taskQuery, dealQuery, unconfirmedQuery]);
 
   const unitList = (units ?? []) as Record<string, unknown>[];
   const clientList = (clients ?? []) as Record<string, unknown>[];
   const taskList = (tasks ?? []) as Record<string, unknown>[];
   const dealList = (deals ?? []) as Record<string, unknown>[];
+  const unconfirmedList = (unconfirmed ?? []) as Record<string, unknown>[];
 
   const unitsByMonth = fillMonthly(unitList as { created_at: string }[], rangeMonths, endDate);
   const clientsByMonth = fillMonthly(clientList as { created_at: string }[], rangeMonths, endDate);
@@ -144,6 +149,54 @@ export async function fetchReports(rangeMonths: number = 12): Promise<ReportData
     .slice(0, 5)
     .map(([name, count]) => ({ name, count }));
 
+  const now = Date.now();
+  const DAY_MS = 86400000;
+  let contactedUnits = 0;
+  let staleUnits = 0;
+  let neverUnits = 0;
+  for (const u of unitList) {
+    const last = u.last_contact_date ? new Date(String(u.last_contact_date)).getTime() : 0;
+    if (!last) neverUnits++;
+    else if (now - last > 7 * DAY_MS) staleUnits++;
+    else contactedUnits++;
+  }
+  const contactHealthUnits: CategoryData = [
+    { name: "Recent (< 7d)", value: contactedUnits, color: "#06c167" },
+    { name: "Stale (> 7d)", value: staleUnits, color: "#f59e0b" },
+    { name: "Not Contacted", value: neverUnits, color: "#ef4444" },
+  ].filter((d) => d.value > 0);
+
+  let contactedClients = 0;
+  let staleClients = 0;
+  let neverClients = 0;
+  for (const c of clientList) {
+    const last = c.last_contact_date ? new Date(String(c.last_contact_date)).getTime() : 0;
+    if (!last) neverClients++;
+    else if (now - last > 7 * DAY_MS) staleClients++;
+    else contactedClients++;
+  }
+  const contactHealthClients: CategoryData = [
+    { name: "Recent (< 7d)", value: contactedClients, color: "#06c167" },
+    { name: "Stale (> 7d)", value: staleClients, color: "#f59e0b" },
+    { name: "Not Contacted", value: neverClients, color: "#ef4444" },
+  ].filter((d) => d.value > 0);
+
+  let contactedUnconfirmed = 0;
+  let staleUnconfirmed = 0;
+  let neverUnconfirmed = 0;
+  const MONTH_MS = 30 * DAY_MS;
+  for (const r of unconfirmedList) {
+    const last = r.last_contact_date ? new Date(String(r.last_contact_date)).getTime() : 0;
+    if (!last) neverUnconfirmed++;
+    else if (now - last > MONTH_MS) staleUnconfirmed++;
+    else contactedUnconfirmed++;
+  }
+  const contactHealthUnconfirmed: CategoryData = [
+    { name: "Recent (< 30d)", value: contactedUnconfirmed, color: "#06c167" },
+    { name: "Stale (> 30d)", value: staleUnconfirmed, color: "#f59e0b" },
+    { name: "No Date", value: neverUnconfirmed, color: "#ef4444" },
+  ].filter((d) => d.value > 0);
+
   return {
     unitsByMonth,
     clientsByMonth,
@@ -153,6 +206,9 @@ export async function fetchReports(rangeMonths: number = 12): Promise<ReportData
     clientsByUnitType,
     clientsBySource,
     tasksByStatus,
+    contactHealthUnits,
+    contactHealthClients,
+    contactHealthUnconfirmed,
     totalUnits: unitList.length,
     totalClients: clientList.length,
     totalTasks: taskList.length,

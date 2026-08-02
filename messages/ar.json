@@ -689,6 +689,9 @@
     "count": "العدد",
     "approved": "موافق عليها",
     "pending": "معلقة",
-    "rejected": "مرفوضة"
+    "rejected": "مرفوضة",
+    "contactHealthUnits": "حالة تواصل الوحدات",
+    "contactHealthClients": "حالة تواصل العملاء",
+    "contactHealthUnconfirmed": "حالة تواصل البيانات غير المؤكدة"
   }
 }

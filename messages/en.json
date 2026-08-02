@@ -688,6 +688,9 @@
     "count": "Count",
     "approved": "Approved",
     "pending": "Pending",
-    "rejected": "Rejected"
+    "rejected": "Rejected",
+    "contactHealthUnits": "Units Contact Health",
+    "contactHealthClients": "Clients Contact Health",
+    "contactHealthUnconfirmed": "Unconfirmed Data Contact Health"
   }
 }

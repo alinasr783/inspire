@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
   BarChart3, PieChart, TrendingUp, Users, Building2, ListChecks,
-  Handshake, Banknote, Target, Loader2,
+  Handshake, Banknote, Target, Loader2, Activity,
 } from "lucide-react";
 import {
   BarChart, Bar, LineChart, Line, PieChart as RPieChart, Pie, Cell,
@@ -165,7 +165,7 @@ export function ReportsPage({ initialData }: { initialData: ReportData }) {
                 <RPieChart>
                   <Pie data={data.unitsByType} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={55}                 label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
                     {data.unitsByType.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} stroke="var(--background)" strokeWidth={2} />
+                      <Cell key={i} fill={entry.color} stroke="none" />
                     ))}
                   </Pie>
                   <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)" }} />
@@ -190,7 +190,7 @@ export function ReportsPage({ initialData }: { initialData: ReportData }) {
                 <RPieChart>
                   <Pie data={data.unitsByFinishing} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={55}                 label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
                     {data.unitsByFinishing.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} stroke="var(--background)" strokeWidth={2} />
+                      <Cell key={i} fill={entry.color} stroke="none" />
                     ))}
                   </Pie>
                   <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)" }} />
@@ -215,7 +215,7 @@ export function ReportsPage({ initialData }: { initialData: ReportData }) {
                 <RPieChart>
                   <Pie data={data.tasksByStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={55}                 label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
                     {data.tasksByStatus.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} stroke="var(--background)" strokeWidth={2} />
+                      <Cell key={i} fill={entry.color} stroke="none" />
                     ))}
                   </Pie>
                   <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)" }} />
@@ -276,6 +276,81 @@ export function ReportsPage({ initialData }: { initialData: ReportData }) {
                     ))}
                   </Bar>
                 </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground py-12">{t("noData")}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Activity className="h-4 w-4 text-chart-1" />
+              {t("contactHealthUnits")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-center">
+            {data.contactHealthUnits.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <RPieChart>
+                  <Pie data={data.contactHealthUnits} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={55} label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
+                    {data.contactHealthUnits.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} stroke="none" />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)" }} />
+                </RPieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground py-12">{t("noData")}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Activity className="h-4 w-4 text-chart-2" />
+              {t("contactHealthClients")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-center">
+            {data.contactHealthClients.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <RPieChart>
+                  <Pie data={data.contactHealthClients} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={55} label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
+                    {data.contactHealthClients.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} stroke="none" />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)" }} />
+                </RPieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground py-12">{t("noData")}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Activity className="h-4 w-4 text-chart-4" />
+              {t("contactHealthUnconfirmed")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-center">
+            {data.contactHealthUnconfirmed.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <RPieChart>
+                  <Pie data={data.contactHealthUnconfirmed} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={55} label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
+                    {data.contactHealthUnconfirmed.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} stroke="none" />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)" }} />
+                </RPieChart>
               </ResponsiveContainer>
             ) : (
               <p className="text-sm text-muted-foreground py-12">{t("noData")}</p>
