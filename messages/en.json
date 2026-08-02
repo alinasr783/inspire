@@ -664,5 +664,30 @@
     "matches": "Matches",
     "priceRange": "Price Range",
     "topScore": "Top Score"
+  },
+  "Reports": {
+    "title": "Reports & Analytics",
+    "subtitle": "Comprehensive insights into your real estate operations",
+    "totalUnits": "Total Units",
+    "totalClients": "Total Clients",
+    "totalTasks": "Total Tasks",
+    "totalDeals": "Total Deals",
+    "totalCash": "Cash Required",
+    "totalRemaining": "Remaining",
+    "unitsOverTime": "Units Added Over Time",
+    "clientsOverTime": "Clients Added Over Time",
+    "unitsByType": "Units By Type",
+    "unitsByFinishing": "Units By Finishing",
+    "unitsByRentSale": "Rent vs Sale",
+    "tasksByStatus": "Tasks By Status",
+    "topCompounds": "Top Compounds",
+    "dealsOverview": "Deals Overview",
+    "noData": "No data available",
+    "units": "Units",
+    "clients": "Clients",
+    "count": "Count",
+    "approved": "Approved",
+    "pending": "Pending",
+    "rejected": "Rejected"
   }
 }

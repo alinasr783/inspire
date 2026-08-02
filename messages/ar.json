@@ -665,5 +665,30 @@
     "matches": "تطابقات",
     "priceRange": "نطاق السعر",
     "topScore": "أعلى درجة"
+  },
+  "Reports": {
+    "title": "التقارير والإحصائيات",
+    "subtitle": "تحليلات شاملة لعملياتك العقارية",
+    "totalUnits": "إجمالي الوحدات",
+    "totalClients": "إجمالي العملاء",
+    "totalTasks": "إجمالي المهام",
+    "totalDeals": "إجمالي الصفقات",
+    "totalCash": "المبلغ المطلوب",
+    "totalRemaining": "المبلغ المتبقي",
+    "unitsOverTime": "الوحدات المضافة عبر الوقت",
+    "clientsOverTime": "العملاء المضافين عبر الوقت",
+    "unitsByType": "الوحدات حسب النوع",
+    "unitsByFinishing": "الوحدات حسب التشطيب",
+    "unitsByRentSale": "إيجار مقابل بيع",
+    "tasksByStatus": "المهام حسب الحالة",
+    "topCompounds": "أكثر الكمبوندات",
+    "dealsOverview": "نظرة عامة على الصفقات",
+    "noData": "لا توجد بيانات",
+    "units": "وحدات",
+    "clients": "عملاء",
+    "count": "العدد",
+    "approved": "موافق عليها",
+    "pending": "معلقة",
+    "rejected": "مرفوضة"
   }
 }

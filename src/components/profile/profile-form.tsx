@@ -220,7 +220,7 @@ export function ProfileForm({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 lg:self-start">
           <CardHeader className="border-b px-6 py-5">
             <CardTitle className="text-base">{t("title")}</CardTitle>
             <CardDescription>
