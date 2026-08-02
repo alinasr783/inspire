@@ -258,13 +258,22 @@ export default async function UnitDetailPage({
     .eq("id", unitData.created_by)
     .single();
 
-  const { data: assignee } = unitData.assigned_employee
-    ? await admin
+  let assigneeName = "—";
+  if (unitData.assigned_employee) {
+    try {
+      const { data: emp, error } = await admin
         .from("profiles")
         .select("first_name, second_name")
         .eq("id", unitData.assigned_employee)
-        .single()
-    : { data: null };
+        .single();
+      if (emp && !error) {
+        const name = [emp.first_name, emp.second_name].filter(Boolean).join(" ");
+        assigneeName = name || "—";
+      }
+    } catch {
+      assigneeName = "—";
+    }
+  }
 
   const { data: profile } = await admin
     .from("profiles")
@@ -279,9 +288,6 @@ export default async function UnitDetailPage({
 
   const creatorName = creator
     ? [creator.first_name, creator.second_name].filter(Boolean).join(" ")
-    : "—";
-  const assigneeName = assignee
-    ? [assignee.first_name, assignee.second_name].filter(Boolean).join(" ")
     : "—";
 
   const initials = initialsOf(unitData.customer_name);
@@ -382,12 +388,12 @@ export default async function UnitDetailPage({
 
           <div className="flex flex-col items-stretch gap-2 lg:items-end">
             {phoneDigits && (
-              <div className="-mx-6 flex gap-2 overflow-x-auto px-6 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+              <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
                 <a
                   href={`https://wa.me/${phoneDigits}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 gap-1.5")}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 justify-center gap-1.5")}
                 >
                   <WhatsAppIcon className="size-3.5 text-[#25D366]" />
                   {t("whatsapp")}
@@ -396,14 +402,14 @@ export default async function UnitDetailPage({
                   href={`https://t.me/+${phoneDigits}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 gap-1.5")}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 justify-center gap-1.5")}
                 >
                   <TelegramIcon className="size-3.5 text-[#229ED9]" />
                   {t("telegram")}
                 </a>
                 <a
                   href={`tel:${phoneDigits}`}
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 gap-1.5")}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 justify-center gap-1.5")}
                 >
                   <Phone className="size-3.5" />
                   {t("call")}
@@ -412,14 +418,14 @@ export default async function UnitDetailPage({
             )}
 
             {canEdit && (
-              <div className="-mx-6 flex gap-2 overflow-x-auto px-6 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-                <Link href={`/properties/${unitData.id}/edit`} className="shrink-0">
-                  <Button variant="outline" size="sm" className="gap-1.5">
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                <Link href={`/properties/${unitData.id}/edit`}>
+                  <Button variant="outline" size="sm" className="w-full justify-center gap-1.5">
                     <Pencil className="size-4" />
                     {t("editUnit")}
                   </Button>
                 </Link>
-                <span className="shrink-0"><DeleteUnitButton unitId={unitData.id} /></span>
+                <DeleteUnitButton unitId={unitData.id} />
               </div>
             )}
           </div>

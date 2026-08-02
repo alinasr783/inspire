@@ -5,7 +5,6 @@ import {
   Handshake,
   ListChecks,
   BarChart3,
-  Settings,
   FileSpreadsheet,
   MonitorSmartphone,
   UserCircle,
@@ -21,7 +20,6 @@ export const navItems = [
   { key: "reports", href: "/reports", icon: BarChart3 },
   { key: "devices", href: "/devices", icon: MonitorSmartphone },
   { key: "profile", href: "/profile", icon: UserCircle },
-  { key: "settings", href: "/settings", icon: Settings },
 ] as const;
 
 export type NavItem = (typeof navItems)[number];

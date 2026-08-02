@@ -183,34 +183,57 @@
   background-color: var(--muted-foreground);
 }
 
-/* ── Stale contact highlight (clients table) ─── */
+/* ── Stale contact highlight ──────────────────── */
 tr[data-stale="true"] {
   background-color: #ff453a1a !important;
 }
 
-tr[data-stale="true"] td {
-  color: #ffffff !important;
+:root tr[data-stale="true"] td,
+:root tr[data-stale="true"] td span {
+  color: #991b1b !important;
 }
 
-tr[data-stale="true"] td span {
+.dark tr[data-stale="true"] td,
+.dark tr[data-stale="true"] td span {
   color: #ffffff !important;
   background-color: transparent !important;
 }
 
 tr[data-stale="true"] td input,
 tr[data-stale="true"] td select {
-  color: #ffffff !important;
+  color: inherit !important;
   background-color: transparent !important;
-  caret-color: #ffffff;
 }
 
 tr[data-stale="true"] td input::placeholder {
-  color: #98989d !important;
+  color: var(--muted-foreground) !important;
 }
 
 tr[data-stale="true"] td input:hover,
 tr[data-stale="true"] td select:hover {
   background-color: transparent !important;
+}
+
+/* ── Colored rows: ensure action icons stay visible ── */
+tr[style*="background"] button svg,
+tr[style*="background"] a svg,
+tr[style*="background"] span svg {
+  filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.5)) drop-shadow(0 0 1.5px rgba(0,0,0,0.5));
+}
+.dark tr[style*="background"] button svg,
+.dark tr[style*="background"] a svg,
+.dark tr[style*="background"] span svg {
+  filter: drop-shadow(0 0 2px rgba(0,0,0,0.8));
+}
+tr[style*="color:"] button,
+tr[style*="color:"] a {
+  position: relative;
+}
+tr[style*="background"] td:last-child {
+  background-image: linear-gradient(rgba(0,0,0,0.06), rgba(0,0,0,0.06));
+}
+.dark tr[style*="background"] td:last-child {
+  background-image: linear-gradient(rgba(255,255,255,0.06), rgba(255,255,255,0.06));
 }
 
 /* ── Safe area for mobile ────────────────────── */

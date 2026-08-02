@@ -269,34 +269,6 @@ export function ClientForm({ mode, defaultValues, clientId, customColumns, assig
           />
         </div>
 
-        {customColumns
-          .filter((c) => c.enabled)
-          .map((col) => (
-            <div key={col.key} className="space-y-2">
-              <Label htmlFor={col.key}>
-                {col.label_ar}
-              </Label>
-              {col.type === "select" ? (
-                <select
-                  id={col.key}
-                  name={col.key}
-                  className={selectClass}
-                >
-                  <option value=""></option>
-                  {(col.options ?? []).map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              ) : (
-                <Input
-                  id={col.key}
-                  name={col.key}
-                  type={col.type === "number" ? "number" : col.type === "date" ? "date" : "text"}
-                  dir={col.type === "number" ? "ltr" : undefined}
-                />
-              )}
-            </div>
-          ))}
       </div>
 
       <div className="flex items-center gap-3">

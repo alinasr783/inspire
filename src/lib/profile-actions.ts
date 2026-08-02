@@ -115,3 +115,48 @@ export async function removeAvatar(): Promise<ProfileActionResult> {
     return { success: false, error: "saveFailed" };
   }
 }
+
+export async function updateProfileSettings(
+  settings: { primary_color?: string | null; notification_prefs?: Record<string, boolean> }
+): Promise<ProfileActionResult> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: "unauthorized" };
+    }
+
+    const admin = createAdminClient();
+    const updates: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (settings.primary_color !== undefined) {
+      updates.primary_color = settings.primary_color;
+    }
+
+    if (settings.notification_prefs !== undefined) {
+      updates.notification_prefs = settings.notification_prefs;
+    }
+
+    const { error: updateError } = await admin
+      .from("profiles")
+      .update(updates)
+      .eq("id", user.id);
+
+    if (updateError) {
+      console.error("[updateProfileSettings] DB update error:", JSON.stringify(updateError));
+      return { success: false, error: "saveFailed" };
+    }
+
+    revalidatePath("/", "layout");
+
+    return { success: true };
+  } catch (err) {
+    console.error("[updateProfileSettings] Unexpected error:", err);
+    return { success: false, error: "saveFailed" };
+  }
+}

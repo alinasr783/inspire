@@ -694,7 +694,7 @@ export default async function DashboardPage({
                   <li key={unit.id}>
                     <Link
                       href={`/properties/${unit.id}`}
-                      className="flex items-center justify-between gap-3 py-3 transition-colors hover:bg-muted/30 -mx-2 px-2 rounded-lg"
+                      className="flex items-center justify-between gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-muted/30"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">
@@ -742,7 +742,7 @@ export default async function DashboardPage({
                   <li key={unit.id}>
                     <Link
                       href={`/properties/${unit.id}`}
-                      className="flex items-center justify-between gap-3 py-3 transition-colors hover:bg-muted/30 -mx-2 px-2 rounded-lg"
+                      className="flex items-center justify-between gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-muted/30"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">

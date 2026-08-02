@@ -4,14 +4,17 @@ import { useState, useRef, useTransition, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { toast } from "sonner";
-import { Camera, Bell, Shield, Palette, Trash2, Loader2, Upload } from "lucide-react";
+import { Camera, Bell, Shield, Trash2, Loader2, Upload, Palette, Check } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { useRealtime } from "@/components/providers/realtime-provider";
-import { updateProfile, removeAvatar } from "@/lib/profile-actions";
+import { useThemeColor } from "@/components/providers/theme-color-provider";
+import { updateProfile, removeAvatar, updateProfileSettings } from "@/lib/profile-actions";
+import { THEME_COLORS } from "@/lib/theme-colors";
 import { cn } from "@/lib/utils";
 
 interface ProfileFormProps {
@@ -19,17 +22,39 @@ interface ProfileFormProps {
   secondName: string;
   email: string;
   avatarUrl: string | null;
+  primaryColor: string | null;
+  notificationPrefs: Record<string, boolean>;
+  role: string;
 }
+
+const USER_NOTIFICATIONS: { key: string; label: string }[] = [
+  { key: "new_unit", label: "New property added" },
+  { key: "unit_updated", label: "Property updated" },
+  { key: "new_task", label: "New task assigned to you" },
+  { key: "new_device", label: "New device login" },
+];
+
+const ADMIN_NOTIFICATIONS: { key: string; label: string }[] = [
+  { key: "task_status", label: "Task status changed" },
+  { key: "new_client", label: "New client added" },
+  { key: "client_updated", label: "Client updated" },
+  { key: "new_registration", label: "New user registration" },
+];
 
 export function ProfileForm({
   firstName: initialFirstName,
   secondName: initialSecondName,
   email,
   avatarUrl: initialAvatarUrl,
+  primaryColor: initialPrimaryColor,
+  notificationPrefs: initialNotificationPrefs,
+  role,
 }: ProfileFormProps) {
   const t = useTranslations("Profile");
   const router = useRouter();
   const { refreshCurrentUser } = useRealtime();
+  const { color: themeColor, setColor: setThemeColor } = useThemeColor();
+
   const [firstName, setFirstName] = useState(initialFirstName);
   const [secondName, setSecondName] = useState(initialSecondName);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl);
@@ -39,9 +64,18 @@ export function ProfileForm({
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [selectedColor, setSelectedColor] = useState<string | null>(initialPrimaryColor);
+  const [pendingColor, setPendingColor] = useState<string | null>(null);
+  const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>(initialNotificationPrefs);
+
   const initials = `${initialFirstName?.[0] ?? ""}${initialSecondName?.[0] ?? ""}`.toUpperCase() || "IN";
   const displayAvatar = previewUrl ?? avatarUrl;
   const hasAvatar = Boolean(displayAvatar);
+  const isAdmin = role === "admin";
+
+  const allNotifications = isAdmin
+    ? [...USER_NOTIFICATIONS, ...ADMIN_NOTIFICATIONS]
+    : USER_NOTIFICATIONS;
 
   const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -143,28 +177,40 @@ export function ProfileForm({
     });
   };
 
+  const handleColorSelect = (color: string) => {
+    setPendingColor(color);
+    setThemeColor(color);
+
+    startTransition(async () => {
+      const result = await updateProfileSettings({ primary_color: color });
+      if (result.success) {
+        setSelectedColor(color);
+        toast.success(t("savedSuccess"));
+      } else {
+        setPendingColor(null);
+        setThemeColor(selectedColor ?? "");
+        toast.error(t("saveFailed"));
+      }
+    });
+  };
+
+  const handleNotifToggle = (key: string, enabled: boolean) => {
+    const updated = { ...notifPrefs, [key]: enabled };
+    setNotifPrefs(updated);
+
+    startTransition(async () => {
+      const result = await updateProfileSettings({ notification_prefs: updated });
+      if (!result.success) {
+        setNotifPrefs(notifPrefs);
+        toast.error(t("saveFailed"));
+      }
+    });
+  };
+
   const isDirty =
     firstName.trim() !== initialFirstName.trim() ||
     secondName.trim() !== initialSecondName.trim() ||
     selectedFile !== null;
-
-  const comingSoonItems = [
-    {
-      icon: Palette,
-      title: t("preferences"),
-      description: t("preferencesDesc"),
-    },
-    {
-      icon: Bell,
-      title: t("notifications"),
-      description: t("notificationsDesc"),
-    },
-    {
-      icon: Shield,
-      title: t("security"),
-      description: t("securityDesc"),
-    },
-  ];
 
   return (
     <div className="space-y-8">
@@ -317,26 +363,91 @@ export function ProfileForm({
         </Card>
 
         <div className="flex flex-col gap-4">
-          {comingSoonItems.map((item) => (
-            <Card key={item.title} className="group transition-shadow hover:shadow-md">
-              <CardHeader className="pb-3 px-5 pt-5">
-                <div className="flex items-start justify-between">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted group-hover:bg-primary/10 transition-colors">
-                    <item.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                  </div>
-                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-medium text-primary">
-                    {t("comingSoon")}
-                  </span>
+          <Card className="group transition-shadow hover:shadow-md">
+            <CardHeader className="pb-3 px-5 pt-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                <Palette className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <CardTitle className="text-sm mt-3">{t("appearance")}</CardTitle>
+            </CardHeader>
+            <CardContent className="px-5 pb-5 space-y-3">
+              <CardDescription className="text-xs">
+                {t("appearanceDesc")}
+              </CardDescription>
+              <div className="flex flex-wrap gap-2.5">
+                {THEME_COLORS.map((c) => {
+                  const isActive = (pendingColor ?? themeColor) === c.color || (!pendingColor && !themeColor && c.id === "green");
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      title={c.label}
+                      onClick={() => handleColorSelect(c.color)}
+                      className={cn(
+                        "relative flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150 hover:scale-110",
+                        isActive && "ring-2 ring-offset-2 ring-offset-card"
+                      )}
+                      style={{
+                        backgroundColor: c.color,
+                        ...(isActive && { ringColor: c.color }),
+                      }}
+                    >
+                      {isActive && <Check className="h-4 w-4 text-white drop-shadow-sm" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="group transition-shadow hover:shadow-md">
+            <CardHeader className="pb-3 px-5 pt-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                <Bell className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <CardTitle className="text-sm mt-3">{t("notifications")}</CardTitle>
+            </CardHeader>
+            <CardContent className="px-5 pb-5 space-y-1">
+              <CardDescription className="text-xs mb-3">
+                {t("notificationsDesc")}
+              </CardDescription>
+              {allNotifications.map((item) => (
+                <div
+                  key={item.key}
+                  className="flex items-center justify-between py-1.5"
+                >
+                  <Label
+                    htmlFor={`notif-${item.key}`}
+                    className="text-xs cursor-pointer flex-1 pr-2"
+                  >
+                    {item.label}
+                  </Label>
+                  <Switch
+                    id={`notif-${item.key}`}
+                    checked={notifPrefs[item.key] ?? true}
+                    onCheckedChange={(checked) => handleNotifToggle(item.key, checked)}
+                  />
                 </div>
-                <CardTitle className="text-sm mt-3">{item.title}</CardTitle>
-              </CardHeader>
-              <CardContent className="px-5 pb-5">
-                <CardDescription className="text-xs leading-relaxed">
-                  {item.description}
-                </CardDescription>
-              </CardContent>
-            </Card>
-          ))}
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card className="group transition-shadow hover:shadow-md">
+            <CardHeader className="pb-3 px-5 pt-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                <Shield className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <CardTitle className="text-sm mt-3">{t("security")}</CardTitle>
+            </CardHeader>
+            <CardContent className="px-5 pb-5">
+              <CardDescription className="text-xs leading-relaxed">
+                {t("securityDesc")}
+              </CardDescription>
+              <span className="mt-2 inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-medium text-primary">
+                {t("comingSoon")}
+              </span>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

@@ -12,7 +12,6 @@ import {
   FileSpreadsheet,
   Handshake,
   BarChart3,
-  Settings,
   MonitorSmartphone,
   UserCircle,
   X,
@@ -33,7 +32,6 @@ const MORE_ITEMS = [
   { key: "reports", href: "/reports", icon: BarChart3 },
   { key: "devices", href: "/devices", icon: MonitorSmartphone },
   { key: "profile", href: "/profile", icon: UserCircle },
-  { key: "settings", href: "/settings", icon: Settings },
 ] as const;
 
 export function BottomTabBar({ role }: { role?: string }) {

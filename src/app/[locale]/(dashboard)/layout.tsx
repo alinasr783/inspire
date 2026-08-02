@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { DashboardClientShell } from "@/components/providers/dashboard-client-shell";
+import { ThemeColorProvider } from "@/components/providers/theme-color-provider";
 
 export default async function DashboardLayout({
   children,
@@ -31,12 +32,13 @@ export default async function DashboardLayout({
     first_name: string;
     second_name: string;
     avatar_url: string | null;
+    primary_color: string | null;
   } | null = null;
 
   try {
     const { data } = await admin
       .from("profiles")
-      .select("approval_status, role, first_name, second_name, avatar_url")
+      .select("approval_status, role, first_name, second_name, avatar_url, primary_color")
       .eq("id", user.id)
       .single();
     profile = data;
@@ -46,7 +48,7 @@ export default async function DashboardLayout({
       .select("approval_status, role, first_name, second_name")
       .eq("id", user.id)
       .single();
-    profile = data ? { ...data, avatar_url: null } : null;
+    profile = data ? { ...data, avatar_url: null, primary_color: null } : null;
   }
 
   if (!profile || profile.approval_status !== "approved") {
@@ -73,14 +75,16 @@ export default async function DashboardLayout({
 
   return (
     <DashboardClientShell user={shellUser} initialPending={initialPending}>
-      <div className="h-screen overflow-hidden">
-        <Sidebar role={profile.role} />
-        <div className="flex h-full min-w-0 flex-col md:pl-[232px]">
-          <Topbar />
-          <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6" style={{ paddingBottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px))" }}>{children}</main>
+      <ThemeColorProvider initialColor={profile.primary_color}>
+        <div className="h-screen overflow-hidden">
+          <Sidebar role={profile.role} />
+          <div className="flex h-full min-w-0 flex-col md:pl-[232px]">
+            <Topbar />
+            <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8" style={{ paddingBottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px))" }}>{children}</main>
+          </div>
         </div>
-      </div>
-      <BottomTabBar role={profile.role} />
+        <BottomTabBar role={profile.role} />
+      </ThemeColorProvider>
     </DashboardClientShell>
   );
 }

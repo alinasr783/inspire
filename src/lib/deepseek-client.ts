@@ -5,11 +5,19 @@ interface DeepSeekMessage {
   content: string;
 }
 
+interface DeepSeekOptions {
+  maxTokens?: number;
+  temperature?: number;
+}
+
 interface DeepSeekResponse {
   choices: Array<{ message: { content: string } }>;
 }
 
-export async function callDeepSeek(messages: DeepSeekMessage[]): Promise<string> {
+export async function callDeepSeek(
+  messages: DeepSeekMessage[],
+  options?: DeepSeekOptions
+): Promise<string> {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) throw new Error("DeepSeek API key not configured");
 
@@ -22,8 +30,8 @@ export async function callDeepSeek(messages: DeepSeekMessage[]): Promise<string>
     body: JSON.stringify({
       model: "deepseek-chat",
       messages,
-      temperature: 0.3,
-      max_tokens: 2000,
+      temperature: options?.temperature ?? 0.3,
+      max_tokens: options?.maxTokens ?? 2000,
     }),
   });
 
