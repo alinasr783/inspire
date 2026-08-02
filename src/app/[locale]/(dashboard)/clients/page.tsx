@@ -61,12 +61,12 @@ export default async function ClientsPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">{tNav("clients")}</h1>
-        <div className="flex items-center gap-2">
-          {isAdmin && <ColumnConfigModal />}
-          {isAdmin && (<Link href="/clients/group-add"><Button variant="outline"><Upload className="h-4 w-4" />{t("groupAddUnits")}</Button></Link>)}
-          <Link href="/clients/new"><Button><Plus className="h-4 w-4" />{t("createClient")}</Button></Link>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{tNav("clients")}</h1>
+        <div className="-mx-3 flex gap-2 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+          {isAdmin && <span className="shrink-0"><ColumnConfigModal /></span>}
+          {isAdmin && (<Link href="/clients/group-add" className="shrink-0"><Button variant="outline" size="sm"><Upload className="h-4 w-4" />{t("groupAddUnits")}</Button></Link>)}
+          <Link href="/clients/new" className="shrink-0"><Button size="sm"><Plus className="h-4 w-4" />{t("createClient")}</Button></Link>
         </div>
       </div>
       <Card>

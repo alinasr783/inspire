@@ -335,7 +335,7 @@ export default async function ClientDetailPage({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 md:pb-0">
       <nav className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link
           href="/clients"
@@ -415,12 +415,12 @@ export default async function ClientDetailPage({
 
           <div className="flex flex-col items-stretch gap-2 lg:items-end">
             {phoneDigits && (
-              <div className="flex flex-wrap gap-2">
+              <div className="-mx-6 flex gap-2 overflow-x-auto px-6 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
                 <a
                   href={`https://wa.me/${phoneDigits}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 gap-1.5")}
                 >
                   <WhatsAppIcon className="size-3.5 text-[#25D366]" />
                   {t("whatsapp")}
@@ -429,14 +429,14 @@ export default async function ClientDetailPage({
                   href={`https://t.me/+${phoneDigits}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 gap-1.5")}
                 >
                   <TelegramIcon className="size-3.5 text-[#229ED9]" />
                   {t("telegram")}
                 </a>
                 <a
                   href={`tel:${phoneDigits}`}
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 gap-1.5")}
                 >
                   <Phone className="size-3.5" />
                   {t("call")}
@@ -444,8 +444,8 @@ export default async function ClientDetailPage({
               </div>
             )}
 
-            <div className="flex flex-wrap gap-2">
-              <Link href={`/clients/${clientData.id}/deals`}>
+            <div className="-mx-6 flex gap-2 overflow-x-auto px-6 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+              <Link href={`/clients/${clientData.id}/deals`} className="shrink-0">
                 <Button size="sm" className="gap-1.5 font-semibold">
                   <Sparkles className="size-4" />
                   {t("generateDeals")}
@@ -453,13 +453,13 @@ export default async function ClientDetailPage({
               </Link>
               {canEdit && (
                 <>
-                  <Link href={`/clients/${clientData.id}/edit`}>
+                  <Link href={`/clients/${clientData.id}/edit`} className="shrink-0">
                     <Button variant="outline" size="sm" className="gap-1.5">
                       <Pencil className="size-4" />
                       {t("editClient")}
                     </Button>
                   </Link>
-                  <DeleteClientButton clientId={clientData.id} />
+                  <span className="shrink-0"><DeleteClientButton clientId={clientData.id} /></span>
                 </>
               )}
             </div>
@@ -723,6 +723,37 @@ export default async function ClientDetailPage({
           </Card>
         </aside>
       </div>
+
+      {phoneDigits && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur-lg md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+          <div className="flex items-center gap-2 px-3 py-2">
+            <a
+              href={`tel:${phoneDigits}`}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground"
+            >
+              <Phone className="size-4" />
+              {t("call")}
+            </a>
+            <a
+              href={`https://wa.me/${phoneDigits}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#25D366] py-2.5 text-sm font-semibold text-white"
+            >
+              <WhatsAppIcon className="size-4" />
+              WhatsApp
+            </a>
+            {canEdit && (
+              <>
+                <Link href={`/clients/${clientData.id}/edit`} className="flex items-center justify-center rounded-xl border border-border px-3 py-2.5">
+                  <Pencil className="size-4" />
+                </Link>
+                <span><DeleteClientButton clientId={clientData.id} /></span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
