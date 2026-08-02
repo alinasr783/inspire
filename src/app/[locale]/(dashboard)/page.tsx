@@ -235,7 +235,7 @@ export default async function DashboardPage({
       .limit(3),
     admin
       .from("units")
-      .select("id, customer_name, cash_required, remaining, area, compound_name, building_number, unit_type")
+      .select("id, customer_name, cash_required, remaining, area, compound_name, building_number, unit_type, finishing_status")
       .ilike("rent_sale", "%بيع%")
       .not("cash_required", "is", null)
       .not("area", "is", null)
@@ -265,7 +265,23 @@ export default async function DashboardPage({
     building_number: string | null;
   }[];
 
-  // ── distinguished sale: score = normArea × (1-normCash) × (1-normRemaining) × 100 ──
+  // ── distinguished sale: score = valueRatio × finishingWeight × 100 ──
+  const compoundPrices: Record<string, number> = {
+    "the brooks": 36000,
+    "brooks": 36000,
+    "stone residence": 34000,
+    "stone": 34000,
+  };
+
+  const getFinishingWeight = (status: string | null): number => {
+    const s = (status ?? "").toLowerCase();
+    if (!s) return 0.6;
+    if ((s.includes("متشطب") || s.includes("كامل") || s.includes("finished") || s.includes("full")) && !s.includes("نصف") && !s.includes("semi")) return 1.0;
+    if (s.includes("نصف") || s.includes("semi") || s.includes("half")) return 0.7;
+    if (s.includes("طوب") || s.includes("بدون") || s.includes("shell") || s.includes("unfinished")) return 0.4;
+    return 0.6;
+  };
+
   const rawSaleWithArea = (saleUnitsWithArea ?? []) as {
     id: string;
     customer_name: string;
@@ -275,39 +291,57 @@ export default async function DashboardPage({
     compound_name: string | null;
     building_number: string | null;
     unit_type: string | null;
+    finishing_status: string | null;
   }[];
 
   const salePool = rawSaleWithArea
     .map((u) => {
       const areaNum = parseFloat(u.area ?? "");
-      const cash = u.cash_required;
-      if (!areaNum || areaNum <= 0 || !cash || cash <= 0) return null;
+      const cash = u.cash_required ?? 0;
       const remaining = u.remaining ?? 0;
-      return { ...u, cash_required: cash, remaining, areaNumeric: areaNum };
+      const totalPrice = cash + remaining;
+      if (!areaNum || areaNum <= 0 || totalPrice <= 0) return null;
+      const compound = (u.compound_name ?? "").trim();
+      const compoundKey = compound.toLowerCase();
+
+      let marketPricePerSqm: number | undefined = compoundPrices[compoundKey];
+      if (!marketPricePerSqm) {
+        const sameCompound = rawSaleWithArea
+          .filter((x) => x.id !== u.id && (x.compound_name ?? "").trim().toLowerCase() === compoundKey)
+          .map((x) => {
+            const a = parseFloat(x.area ?? "");
+            const c = (x.cash_required ?? 0) + (x.remaining ?? 0);
+            return a && a > 0 && c > 0 ? c / a : null;
+          })
+          .filter((v): v is number => v !== null);
+        marketPricePerSqm = sameCompound.length > 0
+          ? sameCompound.reduce((s, v) => s + v, 0) / sameCompound.length
+          : undefined;
+      }
+
+      const finishingWeight = getFinishingWeight(u.finishing_status);
+
+      return {
+        ...u,
+        cash_required: cash,
+        remaining,
+        totalPrice,
+        areaNumeric: areaNum,
+        marketPricePerSqm,
+        finishingWeight,
+      };
     })
     .filter((u): u is NonNullable<typeof u> => u !== null);
 
-  const areas = salePool.map((u) => u.areaNumeric);
-  const cashes = salePool.map((u) => u.cash_required);
-  const remainings = salePool.map((u) => u.remaining);
-  const minA = Math.min(...areas);
-  const maxA = Math.max(...areas);
-  const minC = Math.min(...cashes);
-  const maxC = Math.max(...cashes);
-  const minR = Math.min(...remainings);
-  const maxR = Math.max(...remainings);
-  const rangeA = maxA - minA || 1;
-  const rangeC = maxC - minC || 1;
-  const rangeR = maxR - minR || 1;
-
   const distinguished = salePool
     .map((u) => {
-      const normArea = (u.areaNumeric - minA) / rangeA;
-      const normCash = (u.cash_required - minC) / rangeC;
-      const normRemaining = (u.remaining - minR) / rangeR;
-      const score = Math.round(normArea * (1 - normCash) * (1 - normRemaining) * 100);
-      return { ...u, score };
+      const actualPricePerSqm = u.totalPrice / u.areaNumeric;
+      const market = u.marketPricePerSqm ?? actualPricePerSqm;
+      const valueRatio = market / actualPricePerSqm;
+      const score = Math.round(valueRatio * u.finishingWeight * 100);
+      return { ...u, actualPricePerSqm, valueRatio, score };
     })
+    .filter((u) => u.marketPricePerSqm !== undefined)
     .sort((a, b) => b.score - a.score)
     .slice(0, 5);
 
@@ -756,40 +790,60 @@ export default async function DashboardPage({
                 <Link
                   key={unit.id}
                   href={`/properties/${unit.id}`}
-                  className="flex items-center gap-4 rounded-xl border p-3 transition-colors hover:bg-muted/30 sm:p-4"
+                  className="flex items-center gap-3 rounded-xl border p-3 transition-colors hover:bg-muted/30 sm:gap-4 sm:p-4"
                 >
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-sm font-bold text-muted-foreground">
+                  <div
+                    className="flex size-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
+                    style={{
+                      backgroundColor:
+                        i === 0 ? "#fef3c7" : i === 1 ? "#f3f4f6" : i === 2 ? "#fef2f2" : "var(--muted)",
+                      color:
+                        i === 0 ? "#92400e" : i === 1 ? "#374151" : i === 2 ? "#991b1b" : "var(--muted-foreground)",
+                    }}
+                  >
                     {i + 1}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">
-                      {unit.customer_name || "—"}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-semibold">
+                        {unit.customer_name || "—"}
+                      </p>
+                      {unit.finishing_status && (
+                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          {unit.finishing_status}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
                       {[unit.compound_name, unit.area, unit.building_number]
                         .filter(Boolean)
                         .join(" · ") || "—"}
                     </p>
-                  </div>
-                  <div className="hidden shrink-0 flex-col items-end sm:flex">
-                    <p className="text-sm font-semibold">
-                      {unit.cash_required.toLocaleString()}{" "}
-                      <span className="text-xs font-normal text-muted-foreground">
-                        {t("price")}
-                      </span>
+                    <p className="mt-0.5 text-xs text-emerald-600">
+                      {Math.round(unit.actualPricePerSqm!).toLocaleString()} / m²
+                      {unit.valueRatio! > 1 && (
+                        <span className="ml-1 font-semibold">
+                          ({Math.round((unit.valueRatio! - 1) * 100)}% أقل من السوق)
+                        </span>
+                      )}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      {t("areaSqm", { area: unit.areaNumeric })}
+                  </div>
+                  <div className="hidden shrink-0 text-right sm:block">
+                    <p className="text-sm font-bold">
+                      {unit.totalPrice.toLocaleString()}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {t("totalPrice")}
                     </p>
                   </div>
                   <div className="hidden shrink-0 flex-col items-center gap-1 md:flex">
                     <span className="text-[11px] font-medium text-muted-foreground">
                       {t("distinctionScore")}
                     </span>
-                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+                    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full rounded-full bg-amber-500 transition-all"
-                        style={{ width: `${unit.score}%` }}
+                        style={{ width: `${Math.min(unit.score, 100)}%` }}
                       />
                     </div>
                     <span className="text-[11px] font-semibold text-amber-600">

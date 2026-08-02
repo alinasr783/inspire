@@ -63,9 +63,10 @@
     "noUnitsFound": "No units found",
     "price": "Price",
     "mostDistinguishedSale": "Most Distinguished Sale Units",
+    "totalPrice": "Total Price",
     "distinctionScore": "Distinction",
     "areaSqm": "{area} m²",
-    "distinctionExplain": "Units are ranked by a composite distinction score:\n1. Area is normalized to 0–1 (largest = 1)\n2. Down payment is normalized to 0–1 (highest = 1)\n3. Remaining balance is normalized to 0–1 (highest = 1)\n4. Score = normArea × (1−normCash) × (1−normRemaining) × 100\n\nA unit scores high only when it is spacious, requires a low down payment, and has little balance remaining. If any single factor is poor, the score drops significantly."
+    "distinctionExplain": "Units are ranked by a composite distinction score:\n1. Total price = down payment + remaining balance\n2. Actual price/m² = total price ÷ area\n3. Market price/m² per compound (e.g. The Brooks: 36,000, Stone Residence: 34,000)\n4. Value ratio = market price/m² ÷ actual price/m²\n5. Finishing weight: fully finished = 1.0, semi-finished = 0.7, shell = 0.4\n6. Score = value ratio × finishing weight × 100\n\nA high score means you're paying less than the compound's market rate for a well-finished unit."
   },
   "Placeholder": {
     "text": "This section is under development. Content will be added soon."
