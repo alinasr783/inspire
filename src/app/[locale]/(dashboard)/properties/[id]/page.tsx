@@ -24,6 +24,7 @@ import {
   Paintbrush,
   Pencil,
   Phone,
+  Share2,
   ShieldCheck,
   User,
   UserCheck,
@@ -315,6 +316,26 @@ export default async function UnitDetailPage({
   const cashDisplay = formatNumber(unitData.cash_required);
   const remainingDisplay = formatNumber(unitData.remaining);
 
+  const shareText = [
+    `*${unitData.customer_name}*`,
+    unitData.phone && `Phone: ${unitData.phone}`,
+    unitData.compound_name && `Compound: ${unitData.compound_name}`,
+    unitData.area && `Area: ${unitData.area}`,
+    unitData.building_number && `Building No.: ${unitData.building_number}`,
+    unitData.unit_type && `Unit Type: ${unitData.unit_type}`,
+    unitData.finishing_status && `Finishing Status: ${unitData.finishing_status}`,
+    unitData.rent_sale && `Type: ${unitData.rent_sale}`,
+    cashDisplay && `Cash Required: ${cashDisplay}`,
+    remainingDisplay && `Remaining: ${remainingDisplay}`,
+    contactValid && `Last Contact: ${formatDate(unitData.last_contact_date!, locale)}`,
+    `Responsible Employee: ${assigneeName}`,
+    unitData.additional_notes && `Notes: ${unitData.additional_notes}`,
+    unitData.feedback && `Feedback: ${unitData.feedback}`,
+  ].filter(Boolean).join("\n");
+  const shareUrl = phoneDigits
+    ? `https://wa.me/${phoneDigits}?text=${encodeURIComponent(shareText)}`
+    : `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+
   return (
     <div className="space-y-6 pb-20 md:pb-0">
       <nav className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -417,17 +438,28 @@ export default async function UnitDetailPage({
               </div>
             )}
 
-            {canEdit && (
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                <Link href={`/properties/${unitData.id}/edit`}>
-                  <Button variant="outline" size="sm" className="w-full justify-center gap-1.5">
-                    <Pencil className="size-4" />
-                    {t("editUnit")}
-                  </Button>
-                </Link>
-                <DeleteUnitButton unitId={unitData.id} />
-              </div>
-            )}
+            <div className="flex flex-wrap gap-2">
+              <a
+                href={shareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "justify-center gap-1.5")}
+              >
+                <Share2 className="size-3.5" />
+                {t("shareViaWhatsapp")}
+              </a>
+              {canEdit && (
+                <>
+                  <Link href={`/properties/${unitData.id}/edit`}>
+                    <Button variant="outline" size="sm" className="w-full justify-center gap-1.5">
+                      <Pencil className="size-4" />
+                      {t("editUnit")}
+                    </Button>
+                  </Link>
+                  <DeleteUnitButton unitId={unitData.id} />
+                </>
+              )}
+            </div>
           </div>
         </div>
       </Card>
