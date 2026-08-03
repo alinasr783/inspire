@@ -24,7 +24,6 @@ import {
   Pencil,
   Phone,
   ShieldCheck,
-  Share2,
   Sparkles,
   Star,
   User,
@@ -340,26 +339,6 @@ export default async function ClientDetailPage({
     budgetDisplay = `≤ ${formatNumber(clientData.budget_to)}`;
   }
 
-  const shareText = [
-    `*${clientData.customer_name}*`,
-    clientData.phone && `Phone: ${clientData.phone}`,
-    clientData.phone_alt && `Phone 2: ${clientData.phone_alt}`,
-    budgetDisplay && `Budget: ${budgetDisplay}`,
-    clientData.payment_method && `Payment Method: ${clientData.payment_method}`,
-    `Seriousness Rating: ${rating}/10`,
-    clientData.preferred_area && `Preferred Area: ${clientData.preferred_area}`,
-    clientData.unit_type && `Unit Type: ${clientData.unit_type}`,
-    clientData.bedrooms && `Bedrooms: ${clientData.bedrooms}`,
-    clientData.preferred_developer && `Preferred Developer: ${clientData.preferred_developer}`,
-    clientData.source && `Source: ${clientData.source}`,
-    contactValid && `Last Contact: ${formatDate(clientData.last_contact_date!, locale)}`,
-    `Responsible Employee: ${assigneeName}`,
-    clientData.additional_notes && `Notes: ${clientData.additional_notes}`,
-  ].filter(Boolean).join("\n");
-  const shareUrl = phoneDigits
-    ? `https://wa.me/${phoneDigits}?text=${encodeURIComponent(shareText)}`
-    : `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-
   return (
     <div className="space-y-6 pb-20 md:pb-0">
       <nav className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -477,15 +456,6 @@ export default async function ClientDetailPage({
                   {t("generateDeals")}
                 </Button>
               </Link>
-              <a
-                href={shareUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "justify-center gap-1.5")}
-              >
-                <Share2 className="size-3.5" />
-                {t("shareViaWhatsapp")}
-              </a>
               {canEdit && (
                 <>
                   <Link href={`/clients/${clientData.id}/edit`}>

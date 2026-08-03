@@ -243,7 +243,7 @@
     "copied": "Copied",
     "notFound": "Property not found",
     "showMore": "Show More",
-    "shareViaWhatsapp": "Share via WhatsApp",
+    "share": "Share",
     "errors": {
       "createFailed": "Could not create the property, please try again.",
       "updateFailed": "Could not update the property, please try again.",
@@ -333,8 +333,7 @@
       "notFound": "The requested client was not found.",
       "unauthorized": "You are not authorized to edit this client."
     },
-    "groupAddUnits": "Add a Group of Clients",
-    "shareViaWhatsapp": "Share via WhatsApp"
+    "groupAddUnits": "Add a Group of Clients"
   },
   "Tasks": {
     "title": "Tasks",

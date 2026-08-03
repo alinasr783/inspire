@@ -243,7 +243,7 @@
     "copied": "تم النسخ",
     "notFound": "العقار غير موجود",
     "showMore": "عرض المزيد",
-    "shareViaWhatsapp": "مشاركة عبر واتساب",
+    "share": "مشاركة",
     "errors": {
       "createFailed": "تعذّر إنشاء العقار، حاول مرة أخرى.",
       "updateFailed": "تعذّر تحديث العقار، حاول مرة أخرى.",
@@ -333,8 +333,7 @@
       "notFound": "العميل المطلوب غير موجود.",
       "unauthorized": "ليس لديك صلاحية لتعديل هذا العميل."
     },
-    "groupAddUnits": "إضافة مجموعة عملاء",
-    "shareViaWhatsapp": "مشاركة عبر واتساب"
+    "groupAddUnits": "إضافة مجموعة عملاء"
   },
   "Tasks": {
     "title": "المهام",

@@ -24,7 +24,6 @@ import {
   Paintbrush,
   Pencil,
   Phone,
-  Share2,
   ShieldCheck,
   User,
   UserCheck,
@@ -332,9 +331,7 @@ export default async function UnitDetailPage({
     unitData.additional_notes && `Notes: ${unitData.additional_notes}`,
     unitData.feedback && `Feedback: ${unitData.feedback}`,
   ].filter(Boolean).join("\n");
-  const shareUrl = phoneDigits
-    ? `https://wa.me/${phoneDigits}?text=${encodeURIComponent(shareText)}`
-    : `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+  const shareUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
 
   return (
     <div className="space-y-6 pb-20 md:pb-0">
@@ -445,8 +442,8 @@ export default async function UnitDetailPage({
                 rel="noopener noreferrer"
                 className={cn(buttonVariants({ variant: "outline", size: "sm" }), "justify-center gap-1.5")}
               >
-                <Share2 className="size-3.5" />
-                {t("shareViaWhatsapp")}
+                <WhatsAppIcon className="size-3.5 text-[#25D366]" />
+                {t("share")}
               </a>
               {canEdit && (
                 <>
