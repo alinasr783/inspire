@@ -139,7 +139,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
                     <option key={f.id} value={f.id}>{f.name}</option>
                   ))}
                 </select>
-                <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
+                <svg className="pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
               </div>
 
               <div className="relative">
@@ -154,7 +154,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
                     <option key={f.id} value={f.id}>{f.name}</option>
                   ))}
                 </select>
-                <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
+                <svg className="pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
               </div>
 
               <label className={`flex h-8 cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors select-none ${feedbackOnly ? "border-primary/50 bg-primary/10 text-primary" : "border-input bg-background text-foreground hover:bg-muted/50"}`}>

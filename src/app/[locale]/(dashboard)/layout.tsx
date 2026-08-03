@@ -81,7 +81,7 @@ export default async function DashboardLayout({
       <ThemeColorProvider initialColor={profile.primary_color}>
         <div className="h-screen overflow-hidden">
           <Sidebar role={profile.role} logoUrl={logoUrl} />
-          <div className="flex h-full min-w-0 flex-col md:pl-[232px]">
+          <div className="flex h-full min-w-0 flex-col md:ps-[232px]">
             <Topbar />
             <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8" style={{ paddingBottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px))" }}>{children}</main>
           </div>

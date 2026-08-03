@@ -197,7 +197,7 @@ function SidebarContent({ role, logoUrl }: { role?: string; logoUrl: string | nu
 
 export function Sidebar({ role, logoUrl }: { role?: string; logoUrl?: string | null }) {
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[232px] border-e border-sidebar-border bg-sidebar md:flex">
+    <aside className="fixed inset-y-0 start-0 z-40 hidden w-[232px] border-e border-sidebar-border bg-sidebar md:flex">
       <SidebarContent role={role} logoUrl={logoUrl ?? null} />
     </aside>
   );

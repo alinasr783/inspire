@@ -238,8 +238,8 @@ export function DealsPage({ initialDeals, userId, clients }: DealsPageProps) {
             </CardHeader>
             <div className="p-4 border-b">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} placeholder={t("searchClients")} className="h-9 pl-9" />
+                <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} placeholder={t("searchClients")} className="h-9 ps-9" />
               </div>
             </div>
             <CardContent className="p-4 max-h-[40vh] overflow-y-auto space-y-1">
