@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import QRCode from "qrcode";
+import crypto from "crypto";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -24,6 +25,10 @@ async function getOrigin() {
   const host = h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? "http";
   return `${proto}://${host}`;
+}
+
+function generateToken(): string {
+  return crypto.randomBytes(32).toString("hex");
 }
 
 // ── Register / refresh the current device ──
@@ -55,7 +60,7 @@ export async function registerDevice(input: {
   return { success: true };
 }
 
-// ── Generate a fresh magic-link token and encode it in a QR ──
+// ── Generate a QR code with a custom device login token ──
 export async function createDeviceQr(
   locale: string
 ): Promise<ActionResult & { qrDataUrl?: string }> {
@@ -66,18 +71,19 @@ export async function createDeviceQr(
 
   if (!user?.email) return { success: false, error: "unauthorized" };
 
+  const token = generateToken();
+
   const admin = createAdminClient();
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: "magiclink",
-    email: user.email,
-  });
+  const { error: insertError } = await admin
+    .from("device_login_tokens")
+    .insert({
+      user_id: user.id,
+      token,
+    });
 
-  if (error) return { success: false, error: "link-failed" };
+  if (insertError) return { success: false, error: "token-create-failed" };
 
-  const hashedToken = data.properties.hashed_token;
-  const verificationType = data.properties.verification_type;
-
-  const loginUrl = `${await getOrigin()}/${locale}/auth/device?token_hash=${encodeURIComponent(hashedToken)}&type=${encodeURIComponent(verificationType)}`;
+  const loginUrl = `${await getOrigin()}/${locale}/auth/device?token=${encodeURIComponent(token)}`;
 
   const qrDataUrl = await QRCode.toDataURL(loginUrl, {
     width: 260,
@@ -86,6 +92,38 @@ export async function createDeviceQr(
   });
 
   return { success: true, qrDataUrl };
+}
+
+// ── Validate a device login token and authenticate the device ──
+export async function validateDeviceToken(
+  rawToken: string
+): Promise<{ success: true; userId: string } | { success: false; error: string }> {
+  if (!rawToken) return { success: false, error: "invalid-token" };
+
+  const admin = createAdminClient();
+
+  const { data, error: fetchError } = await admin
+    .from("device_login_tokens")
+    .select("id, user_id, used, expires_at")
+    .eq("token", rawToken)
+    .single();
+
+  if (fetchError || !data) return { success: false, error: "invalid-token" };
+
+  if (data.used) return { success: false, error: "already-used" };
+
+  if (new Date(data.expires_at) < new Date()) {
+    return { success: false, error: "expired" };
+  }
+
+  const { error: markError } = await admin
+    .from("device_login_tokens")
+    .update({ used: true })
+    .eq("id", data.id);
+
+  if (markError) return { success: false, error: "mark-failed" };
+
+  return { success: true, userId: data.user_id };
 }
 
 // ── Remove a device from the list (does not force-sign-out the session) ──
