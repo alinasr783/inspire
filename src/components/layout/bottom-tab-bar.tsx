@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Building2,
@@ -17,6 +18,21 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { prefetchUnits } from "@/hooks/queries/use-units-query";
+import { prefetchClients } from "@/hooks/queries/use-clients-query";
+import { prefetchDeals } from "@/hooks/queries/use-deals-query";
+import { prefetchTasks } from "@/hooks/queries/use-tasks-query";
+import { prefetchDevices } from "@/hooks/queries/use-devices-query";
+import { prefetchEmployees } from "@/hooks/queries/use-employees-query";
+
+const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => void> = {
+  properties: prefetchUnits,
+  clients: prefetchClients,
+  deals: prefetchDeals,
+  tasks: prefetchTasks,
+  devices: prefetchDevices,
+  users: prefetchEmployees,
+};
 
 const TABS = [
   { key: "dashboard", href: "/", icon: LayoutDashboard },
@@ -39,6 +55,15 @@ export function BottomTabBar({ role }: { role?: string }) {
   const tCommon = useTranslations("Common");
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handlePrefetch = useCallback(
+    (key: string) => {
+      const prefetcher = prefetchMap[key];
+      if (prefetcher) prefetcher(queryClient);
+    },
+    [queryClient]
+  );
 
   const handleMoreClick = useCallback(
     (e: React.MouseEvent) => {
@@ -65,6 +90,8 @@ export function BottomTabBar({ role }: { role?: string }) {
             <Link
               key={tab.key}
               href={tab.href}
+              prefetch={tab.href !== "#more" ? true : undefined}
+              onMouseEnter={() => tab.href !== "#more" && handlePrefetch(tab.key)}
               onClick={tab.href === "#more" ? handleMoreClick : undefined}
               className={cn(
                 "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 transition-colors",
@@ -113,6 +140,8 @@ export function BottomTabBar({ role }: { role?: string }) {
                   <Link
                     key={item.key}
                     href={item.href}
+                    prefetch={true}
+                    onMouseEnter={() => handlePrefetch(item.key)}
                     onClick={() => setMoreOpen(false)}
                     className={cn(
                       "flex flex-col items-center gap-1.5 rounded-xl px-3 py-3 text-xs font-medium transition-colors",
@@ -129,6 +158,8 @@ export function BottomTabBar({ role }: { role?: string }) {
               {role === "admin" && (
                 <Link
                   href="/admin/users"
+                  prefetch={true}
+                  onMouseEnter={() => handlePrefetch("users")}
                   onClick={() => setMoreOpen(false)}
                   className={cn(
                     "flex flex-col items-center gap-1.5 rounded-xl px-3 py-3 text-xs font-medium transition-colors",

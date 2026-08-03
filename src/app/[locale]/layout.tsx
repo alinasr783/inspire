@@ -5,6 +5,7 @@ import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { ThemeProvider } from "@/components/theme-provider";
+import { QueryProvider } from "@/components/providers/query-provider";
 import { Toaster } from "sonner";
 import "../globals.css";
 
@@ -85,7 +86,9 @@ export default async function LocaleLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <NextIntlClientProvider>{children}</NextIntlClientProvider>
+          <QueryProvider>
+            <NextIntlClientProvider>{children}</NextIntlClientProvider>
+          </QueryProvider>
           <Toaster
             position={dir === "rtl" ? "bottom-left" : "bottom-right"}
             dir={dir === "rtl" ? "rtl" : "ltr"}

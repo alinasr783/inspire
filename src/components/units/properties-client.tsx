@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useDeferredValue } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { UnitFilters } from "@/components/units/unit-filters";
@@ -95,6 +95,7 @@ export function PropertiesClient({
   const [filters, setFilters] = useState<Record<string, string>>(() =>
     buildInitialFilters(customColumns)
   );
+  const deferredSearch = useDeferredValue(filters.q ?? "");
   const [showCount, setShowCount] = useState(50);
 
   const enabledCols = useMemo(
@@ -115,7 +116,7 @@ export function PropertiesClient({
   const filteredUnits = useMemo(() => {
     let result = unitsData;
 
-    const searchTerm = filters.q?.toLowerCase();
+    const searchTerm = deferredSearch?.toLowerCase();
     if (searchTerm) {
       result = result.filter((u) =>
         [u.customer_name, u.phone, u.compound_name, u.additional_notes, u.feedback].some(
@@ -183,7 +184,7 @@ export function PropertiesClient({
     }
 
     return result;
-  }, [unitsData, filters, customColumns]);
+  }, [unitsData, filters, customColumns, deferredSearch]);
 
   const hasActiveFilters = useMemo(() => {
     if (filters.q) return true;

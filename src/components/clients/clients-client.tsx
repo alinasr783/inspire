@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useDeferredValue } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,7 @@ export function ClientsClient({
 }: ClientsClientProps) {
   const t = useTranslations("Clients");
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [paymentMethod, setPaymentMethod] = useState("all");
   const [unitType, setUnitType] = useState("all");
   const [source, setSource] = useState("all");
@@ -84,8 +85,8 @@ export function ClientsClient({
 
   const filtered = useMemo(() => {
     let result = initialClients;
-    if (search) {
-      const term = search.toLowerCase();
+    if (deferredSearch) {
+      const term = deferredSearch.toLowerCase();
       result = result.filter((c) =>
         [c.customer_name, c.phone, c.phone_alt, c.additional_notes]
           .some((v) => (v ? String(v).toLowerCase().includes(term) : false))
@@ -110,7 +111,7 @@ export function ClientsClient({
       if (v && v !== "all") { const term = v.toLowerCase(); result = result.filter((c) => { const cv = (c.custom_fields as Record<string, unknown>)?.[col.key]; return cv ? String(cv).toLowerCase().includes(term) : false; }); }
     }
     return result;
-  }, [initialClients, search, paymentMethod, unitType, source, area, developer, bedrooms, assigned, createdBy, budgetFrom, budgetTo, lastContactFrom, lastContactTo, customFilters, selectCustom]);
+  }, [initialClients, deferredSearch, paymentMethod, unitType, source, area, developer, bedrooms, assigned, createdBy, budgetFrom, budgetTo, lastContactFrom, lastContactTo, seriousnessMin, seriousnessMax, customFilters, selectCustom]);
 
   const visible = useMemo(() => filtered.slice(0, showCount), [filtered, showCount]);
 

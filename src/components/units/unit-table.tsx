@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { Building2, Trash2, Eye, Pencil } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { updateColumnOrder, renameColumnConfig, type ColumnConfig } from "@/lib/unit-config-actions";
 import { updateUnitField, quickCreateUnit, deleteUnit, type UnitRow } from "@/lib/unit-actions";
 import { useRealtime } from "@/components/providers/realtime-provider";
@@ -38,19 +38,10 @@ function toDateValue(iso: string): string {
 }
 
 const COLUMN_WIDTHS: Record<string, number> = {
-  customer_name: 180,
-  phone: 140,
-  compound_name: 160,
-  area: 100,
-  building_number: 110,
-  finishing_status: 150,
-  rent_sale: 110,
-  unit_type: 120,
-  cash_required: 130,
-  remaining: 130,
-  last_contact_date: 130,
-  additional_notes: 180,
-  feedback: 220,
+  customer_name: 180, phone: 140, compound_name: 160, area: 100,
+  building_number: 110, finishing_status: 150, rent_sale: 110,
+  unit_type: 120, cash_required: 130, remaining: 130,
+  last_contact_date: 130, additional_notes: 180, feedback: 220,
   assigned_employee: 150,
 };
 const DEFAULT_COL_WIDTH = 150;
@@ -71,125 +62,86 @@ interface UnitTableProps {
   uniqueValues: { finishing_status: string[]; rent_sale: string[]; unit_type: string[] };
 }
 
-const INPUT_CLS =
-  "block h-full w-full rounded-none border-none bg-transparent px-2.5 py-2 text-[13px] text-foreground caret-primary outline-none transition-colors";
-
-/* -- Cell Input: the cell IS the input -- */
-interface CellInputProps {
-  colKey: string;
-  value: string;
-  type: string;
-  options?: { value: string; label: string }[];
-  editable: boolean;
-  ltr?: boolean;
-  right?: boolean;
-  onSave: (v: string) => void;
-}
-
-function CellInput({ colKey, value, type, options, editable, ltr, right, onSave }: CellInputProps) {
-  const [val, setVal] = useState(value);
+/* -- Cell Editor (click-to-edit) -- */
+const CellEditor = memo(({ defaultValue, type, options, colKey, onSave, onCancel }: {
+  defaultValue: string; type: string; options?: { value: string; label: string }[];
+  colKey?: string; onSave: (v: string) => void; onCancel: () => void;
+}) => {
   const ref = useRef<HTMLInputElement>(null);
-  const focusedRef = useRef(false);
-  const lastCommittedRef = useRef(value);
+  const selectRef = useRef<HTMLSelectElement>(null);
+  useEffect(() => { const el = ref.current; if (el) { el.focus(); el.select(); } const sel = selectRef.current; if (sel) sel.focus(); }, []);
 
-  useEffect(() => {
-    if (!focusedRef.current) {
-      setVal(value);
-      lastCommittedRef.current = value;
+  const commit = useCallback((forcedVal?: string) => {
+    const val = forcedVal ?? ref.current?.value ?? selectRef.current?.value ?? "";
+    onSave(val);
+  }, [onSave]);
+
+  const keyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter") { e.preventDefault(); commit(); }
+    if (e.key === "Escape") onCancel();
+  }, [commit, onCancel]);
+
+  if (options !== undefined && options.length > 0) {
+    const isValueLabel = options.some((o) => o.value !== o.label);
+    if (isValueLabel) {
+      return (
+        <select
+          ref={selectRef}
+          defaultValue={defaultValue}
+          onBlur={() => commit()}
+          onChange={(e) => commit(e.target.value)}
+          className="block h-full w-full border-none bg-transparent px-2.5 py-2 text-[13px] outline-none cursor-pointer"
+        >
+          <option value="">—</option>
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      );
     }
-  }, [value]);
-
-  const commit = useCallback((raw?: string) => {
-    const next = raw ?? ref.current?.value ?? "";
-    if (next !== value && next !== lastCommittedRef.current) {
-      lastCommittedRef.current = next;
-      onSave(next);
-    }
-    focusedRef.current = false;
-  }, [value, onSave]);
-
-  const needsSelect = options !== undefined && options.some((o) => o.value !== o.label);
-  const dirAttr = ltr ? "ltr" : undefined;
-  const alignCls = right ? "text-right" : "";
-
-  if (options !== undefined && needsSelect) {
-    return (
-      <select
-        value={val}
-        disabled={!editable}
-        dir={dirAttr}
-        onChange={(e) => {
-          setVal(e.target.value);
-          commit(e.target.value);
-        }}
-        onBlur={() => commit()}
-        className={`${INPUT_CLS} ${alignCls} cursor-pointer ${editable ? "" : "disabled:opacity-100 disabled:text-foreground disabled:cursor-default"} ${val ? "" : "text-muted-foreground"}`}
-      >
-        <option value="">—</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
-  if (options !== undefined) {
-    const listId = `unit-dl-${colKey}`;
+    const listId = `unit-dl-edit-${colKey}`;
     return (
       <>
-        <input
-          ref={ref}
-          list={listId}
-          type="text"
-          value={val}
-          readOnly={!editable}
-          dir={dirAttr}
-          onChange={(e) => setVal(e.target.value)}
-          onFocus={() => { focusedRef.current = true; }}
-          onBlur={() => commit()}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            if (e.key === "Escape") { setVal(value); (e.target as HTMLInputElement).blur(); }
-          }}
-          className={`${INPUT_CLS} ${alignCls} ${editable ? "hover:bg-muted/40 focus:bg-muted/50" : "read-only:cursor-default read-only:hover:bg-transparent"} ${val ? "" : "placeholder:text-muted-foreground"}`}
-          placeholder={val ? undefined : "—"}
-        />
+        <input ref={ref} list={listId} type="text" defaultValue={defaultValue} onBlur={() => commit()} onKeyDown={keyDown}
+          className="block h-full w-full border-none bg-transparent px-2.5 py-2 text-[13px] outline-none" />
         <datalist id={listId}>
-          {options.map((o) => (
-            <option key={o.value} value={o.label} />
-          ))}
+          {options.map((o) => <option key={o.value} value={o.label} />)}
         </datalist>
       </>
     );
   }
 
   return (
-    <input
-      ref={ref}
-      type={type}
-      value={val}
-      readOnly={!editable}
-      dir={dirAttr}
-      onChange={(e) => {
-        const v = e.target.value;
-        setVal(v);
-        if (type === "date") commit(v);
-      }}
-      onFocus={() => { focusedRef.current = true; }}
+    <input ref={ref}
+      type={type === "date" ? "date" : type === "number" ? "number" : "text"}
+      defaultValue={defaultValue}
       onBlur={() => commit()}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-        if (e.key === "Escape") { setVal(value); (e.target as HTMLInputElement).blur(); }
-      }}
-      className={`${INPUT_CLS} ${alignCls} ${editable ? "hover:bg-muted/40 focus:bg-muted/50" : "read-only:cursor-default read-only:hover:bg-transparent"} ${type === "number" ? "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" : ""}`}
+      onKeyDown={keyDown}
+      className={`block h-full w-full border-none bg-transparent px-2.5 py-2 text-[13px] outline-none ${type === "number" ? "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" : ""}`}
     />
   );
-}
+});
+CellEditor.displayName = "CellEditor";
 
-/* -- Row -- */
-interface RowProps {
+/* -- Cell Display (click-to-edit trigger) -- */
+const CellDisplay = memo(({ raw, ltr, right, locale, onEdit }: {
+  raw: string; ltr?: boolean; right?: boolean; locale: string; onEdit: () => void;
+}) => {
+  const dirAttr = ltr ? "ltr" : undefined;
+  const alignCls = right ? "text-right" : "";
+  const display = raw || "\u00A0";
+
+  return (
+    <span onClick={onEdit} dir={dirAttr}
+      className={`block h-full w-full cursor-pointer truncate px-2.5 py-2 text-[13px] text-foreground hover:bg-muted/50 ${alignCls} ${!raw ? "text-muted-foreground" : ""}`}>
+      {display}
+    </span>
+  );
+});
+CellDisplay.displayName = "CellDisplay";
+
+/* -- Memoized Table Row -- */
+interface TableRowProps {
   unit: UnitRow;
   columns: ColumnConfig[];
   index: number;
@@ -200,63 +152,76 @@ interface RowProps {
   onContextMenu: (e: React.MouseEvent, info: CellInfo) => void;
   employeeMap: Map<string, string>;
   uniqueValues: { finishing_status: string[]; rent_sale: string[]; unit_type: string[] };
+  editing: { uid: string; colId: string } | null;
+  cellEdit: (uid: string, colId: string) => void;
+  editCancel: () => void;
+  stale: boolean;
+  getCellInfo: (col: ColumnConfig, unit: UnitRow) => {
+    raw: string; editValue: string; cellValue: string;
+    options?: { value: string; label: string }[];
+    editType: string; ltr: boolean; right: boolean; canEdit: boolean;
+  };
+  locale: string;
 }
 
-const Row = function Row({ unit, columns, index, onCellSave, isAdmin, onDelete, userId, onContextMenu, employeeMap, uniqueValues }: RowProps) {
-    const uid = unit.id;
-    const stale = isStaleContact(unit);
-    return (
-      <tr className={stale ? "inspire-stale-contact" : ""} data-row-id={unit.id} data-stale={stale ? "true" : undefined}>
-        <td className="border-b border-r px-2.5 py-2 text-center text-xs tabular-nums text-muted-foreground">{index + 1}</td>
-        {columns.map((col) => {
-          const key = col.key;
-          const isOwner = unit.created_by === userId || unit.assigned_employee === userId;
-          const canEdit = isAdmin || isOwner || key === "feedback";
-          const rawVal = col.is_builtin ? String((unit as Record<string, unknown>)[key] ?? "") : String((unit.custom_fields as Record<string, unknown>)?.[key] ?? "");
-          const raw = key === "assigned_employee" ? (employeeMap.get(rawVal) || rawVal) : rawVal;
-          const editValue = key === "assigned_employee" ? rawVal : raw;
-          const options =
-            key === "assigned_employee" ? Array.from(employeeMap.entries()).map(([id, name]) => ({ value: id, label: name })) :
-            key === "finishing_status" ? (uniqueValues.finishing_status || []).map((v) => ({ value: v, label: v })) :
-            key === "rent_sale" ? (uniqueValues.rent_sale || []).map((v) => ({ value: v, label: v })) :
-            key === "unit_type" ? (uniqueValues.unit_type || []).map((v) => ({ value: v, label: v })) :
-            col.type === "select" && col.options && col.options.length > 0 ? col.options.map((o) => ({ value: o, label: o })) :
-            undefined;
-          const editType = options ? "select" : (key === "cash_required" || key === "remaining" ? "number" : key === "last_contact_date" || col.type === "date" ? "date" : "text");
-          const ltr = key === "phone" || key === "cash_required" || key === "remaining" || key === "last_contact_date";
-          const right = key === "cash_required" || key === "remaining";
-          const cellValue = key === "last_contact_date" ? toDateValue(editValue) : editValue;
-          return (
-            <PresenceTd key={col.id} table="properties" rowId={uid} colKey={key} className="overflow-hidden border-b border-r p-0 align-middle" onContextMenu={onContextMenu}>
-              <CellInput
+const TableRowComponent = memo(function TableRowComponent({
+  unit, columns, index, onCellSave, isAdmin, onDelete, userId, onContextMenu,
+  employeeMap, uniqueValues, editing, cellEdit, editCancel, stale, getCellInfo, locale,
+}: TableRowProps) {
+  const uid = unit.id;
+  const ed = editing;
+
+  const handleDeleteClick = useCallback(() => onDelete(uid), [onDelete, uid]);
+
+  return (
+    <tr className={`border-b last:border-0 hover:bg-muted/30 ${stale ? "inspire-stale-contact" : ""}`} data-row-id={uid} data-stale={stale ? "true" : undefined}>
+      <td className="border-b border-r px-2.5 py-2 text-center text-xs tabular-nums text-muted-foreground">{index + 1}</td>
+      {columns.map((col) => {
+        const key = col.key;
+        const isEdit = ed?.uid === uid && ed?.colId === col.id;
+        const info = getCellInfo(col, unit);
+
+        return (
+          <PresenceTd key={col.id} table="properties" rowId={uid} colKey={key}
+            className="overflow-hidden border-b border-r p-0 align-middle"
+            onContextMenu={onContextMenu}>
+            {isEdit ? (
+              <CellEditor
+                defaultValue={info.cellValue}
+                type={info.editType}
+                options={info.options}
                 colKey={key}
-                value={cellValue}
-                type={editType}
-                options={options}
-                editable={canEdit}
-                ltr={ltr}
-                right={right}
                 onSave={(v) => onCellSave(uid, key, v)}
+                onCancel={editCancel}
               />
-            </PresenceTd>
-          );
-        })}
-        <td className="whitespace-nowrap border-b px-2 py-1.5 align-middle">
-          <div className="flex items-center gap-0.5">
-            <Link href={`/properties/${unit.id}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Eye className="h-4 w-4" /></Link>
-            {(isAdmin || unit.created_by === userId || unit.assigned_employee === userId) && (
-              <Link href={`/properties/${unit.id}/edit`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Pencil className="h-4 w-4" /></Link>
+            ) : (
+              <CellDisplay
+                raw={key === "last_contact_date" ? toDateValue(info.editValue) : info.editValue}
+                ltr={info.ltr}
+                right={info.right}
+                locale={locale}
+                onEdit={() => info.canEdit && cellEdit(uid, col.id)}
+              />
             )}
-            {(isAdmin || unit.created_by === userId) && (
-              <button className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-red-50 text-red-500 hover:text-red-600" onClick={() => onDelete(uid)}>
-                <Trash2 className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        </td>
-      </tr>
-    );
-  };
+          </PresenceTd>
+        );
+      })}
+      <td className="whitespace-nowrap border-b px-2 py-1.5 align-middle">
+        <div className="flex items-center gap-0.5">
+          <Link href={`/properties/${uid}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Eye className="h-4 w-4" /></Link>
+          {(isAdmin || unit.created_by === userId || unit.assigned_employee === userId) && (
+            <Link href={`/properties/${uid}/edit`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Pencil className="h-4 w-4" /></Link>
+          )}
+          {(isAdmin || unit.created_by === userId) && (
+            <button className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-red-50 text-red-500 hover:text-red-600" onClick={handleDeleteClick}>
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+});
 
 export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId, employeeMap, uniqueValues }: UnitTableProps) {
   const t = useTranslations("Properties");
@@ -270,11 +235,16 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   const srvRef = useRef(serverUnits); srvRef.current = serverUnits;
   const bgSaveRef = useRef<Set<string>>(new Set());
 
+  const dragIdxRef = useRef<number | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [localCols, setLocalCols] = useState(enabledColumns);
   const [editingCol, setEditingCol] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const editRef = useRef<HTMLInputElement>(null);
+
+  const [editing, setEditing] = useState<{ uid: string; colId: string } | null>(null);
+  const cellEdit = useCallback((uid: string, colId: string) => setEditing({ uid, colId }), []);
+  const editCancel = useCallback(() => setEditing(null), []);
 
   const [ctxMenu, setCtxMenu] = useState<{ info: CellInfo; pos: { x: number; y: number }; shortcut?: { scope: "row" | "column"; target: "color_bg" } } | null>(null);
   const handleContextMenu = useCallback((e: React.MouseEvent, info: CellInfo) => {
@@ -338,7 +308,6 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
     return () => window.removeEventListener("inspire:table-reset", onTableReset);
   }, [enabledColumns]);
 
-  /* -- Column resize (direct DOM writes during drag, single setState on mouseUp) -- */
   const handleResizeMouseDown = (e: React.MouseEvent, colKey: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -369,25 +338,32 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
     document.addEventListener("mouseup", up);
   };
 
-  /* -- Column reorder -- */
-  const handleDragStart = (idx: number) => setDragIdx(idx);
-  const handleDragOver = (e: React.DragEvent, idx: number) => {
+  // Optimized column reorder with ref to reduce re-renders
+  const handleDragStart = useCallback((idx: number) => {
+    dragIdxRef.current = idx;
+    setDragIdx(idx);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
     e.preventDefault();
-    if (dragIdx === null || dragIdx === idx) return;
+    if (dragIdxRef.current === null || dragIdxRef.current === idx) return;
     const reordered = [...localCols];
-    const [moved] = reordered.splice(dragIdx, 1);
+    const [moved] = reordered.splice(dragIdxRef.current, 1);
     reordered.splice(idx, 0, moved);
+    dragIdxRef.current = idx;
     setLocalCols(reordered);
     setDragIdx(idx);
-  };
-  const handleDrop = async () => {
+  }, [localCols]);
+
+  const handleDrop = useCallback(async () => {
+    const finalCols = [...localCols];
+    dragIdxRef.current = null;
     setDragIdx(null);
-    const updated = localCols.map((col, i) => ({ id: col.id, sort_order: i }));
+    const updated = finalCols.map((col, i) => ({ id: col.id, sort_order: i }));
     await updateColumnOrder(updated);
     router.refresh();
-  };
+  }, [localCols, router]);
 
-  /* -- Column rename -- */
   const handleDoubleClick = (col: ColumnConfig) => {
     setEditingCol(col.id);
     setEditValue(locale === "ar" ? col.label_ar : col.label_en);
@@ -414,8 +390,8 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
     "last_contact_date","additional_notes","feedback","assigned_employee",
   ]));
 
-  /* -- Inline cell save -- */
   const cellSave = useCallback((uid: string, key: string, value: string) => {
+    setEditing(null);
     setLocalUnits((prev) => prev.map((u) => {
       if (u.id !== uid) return u;
       if (unitsBuiltin.current.has(key)) return { ...u, [key]: value } as UnitRow;
@@ -428,7 +404,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   }, [notifyCellEdit]);
 
   const handleDelete = useCallback(async (uid: string) => {
-    const unit = localUnits.find(u => u.id === uid);
+    const unit = localUnits.find((u) => u.id === uid);
     setDeleteDialog({ uid, name: unit?.customer_name || uid.slice(0, 8) });
   }, [localUnits]);
 
@@ -464,6 +440,36 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
     return () => document.removeEventListener("keydown", onKey);
   }, [ctrlD, cellSave, localUnits]);
 
+  // Pre-compute cell info function for each column+unit combination
+  const getCellInfo = useCallback((col: ColumnConfig, unit: UnitRow) => {
+    const key = col.key;
+    const isOwner = unit.created_by === userId || unit.assigned_employee === userId;
+    const canEdit = isAdmin || isOwner || key === "feedback";
+    const rawVal = col.is_builtin ? String((unit as Record<string, unknown>)[key] ?? "") : String((unit.custom_fields as Record<string, unknown>)?.[key] ?? "");
+    const raw = key === "assigned_employee" ? (employeeMap.get(rawVal) || rawVal) : rawVal;
+    const editValue = key === "assigned_employee" ? rawVal : raw;
+    const options =
+      key === "assigned_employee" ? Array.from(employeeMap.entries()).map(([id, name]) => ({ value: id, label: name })) :
+      key === "finishing_status" ? (uniqueValues.finishing_status || []).map((v) => ({ value: v, label: v })) :
+      key === "rent_sale" ? (uniqueValues.rent_sale || []).map((v) => ({ value: v, label: v })) :
+      key === "unit_type" ? (uniqueValues.unit_type || []).map((v) => ({ value: v, label: v })) :
+      col.type === "select" && col.options && col.options.length > 0 ? col.options.map((o) => ({ value: o, label: o })) :
+      undefined;
+    const editType = options ? "select" : (key === "cash_required" || key === "remaining" ? "number" : key === "last_contact_date" || col.type === "date" ? "date" : "text");
+    const ltr = key === "phone" || key === "cash_required" || key === "remaining" || key === "last_contact_date";
+    const right = key === "cash_required" || key === "remaining";
+    const cellValue = key === "last_contact_date" ? toDateValue(editValue) : editValue;
+
+    return { raw, editValue, cellValue, options, editType, ltr, right, canEdit };
+  }, [isAdmin, userId, employeeMap, uniqueValues]);
+
+  // Pre-compute stale status for all units
+  const staleMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    for (const u of localUnits) map.set(u.id, isStaleContact(u));
+    return map;
+  }, [localUnits]);
+
   return (
     <TooltipProvider>
       <div ref={containerRef} className="overflow-x-auto rounded-lg border">
@@ -486,11 +492,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
                   data-col-key={col.key}
                   className={`relative select-none border-b border-r px-1.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap ${dragIdx === idx ? "opacity-50" : ""}`}
                 >
-                  <div
-                    className="flex items-center gap-1 pr-3"
-                    draggable
-                    onDragStart={() => handleDragStart(idx)}
-                  >
+                  <div className="flex items-center gap-1 pr-3" draggable onDragStart={() => handleDragStart(idx)}>
                     <span className="flex-1">{getLabel(col)}</span>
                   </div>
                   <div
@@ -503,9 +505,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
                   />
                 </th>
               ))}
-              <th className="border-b px-3 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
-                {t("actions")}
-              </th>
+              <th className="border-b px-3 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">{t("actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -518,9 +518,24 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
               </tr>
             ) : (
               localUnits.map((unit, index) => (
-                <Row key={unit.id} unit={unit} columns={localCols} index={index}
+                <TableRowComponent
+                  key={unit.id}
+                  unit={unit}
+                  columns={localCols}
+                  index={index}
                   onCellSave={cellSave}
-                  isAdmin={isAdmin} employeeMap={employeeMap} uniqueValues={uniqueValues} onDelete={handleDelete} userId={userId} onContextMenu={handleContextMenu}
+                  isAdmin={isAdmin}
+                  employeeMap={employeeMap}
+                  uniqueValues={uniqueValues}
+                  onDelete={handleDelete}
+                  userId={userId}
+                  onContextMenu={handleContextMenu}
+                  editing={editing}
+                  cellEdit={cellEdit}
+                  editCancel={editCancel}
+                  stale={staleMap.get(unit.id) ?? false}
+                  getCellInfo={getCellInfo}
+                  locale={locale}
                 />
               ))
             )}

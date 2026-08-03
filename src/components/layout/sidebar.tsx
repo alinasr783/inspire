@@ -1,13 +1,29 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { navItems } from "@/lib/nav-items";
 import { cn } from "@/lib/utils";
 import { UsersRound, Pencil, Plus, Trash2 } from "lucide-react";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { usePendingCount } from "@/components/providers/pending-count-provider";
+import { prefetchUnits } from "@/hooks/queries/use-units-query";
+import { prefetchClients } from "@/hooks/queries/use-clients-query";
+import { prefetchDeals } from "@/hooks/queries/use-deals-query";
+import { prefetchTasks } from "@/hooks/queries/use-tasks-query";
+import { prefetchDevices } from "@/hooks/queries/use-devices-query";
+import { prefetchEmployees } from "@/hooks/queries/use-employees-query";
+
+const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => void> = {
+  properties: prefetchUnits,
+  clients: prefetchClients,
+  deals: prefetchDeals,
+  tasks: prefetchTasks,
+  devices: prefetchDevices,
+  users: prefetchEmployees,
+};
 
 function SidebarContent({ role, logoUrl }: { role?: string; logoUrl: string | null }) {
   const t = useTranslations("Nav");
@@ -15,6 +31,15 @@ function SidebarContent({ role, logoUrl }: { role?: string; logoUrl: string | nu
   const pathname = usePathname();
   const pendingCount = usePendingCount();
   const { onlineUsers, cellEditEvents } = useRealtime();
+  const queryClient = useQueryClient();
+
+  const handlePrefetch = useCallback(
+    (key: string) => {
+      const prefetcher = prefetchMap[key];
+      if (prefetcher) prefetcher(queryClient);
+    },
+    [queryClient]
+  );
 
   const pageUsers = useMemo(() => {
     const map = new Map<
@@ -71,6 +96,8 @@ function SidebarContent({ role, logoUrl }: { role?: string; logoUrl: string | nu
             <Link
               key={item.key}
               href={item.href}
+              prefetch={true}
+              onMouseEnter={() => handlePrefetch(item.key)}
               className={cn(
                 "group flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150",
                 active
@@ -117,6 +144,8 @@ function SidebarContent({ role, logoUrl }: { role?: string; logoUrl: string | nu
         {role === "admin" && (
           <Link
             href="/admin/users"
+            prefetch={true}
+            onMouseEnter={() => handlePrefetch("users")}
             className={cn(
               "group flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150",
               pathname.startsWith("/admin/users")

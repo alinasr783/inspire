@@ -155,6 +155,69 @@ const CellDisplay = memo(({ col, raw, locale, onEdit }: { col: ColumnConfig; raw
 });
 CellDisplay.displayName = "CellDisplay";
 
+/* -- Memoized Table Row -- */
+interface TableRowProps {
+  client: ClientRow;
+  index: number;
+  localCols: ColumnConfig[];
+  stale: boolean;
+  editing: { cid: string; key: string } | null;
+  getCellRaw: (col: ColumnConfig, client: ClientRow) => string;
+  getEditOptions: (col: ColumnConfig) => { value: string; label: string }[] | undefined;
+  getEditType: (col: ColumnConfig) => string;
+  cellEdit: (cid: string, key: string) => void;
+  cellSave: (cid: string, key: string, value: string) => void;
+  editCancel: () => void;
+  onContextMenu: (e: React.MouseEvent, info: CellInfo) => void;
+  onDelete: (cid: string) => void;
+  clientsData: ClientRow[];
+  locale: string;
+}
+
+const TableRowComponent = memo(function TableRowComponent({
+  client, index, localCols, stale, editing,
+  getCellRaw, getEditOptions, getEditType,
+  cellEdit, cellSave, editCancel, onContextMenu,
+  onDelete, clientsData, locale,
+}: TableRowProps) {
+  const ed = editing;
+
+  return (
+    <tr
+      className={`border-b last:border-0 hover:bg-muted/30 ${stale ? "inspire-stale-contact" : ""}`}
+      data-row-id={client.id as string}
+      data-seriousness={String(client.seriousness_rating ?? "")}
+      data-stale={stale ? "true" : undefined}
+    >
+      <td className="border-b border-r px-2 py-2 text-center text-xs tabular-nums text-muted-foreground">{index + 1}</td>
+      {localCols.map((col) => {
+        const key = col.key;
+        const isEdit = ed?.cid === client.id && ed?.key === key;
+        const raw = getCellRaw(col, client);
+        const editOptions = getEditOptions(col);
+        return (
+          <PresenceTd key={col.id} table="clients" rowId={client.id as string} colKey={key} className="overflow-hidden border-b border-r align-middle" onContextMenu={onContextMenu}>
+            {isEdit ? (
+              <CellEditor defaultValue={key === "assigned_employee" ? String(client[key] ?? "") : raw}
+                type={getEditType(col)} options={editOptions} colKey={key}
+                onSave={(v) => cellSave(client.id as string, key, v)} onCancel={editCancel} />
+            ) : (
+              <CellDisplay col={col} raw={raw} locale={locale} onEdit={() => cellEdit(client.id as string, key)} />
+            )}
+          </PresenceTd>
+        );
+      })}
+      <td className="whitespace-nowrap px-2 py-2">
+        <div className="flex items-center gap-0.5">
+          <Link href={`/clients/${client.id}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Eye className="h-4 w-4" /></Link>
+          <Link href={`/clients/${client.id}/edit`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Pencil className="h-4 w-4" /></Link>
+          <button className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-red-50 text-red-500 hover:text-red-600" onClick={() => onDelete(client.id as string)}><Trash2 className="h-4 w-4" /></button>
+        </div>
+      </td>
+    </tr>
+  );
+});
+
 export function ClientTable({ columns, clients, locale, creatorMap, employeeMap, userId }: ClientTableProps) {
   const t = useTranslations("Clients");
   const router = useRouter();
@@ -185,6 +248,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
   const [localClients, setLocalClients] = useState(clientsData);
   const { containerRef, ctrlD } = useTableCellKeyboard(localClients);
   const bgSaveRef = useRef<Set<string>>(new Set());
+  const dragIdxRef = useRef<number | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [editingCol, setEditingCol] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -216,6 +280,11 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
 
   const [deleteDialog, setDeleteDialog] = useState<{ cid: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const openDelete = useCallback((cid: string) => {
+    const c = clientsData.find((x) => x.id === cid);
+    setDeleteDialog({ cid, name: (c as any)?.customer_name || cid.slice(0, 8) });
+  }, [clientsData]);
 
   const confirmDelete = useCallback(async () => {
     if (!deleteDialog) return;
@@ -264,19 +333,32 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
     document.body.style.cursor = "col-resize"; document.body.style.userSelect = "none"; document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
   };
 
-  const handleDragStart = (idx: number) => setDragIdx(idx);
-  const handleDragOver = (e: React.DragEvent, idx: number) => {
-    e.preventDefault(); if (dragIdx === null || dragIdx === idx) return;
-    const reordered = [...localCols]; const [moved] = reordered.splice(dragIdx, 1); reordered.splice(idx, 0, moved);
-    setLocalCols(reordered); setDragIdx(idx);
-  };
-  const handleDrop = async () => {
+  // Optimized drag: use ref for dragIdx during drag, only update state on drop
+  const handleDragStart = useCallback((idx: number) => {
+    dragIdxRef.current = idx;
+    setDragIdx(idx);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragIdxRef.current === null || dragIdxRef.current === idx) return;
+    const reordered = [...localCols];
+    const [moved] = reordered.splice(dragIdxRef.current, 1);
+    reordered.splice(idx, 0, moved);
+    dragIdxRef.current = idx;
+    setLocalCols(reordered);
+    setDragIdx(idx);
+  }, [localCols]);
+
+  const handleDrop = useCallback(async () => {
+    const finalCols = [...localCols];
+    dragIdxRef.current = null;
     setDragIdx(null);
-    const updated = localCols.map((col, i) => ({ id: col.id, sort_order: i }));
+    const updated = finalCols.map((col, i) => ({ id: col.id, sort_order: i }));
     await updateColumnOrder(updated);
-    if (IS_BROWSER) localStorage.setItem("inspire_cw_clients_order", JSON.stringify(localCols.map((c) => c.id)));
+    if (IS_BROWSER) localStorage.setItem("inspire_cw_clients_order", JSON.stringify(finalCols.map((c) => c.id)));
     router.refresh();
-  };
+  }, [localCols, router]);
 
   const handleDoubleClick = (col: ColumnConfig) => { setEditingCol(col.id); setEditValue(locale === "ar" ? col.label_ar : col.label_en); setTimeout(() => editRef.current?.select(), 50); };
   const handleRename = async (col: ColumnConfig) => { if (!editValue.trim()) return; await renameColumnConfig(col.id, locale === "ar" ? editValue.trim() : col.label_ar, locale === "en" ? editValue.trim() : col.label_en); setEditingCol(null); router.refresh(); };
@@ -323,28 +405,34 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
     document.addEventListener("keydown", onKey); return () => document.removeEventListener("keydown", onKey);
   }, [ctrlD, cellSave, localClients]);
 
-  const getCellRaw = (col: ColumnConfig, client: ClientRow) => {
+  // Memoized helpers to avoid recreating closures per render
+  const getCellRaw = useCallback((col: ColumnConfig, client: ClientRow) => {
     if (col.key === "created_by") return creatorMap.get(String(client[col.key] ?? "")) || String(client[col.key] ?? "");
     if (col.key === "assigned_employee") return employeeMap.get(String(client[col.key] ?? "")) || String(client[col.key] ?? "");
     return col.is_builtin ? String(client[col.key] ?? "") : String((client.custom_fields as Record<string, unknown>)?.[col.key] ?? "");
-  };
+  }, [creatorMap, employeeMap]);
 
-  const getEditOptions = (col: ColumnConfig): { value: string; label: string }[] | undefined => {
+  const getEditOptions = useCallback((col: ColumnConfig): { value: string; label: string }[] | undefined => {
     if (col.key === "assigned_employee") return Array.from(employeeMap.entries()).map(([id, name]) => ({ value: id, label: name }));
     const opts = DROPDOWN_OPTIONS[col.key];
     if (opts && opts.length > 0) return opts.map((o) => ({ value: o, label: o }));
     if (col.type === "select" && col.options && col.options.length > 0) return col.options.map((o) => ({ value: o, label: o }));
     return undefined;
-  };
+  }, [employeeMap]);
 
-  const getEditType = (col: ColumnConfig): string => {
-    if (getEditOptions(col)) return "select";
+  const getEditType = useCallback((col: ColumnConfig): string => {
+    if (col.key === "assigned_employee") return "select";
     if (col.key === "budget_from" || col.key === "budget_to") return "number";
     if (col.key === "last_contact_date" || col.type === "date") return "date";
     return "text";
-  };
+  }, []);
 
-  const ed = editing;
+  // Pre-compute stale status for all clients
+  const staleMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    for (const c of localClients) map.set(c.id as string, isStaleContact(c));
+    return map;
+  }, [localClients]);
 
   return (
     <TooltipProvider>
@@ -374,33 +462,24 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
               <tr><td colSpan={localCols.length + 2} className="px-3 py-12 text-center text-muted-foreground"><Users className="mx-auto mb-2 h-8 w-8 opacity-50" />{t("empty")}</td></tr>
             ) : (
               localClients.map((client, index) => (
-                <tr key={client.id}                   className={`border-b last:border-0 hover:bg-muted/30 ${isStaleContact(client) ? "inspire-stale-contact" : ""}`} data-row-id={client.id as string} data-seriousness={String(client.seriousness_rating ?? "")} data-stale={isStaleContact(client) ? "true" : undefined}>
-                  <td className="border-b border-r px-2 py-2 text-center text-xs tabular-nums text-muted-foreground">{index + 1}</td>
-                  {localCols.map((col) => {
-                    const key = col.key;
-                    const isEdit = ed?.cid === client.id && ed?.key === key;
-                    const raw = getCellRaw(col, client);
-                    const editOptions = getEditOptions(col);
-                    return (
-                      <PresenceTd key={col.id} table="clients" rowId={client.id as string} colKey={key} className="overflow-hidden border-b border-r align-middle" onContextMenu={handleContextMenu}>
-                        {isEdit ? (
-                          <CellEditor defaultValue={key === "assigned_employee" ? String(client[key] ?? "") : raw}
-                            type={getEditType(col)} options={editOptions} colKey={key}
-                            onSave={(v) => cellSave(client.id as string, key, v)} onCancel={editCancel} />
-                        ) : (
-                          <CellDisplay col={col} raw={raw} locale={locale} onEdit={() => cellEdit(client.id as string, key)} />
-                        )}
-                      </PresenceTd>
-                    );
-                  })}
-                  <td className="whitespace-nowrap px-2 py-2">
-                    <div className="flex items-center gap-0.5">
-                      <Link href={`/clients/${client.id}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Eye className="h-4 w-4" /></Link>
-                      <Link href={`/clients/${client.id}/edit`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Pencil className="h-4 w-4" /></Link>
-                      <button className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-red-50 text-red-500 hover:text-red-600" onClick={() => { const c = clientsData.find(x => x.id === client.id); setDeleteDialog({ cid: client.id as string, name: (c as any)?.customer_name || (client.id as string).slice(0, 8) }); }}><Trash2 className="h-4 w-4" /></button>
-                    </div>
-                  </td>
-                </tr>
+                <TableRowComponent
+                  key={client.id}
+                  client={client}
+                  index={index}
+                  localCols={localCols}
+                  stale={staleMap.get(client.id as string) ?? false}
+                  editing={editing}
+                  getCellRaw={getCellRaw}
+                  getEditOptions={getEditOptions}
+                  getEditType={getEditType}
+                  cellEdit={cellEdit}
+                  cellSave={cellSave}
+                  editCancel={editCancel}
+                  onContextMenu={handleContextMenu}
+                  onDelete={openDelete}
+                  clientsData={clientsData}
+                  locale={locale}
+                />
               ))
             )}
           </tbody>
