@@ -153,9 +153,18 @@ export async function updateTaskStatus(
     if (!task || task.assigned_to !== user.id) return { success: false, error: "unauthorized" };
   }
 
+  const updateData: Record<string, unknown> = {
+    status,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (status === "done") {
+    updateData.progress = 100;
+  }
+
   const { error } = await admin
     .from("tasks")
-    .update({ status, updated_at: new Date().toISOString() })
+    .update(updateData)
     .eq("id", taskId);
 
   if (error) return { success: false, error: "update-failed" };

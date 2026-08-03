@@ -515,7 +515,10 @@
     "recordInfo": "معلومات السجل",
     "manageColumns": "إدارة الأعمدة",
     "save": "حفظ",
-    "edit": "تعديل"
+    "edit": "تعديل",
+    "assignedEmployee": "الموظف المسؤول",
+    "selectEmployee": "اختر موظف...",
+    "updatedBy": "آخر تحديث بواسطة"
   },
   "Admin": {
     "title": "إدارة المستخدمين",

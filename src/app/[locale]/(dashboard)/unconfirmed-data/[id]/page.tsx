@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getRecord } from "@/lib/unconfirmed-data-actions";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, Pencil, User, History } from "lucide-react";
 
 export default async function RecordDetailPage({
   params,
@@ -31,6 +32,29 @@ export default async function RecordDetailPage({
 
   if (error || !record) {
     redirect(`/${locale}/unconfirmed-data`);
+  }
+
+  const admin = createAdminClient();
+
+  let employeeName = "";
+  let updatedByName = "";
+
+  if (record.assigned_employee) {
+    const { data: emp } = await admin
+      .from("profiles")
+      .select("first_name, second_name")
+      .eq("id", record.assigned_employee)
+      .single();
+    if (emp) employeeName = [emp.first_name, emp.second_name].filter(Boolean).join(" ");
+  }
+
+  if (record.updated_by) {
+    const { data: updater } = await admin
+      .from("profiles")
+      .select("first_name, second_name")
+      .eq("id", record.updated_by)
+      .single();
+    if (updater) updatedByName = [updater.first_name, updater.second_name].filter(Boolean).join(" ");
   }
 
   const fields: Array<{ key: string; label: string }> = [
@@ -88,7 +112,7 @@ export default async function RecordDetailPage({
                 <p className="text-sm font-medium">
                   {f.key === "last_contact_date" && record.last_contact_date
                     ? new Date(record.last_contact_date).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" })
-                    : String(record[f.key as keyof typeof record] ?? "—")}
+                    : String((record as Record<string, unknown>)[f.key] ?? "—")}
                 </p>
               </div>
             ))}
@@ -104,6 +128,30 @@ export default async function RecordDetailPage({
               <div className="flex items-center gap-2">
                 {whatsappBadge()}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <User className="h-4 w-4" />
+                {t("assignedEmployee")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm font-medium">{employeeName || "—"}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <History className="h-4 w-4" />
+                {t("updatedBy")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm font-medium">{updatedByName || "—"}</p>
             </CardContent>
           </Card>
 

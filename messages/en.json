@@ -514,7 +514,10 @@
     "recordInfo": "Record Info",
     "manageColumns": "Manage Columns",
     "save": "Save",
-    "edit": "Edit"
+    "edit": "Edit",
+    "assignedEmployee": "Assigned To",
+    "selectEmployee": "Select employee...",
+    "updatedBy": "Last updated by"
   },
   "Admin": {
     "title": "User Management",

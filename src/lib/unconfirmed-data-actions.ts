@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface UnconfirmedRecord {
+  [key: string]: unknown;
   id: string;
   upload_id: string;
   row_number: number;
@@ -28,7 +29,8 @@ export interface UnconfirmedRecord {
   extra_data: Record<string, unknown>;
   whatsapp_state: "" | "send" | "failed";
   file_id: string | null;
-  [key: string]: unknown;
+  assigned_employee: string | null;
+  updated_by: string | null;
 }
 
 export interface PreviewRow {
@@ -309,12 +311,13 @@ export async function updateRecordField(recordId: string, field: string, value: 
     "owner_name", "unit_area", "building_number", "unit_number",
     "owner_phone", "owner_phone_alt", "affiliated_company",
     "last_feedback", "last_contact_date", "whatsapp_state",
+    "assigned_employee",
   ];
   if (!allowedFields.includes(field)) throw new Error("invalid-field");
 
   const { error } = await admin
     .from("unconfirmed_records")
-    .update({ [field]: value })
+    .update({ [field]: value, updated_by: user.id })
     .eq("id", recordId);
 
   if (error) throw new Error("update-failed");

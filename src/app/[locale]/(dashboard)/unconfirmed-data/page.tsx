@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getRecords } from "@/lib/unconfirmed-data-actions";
 import { UnconfirmedDataClient } from "@/components/unconfirmed-data/unconfirmed-data-client";
 
@@ -20,14 +21,27 @@ export default async function UnconfirmedDataPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect(`/${locale}/auth/login`);
 
+  const admin = createAdminClient();
+
   const records = await getRecords({
     folderId: sp.folder,
     fileId: sp.file,
   });
 
+  const { data: employees } = await admin
+    .from("profiles")
+    .select("id, first_name, second_name")
+    .eq("approval_status", "approved")
+    .order("first_name", { ascending: true });
+
+  const employeeList = (employees ?? []).map((e) => ({
+    id: e.id,
+    name: [e.first_name, e.second_name].filter(Boolean).join(" ") || e.id,
+  }));
+
   return (
     <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
-      <UnconfirmedDataClient initialRecords={records} locale={locale} userId={user.id} />
+      <UnconfirmedDataClient initialRecords={records} locale={locale} userId={user.id} employees={employeeList} />
     </Suspense>
   );
 }

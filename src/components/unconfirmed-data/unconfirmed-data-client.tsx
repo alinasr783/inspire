@@ -19,9 +19,10 @@ interface Props {
   initialRecords: UnconfirmedRecord[];
   locale: string;
   userId: string;
+  employees: { id: string; name: string }[];
 }
 
-export function UnconfirmedDataClient({ initialRecords, locale, userId }: Props) {
+export function UnconfirmedDataClient({ initialRecords, locale, userId, employees }: Props) {
   const t = useTranslations("UnconfirmedData");
   const tNav = useTranslations("Nav");
   const searchParams = useSearchParams();
@@ -88,6 +89,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId }: Props)
     { key: "last_feedback", label: t("lastFeedback"), type: "text" },
     { key: "last_contact_date", label: t("lastContactDate"), type: "date" },
     { key: "whatsapp_state", label: t("whatsappState"), type: "text" },
+    { key: "assigned_employee", label: t("assignedEmployee"), type: "select" },
   ];
 
   const selectClass = "appearance-none flex h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
@@ -182,7 +184,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId }: Props)
             </div>
           </div>
 
-          <UploadsTable records={filteredRecords.slice(0, showCount)} columns={columns} locale={locale} selectable={true} userId={userId} />
+          <UploadsTable records={filteredRecords.slice(0, showCount)} columns={columns} locale={locale} selectable={true} userId={userId} employees={employees} />
           {showCount < filteredRecords.length && (
             <div className="flex justify-center pt-4">
               <Button variant="outline" onClick={() => setShowCount((c) => c + 50)}>

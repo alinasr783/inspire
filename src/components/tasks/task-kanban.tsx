@@ -347,7 +347,11 @@ export function TaskKanban({
       // Optimistic update
       pendingRef.current.add(taskId);
       setLocalTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, status: targetStatus! } : t))
+        prev.map((t) =>
+          t.id === taskId
+            ? { ...t, status: targetStatus!, progress: targetStatus === "done" ? 100 : t.progress }
+            : t
+        )
       );
 
       // Background sync
@@ -357,7 +361,7 @@ export function TaskKanban({
           // Revert
           setLocalTasks((prev) =>
             prev.map((t) =>
-              t.id === taskId ? { ...t, status: task.status } : t
+              t.id === taskId ? { ...t, status: task.status, progress: task.progress } : t
             )
           );
           toast.error(t("updateFailed"));

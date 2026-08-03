@@ -30,6 +30,7 @@ const COL_WIDTHS: Record<string, number> = {
   last_feedback: 180,
   last_contact_date: 130,
   whatsapp_state: 110,
+  assigned_employee: 160,
 };
 const DEFAULT_WIDTH = 150;
 const MIN_WIDTH = 50;
@@ -47,7 +48,7 @@ const CellEditor = memo(({ defaultValue, type, onSave, onCancel }: { defaultValu
 CellEditor.displayName = "CellEditor";
 
 /* -- Cell Display -- */
-const CellDisplay = memo(({ col, record, locale, onEdit, onSave }: { col: Columns; record: UnconfirmedRecord; locale: string; onEdit: () => void; onSave: (v: string) => void }) => {
+const CellDisplay = memo(({ col, record, locale, onEdit, onSave, employees }: { col: Columns; record: UnconfirmedRecord; locale: string; onEdit: () => void; onSave: (v: string) => void; employees?: { id: string; name: string }[] }) => {
   const t = useTranslations("UnconfirmedData");
   if (col.key === "whatsapp_state") {
     const s = record.whatsapp_state || "";
@@ -57,6 +58,18 @@ const CellDisplay = memo(({ col, record, locale, onEdit, onSave }: { col: Column
         <option value="">{t("notSent")}</option>
         <option value="send">{t("sent")}</option>
         <option value="failed">{t("sendFailed")}</option>
+      </select>
+    );
+  }
+  if (col.key === "assigned_employee" && employees) {
+    const val = (record as Record<string, unknown>)[col.key] as string ?? "";
+    return (
+      <select value={val} onChange={(e) => onSave(e.target.value)}
+        className="h-full w-full px-0 py-0 text-xs border-none outline-none bg-transparent cursor-pointer text-muted-foreground">
+        <option value="">{t("selectEmployee")}</option>
+        {employees.map((e) => (
+          <option key={e.id} value={e.id}>{e.name}</option>
+        ))}
       </select>
     );
   }
@@ -81,9 +94,10 @@ interface RowProps {
   onCellSave: (recordId: string, key: string, value: string) => void;
   onEditCancel: () => void;
   onContextMenu: (e: React.MouseEvent, info: CellInfo) => void;
+  employees: { id: string; name: string }[];
 }
 
-const Row = function Row({ record, columns, locale, selectable, isSelected, editingKey, onToggle, onDelete, onCellEdit, onCellSave, onEditCancel, onContextMenu }: RowProps) {
+const Row = function Row({ record, columns, locale, selectable, isSelected, editingKey, onToggle, onDelete, onCellEdit, onCellSave, onEditCancel, onContextMenu, employees }: RowProps) {
   const t = useTranslations("UnconfirmedData");
   return (
     <tr className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`} data-row-id={record.id}>
@@ -99,7 +113,7 @@ const Row = function Row({ record, columns, locale, selectable, isSelected, edit
             {isEdit ? (
               <CellEditor defaultValue={col.key === "last_contact_date" ? (record.last_contact_date || "") : String((record as any)[col.key] ?? "")} type={col.type} onSave={(v) => onCellSave(record.id, col.key, v)} onCancel={onEditCancel} />
             ) : (
-              <CellDisplay col={col} record={record} locale={locale} onEdit={() => onCellEdit(record.id, col.key)} onSave={(v) => onCellSave(record.id, col.key, v)} />
+              <CellDisplay col={col} record={record} locale={locale} onEdit={() => onCellEdit(record.id, col.key)} onSave={(v) => onCellSave(record.id, col.key, v)} employees={employees} />
             )}
             </PresenceTd>
         );
@@ -115,7 +129,7 @@ const Row = function Row({ record, columns, locale, selectable, isSelected, edit
   );
 };
 
-export function UploadsTable({ records: serverRecords, columns, locale, selectable, userId }: { records: UnconfirmedRecord[]; columns: Columns[]; locale: string; selectable?: boolean; userId: string }) {
+export function UploadsTable({ records: serverRecords, columns, locale, selectable, userId, employees }: { records: UnconfirmedRecord[]; columns: Columns[]; locale: string; selectable?: boolean; userId: string; employees: { id: string; name: string }[] }) {
   const t = useTranslations("UnconfirmedData");
   const { notifyCellEdit } = useRealtime();
   const [records, setRecords] = useState(serverRecords);
@@ -285,7 +299,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
             {records.map((r) => (
               <Row key={r.id} record={r} columns={columns} locale={locale} selectable={!!selectable} isSelected={ss.has(r.id)}
                 editingKey={ed?.rid === r.id ? ed.key : null}
-                onToggle={tgl} onDelete={delOne} onCellEdit={cellEdit} onCellSave={cellSave} onEditCancel={editCancel} onContextMenu={handleContextMenu}
+                onToggle={tgl} onDelete={delOne} onCellEdit={cellEdit} onCellSave={cellSave} onEditCancel={editCancel} onContextMenu={handleContextMenu} employees={employees}
               />
             ))}
           </tbody>
