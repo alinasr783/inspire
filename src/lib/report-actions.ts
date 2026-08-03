@@ -10,6 +10,8 @@ export type CategoryData = { name: string; value: number; color: string }[];
 export type ReportData = {
   unitsByMonth: MonthlyData;
   clientsByMonth: MonthlyData;
+  unitsByWeek: MonthlyData;
+  clientsByWeek: MonthlyData;
   unitsByType: CategoryData;
   unitsByFinishing: CategoryData;
   unitsByRentSale: CategoryData;
@@ -57,6 +59,40 @@ function fillMonthly(rows: { created_at: string }[], count: number, endDate: Dat
   for (const row of rows) {
     const d = new Date(row.created_at);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (counts.has(key)) counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  return labels.map((l) => ({ month: l, count: counts.get(l) ?? 0 }));
+}
+
+function getISOWeek(d: Date): string {
+  const temp = new Date(d.getTime());
+  temp.setHours(0, 0, 0, 0);
+  temp.setDate(temp.getDate() + 3 - ((temp.getDay() + 6) % 7));
+  const week1 = new Date(temp.getFullYear(), 0, 4);
+  const weekNum = 1 + Math.round(((temp.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+  return `${temp.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+}
+
+function weekLabels(count: number, endDate: Date): string[] {
+  const labels: string[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(endDate);
+    d.setDate(d.getDate() - i * 7);
+    labels.push(getISOWeek(d));
+  }
+  return labels;
+}
+
+function fillWeekly(rows: { created_at: string }[], count: number, endDate: Date): MonthlyData {
+  const labels = weekLabels(count, endDate);
+  const counts = new Map<string, number>();
+  labels.forEach((l) => counts.set(l, 0));
+
+  for (const row of rows) {
+    const d = new Date(row.created_at);
+    if (isNaN(d.getTime())) continue;
+    const key = getISOWeek(d);
     if (counts.has(key)) counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
@@ -118,6 +154,8 @@ export async function fetchReports(rangeMonths: number = 12): Promise<ReportData
 
   const unitsByMonth = fillMonthly(unitList as { created_at: string }[], rangeMonths, endDate);
   const clientsByMonth = fillMonthly(clientList as { created_at: string }[], rangeMonths, endDate);
+  const unitsByWeek = fillWeekly(unitList as { created_at: string }[], 12, endDate);
+  const clientsByWeek = fillWeekly(clientList as { created_at: string }[], 12, endDate);
 
   const unitsByType = toCategory(unitList, "unit_type");
   const unitsByFinishing = toCategory(unitList, "finishing_status");
@@ -200,6 +238,8 @@ export async function fetchReports(rangeMonths: number = 12): Promise<ReportData
   return {
     unitsByMonth,
     clientsByMonth,
+    unitsByWeek,
+    clientsByWeek,
     unitsByType,
     unitsByFinishing,
     unitsByRentSale,

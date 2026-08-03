@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import {
   BarChart, Bar, LineChart, Line, PieChart as RPieChart, Pie, Cell,
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -205,25 +206,67 @@ export function ReportsPage({ initialData }: { initialData: ReportData }) {
         <Card>
           <CardHeader className="pb-4">
             <CardTitle className="text-base flex items-center gap-2">
-              <ListChecks className="h-4 w-4 text-chart-5" />
-              {t("tasksByStatus")}
+              <Target className="h-4 w-4 text-chart-5" />
+              {t("weeklyRadar")}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex items-center justify-center">
-            {data.tasksByStatus.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <RPieChart>
-                  <Pie data={data.tasksByStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={55}                 label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
-                    {data.tasksByStatus.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} stroke="none" />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)" }} />
-                </RPieChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-sm text-muted-foreground py-12">{t("noData")}</p>
-            )}
+            <ResponsiveContainer width="100%" height={320}>
+              <RadarChart
+                data={data.unitsByWeek.map((u, i) => ({
+                  week: u.month.replace("-W", " W"),
+                  units: u.count,
+                  clients: data.clientsByWeek[i]?.count ?? 0,
+                }))}
+                cx="50%" cy="50%" outerRadius="75%"
+              >
+                <PolarGrid className="stroke-border" strokeDasharray="4 4" />
+                <PolarAngleAxis
+                  dataKey="week"
+                  tick={{ fontSize: 10, fontWeight: 500, fill: "var(--muted-foreground)" }}
+                  tickLine={false}
+                />
+                <PolarRadiusAxis
+                  angle={22.5}
+                  domain={[0, "auto"]}
+                  tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
+                  axisLine={false}
+                />
+                <Radar
+                  name={t("units")}
+                  dataKey="units"
+                  stroke="#06c167"
+                  fill="#06c167"
+                  fillOpacity={0.3}
+                  strokeWidth={2}
+                  dot={{ r: 4, fill: "#06c167", strokeWidth: 0 }}
+                  activeDot={{ r: 6, fill: "#06c167", stroke: "#fff", strokeWidth: 2 }}
+                />
+                <Radar
+                  name={t("clients")}
+                  dataKey="clients"
+                  stroke="#276ef1"
+                  fill="#276ef1"
+                  fillOpacity={0.3}
+                  strokeWidth={2}
+                  dot={{ r: 4, fill: "#276ef1", strokeWidth: 0 }}
+                  activeDot={{ r: 6, fill: "#276ef1", stroke: "#fff", strokeWidth: 2 }}
+                />
+                <Legend
+                  wrapperStyle={{ paddingTop: 16, fontSize: 12 }}
+                  iconType="circle"
+                  iconSize={8}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 8,
+                    border: "1px solid var(--border)",
+                    backgroundColor: "var(--card)",
+                    fontSize: 12,
+                  }}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
