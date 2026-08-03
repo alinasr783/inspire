@@ -164,7 +164,6 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   }, [ctxMenu]);
 
   const [deleteOneDialog, setDeleteOneDialog] = useState<{ rid: string; name: string } | null>(null);
-  const bgSaveRef = useRef<Set<string>>(new Set());
   const srvRef = useRef(serverRecords); srvRef.current = serverRecords;
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
@@ -174,7 +173,14 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   });
   const colWidthsRef = useRef(colWidths); colWidthsRef.current = colWidths;
 
-  useEffect(() => { setRecords(serverRecords); }, [serverRecords]);
+  const prevServerIdsRef = useRef("");
+  useEffect(() => {
+    const ids = serverRecords.map((r) => r.id).sort().join(",");
+    if (ids !== prevServerIdsRef.current) {
+      setRecords(serverRecords);
+      prevServerIdsRef.current = ids;
+    }
+  }, [serverRecords]);
 
   useEffect(() => {
     function onTableReset(e: Event) {
@@ -234,7 +240,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
     setDeleteOneDialog(null);
   }, [deleteOneDialog]);
   const cellEdit = useCallback((rid: string, key: string) => setEditing({ rid, key }), []);
-  const cellSave = useCallback((rid: string, key: string, val: string) => { setEditing(null); setRecords((p) => p.map((r) => (r.id === rid ? { ...r, [key]: val } : r))); notifyCellEdit({ table: "unconfirmed_records", rowId: rid, field: key, action: "update" }); const tag = rid + key; if (!bgSaveRef.current.has(tag)) { bgSaveRef.current.add(tag); updateRecordField(rid, key, val).finally(() => bgSaveRef.current.delete(tag)); }   }, [notifyCellEdit]);
+  const cellSave = useCallback((rid: string, key: string, val: string) => { setEditing(null); setRecords((p) => p.map((r) => (r.id === rid ? { ...r, [key]: val } : r))); notifyCellEdit({ table: "unconfirmed_records", rowId: rid, field: key, action: "update" }); updateRecordField(rid, key, val).catch(() => {}); }, [notifyCellEdit]);
   const editCancel = useCallback(() => setEditing(null), []);
 
   useEffect(() => {

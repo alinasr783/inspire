@@ -315,12 +315,12 @@ export async function updateRecordField(recordId: string, field: string, value: 
   ];
   if (!allowedFields.includes(field)) throw new Error("invalid-field");
 
-  const { error } = await admin
+  const { error, status, statusText } = await admin
     .from("unconfirmed_records")
     .update({ [field]: value, updated_by: user.id })
     .eq("id", recordId);
 
-  if (error) throw new Error("update-failed");
+  if (error) throw new Error(`update-failed: ${error.code} - ${error.message}`);
 }
 
 export async function quickCreateRecord(): Promise<UnconfirmedRecord> {

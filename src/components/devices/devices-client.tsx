@@ -16,6 +16,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PwaInstallButton } from "@/components/devices/pwa-install-button";
 import { createDeviceQr, removeDevice } from "@/lib/device-actions";
 import type { DeviceRow } from "@/lib/device-actions";
 
@@ -119,6 +120,12 @@ export function DevicesClient({
         <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <PwaInstallButton />
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <Card className="lg:col-span-5">

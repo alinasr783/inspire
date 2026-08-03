@@ -599,7 +599,14 @@
     "thisDevice": "This device",
     "lastSeen": "Active {time}",
     "remove": "Remove device",
-    "removeFailed": "Could not remove this device. Please try again."
+    "removeFailed": "Could not remove this device. Please try again.",
+    "installApp": "Install App",
+    "appInstalled": "App is already installed",
+    "iosInstallHint": "Tap Share then Add to Home Screen",
+    "iosInstallTitle": "How to install on iPhone/iPad",
+    "iosStep1": "Tap the Share button in Safari's toolbar",
+    "iosStep2": "Scroll down and tap 'Add to Home Screen'",
+    "iosStep3": "Tap 'Add' in the top right corner"
   },
   "Deals": {
     "title": "Deals",
