@@ -4,4 +4,5 @@ export { useDealsQuery, prefetchDeals } from "./use-deals-query";
 export { useTasksQuery, prefetchTasks } from "./use-tasks-query";
 export { useDevicesQuery, prefetchDevices } from "./use-devices-query";
 export { useEmployeesQuery, prefetchEmployees } from "./use-employees-query";
+export { useGalleryQuery } from "./use-gallery-query";
 export { queryKeys } from "./query-keys";

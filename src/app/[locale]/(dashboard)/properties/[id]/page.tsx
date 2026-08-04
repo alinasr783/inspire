@@ -7,6 +7,8 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getColumnConfig } from "@/lib/unit-config-actions";
 import type { UnitRow } from "@/lib/unit-actions";
+import { getUnitGallery } from "@/lib/gallery-actions";
+import { GalleryManager } from "@/components/gallery/gallery-manager";
 import { CopyButton } from "@/components/clients/copy-button";
 import { DeleteUnitButton } from "@/components/units/delete-unit-button";
 import { WhatsAppIcon, TelegramIcon } from "@/components/ui/brand-icons";
@@ -282,6 +284,9 @@ export default async function UnitDetailPage({
     .single();
 
   const canEdit = unitData.created_by === user.id || profile?.role === "admin";
+  const canManageGallery = profile?.role === "admin" || unitData.created_by === user.id || unitData.assigned_employee === user.id;
+
+  const initialGallery = await getUnitGallery(unitData.id);
 
   const customColumns = await getColumnConfig();
   const enabledCustom = customColumns.filter((c) => c.enabled);
@@ -724,6 +729,12 @@ export default async function UnitDetailPage({
           </Card>
         </aside>
       </div>
+
+      <GalleryManager
+        unitId={unitData.id}
+        canManage={canManageGallery}
+        initialData={initialGallery}
+      />
 
       {phoneDigits && (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur-lg md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
