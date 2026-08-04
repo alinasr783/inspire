@@ -262,6 +262,7 @@
     "sectionCreated": "تم إنشاء القسم بنجاح",
     "sectionDeleted": "تم حذف القسم بنجاح",
     "imageDeleted": "تم حذف الصورة بنجاح",
+    "downloadImage": "تحميل",
     "noGallerySections": "لا توجد أقسام بعد. قم بإنشاء قسم لبدء رفع الصور.",
     "noImages": "لا توجد صور في هذا القسم",
     "errors": {

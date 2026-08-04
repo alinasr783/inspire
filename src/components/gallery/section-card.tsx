@@ -13,12 +13,29 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { UploadButton } from "@/components/gallery/upload-button";
 import { ImageLightbox } from "@/components/gallery/image-lightbox";
-import { Trash2, FolderOpen } from "lucide-react";
+import { Trash2, FolderOpen, Download } from "lucide-react";
 
 interface SectionCardProps {
   section: GallerySectionWithImages;
   unitId: string;
   canManage: boolean;
+}
+
+async function downloadImage(url: string, filename: string) {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename || "image";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+  } catch {
+    window.open(url, "_blank");
+  }
 }
 
 export function SectionCard({ section, unitId, canManage }: SectionCardProps) {
@@ -95,15 +112,24 @@ export function SectionCard({ section, unitId, canManage }: SectionCardProps) {
                     className="cursor-pointer object-cover transition-transform active:scale-95 group-hover:scale-105"
                     onClick={() => setLightboxIndex(index)}
                   />
-                  {canManage && (
+                  <div className="absolute inset-x-0 bottom-0 flex items-center justify-between p-1">
                     <button
-                      onClick={(e) => { e.stopPropagation(); setDeleteImageId(img.id); }}
-                      className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-black/40 text-white opacity-70 transition-opacity hover:bg-red-500 hover:opacity-100 active:scale-90"
+                      onClick={(e) => { e.stopPropagation(); downloadImage(img.public_url ?? "", img.original_name ?? "image"); }}
+                      className="flex size-6 items-center justify-center rounded-full bg-black/40 text-white opacity-70 transition-opacity hover:bg-primary hover:opacity-100 active:scale-90"
                       type="button"
                     >
-                      <Trash2 className="size-3" />
+                      <Download className="size-3" />
                     </button>
-                  )}
+                    {canManage && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeleteImageId(img.id); }}
+                        className="flex size-6 items-center justify-center rounded-full bg-black/40 text-white opacity-70 transition-opacity hover:bg-red-500 hover:opacity-100 active:scale-90"
+                        type="button"
+                      >
+                        <Trash2 className="size-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
