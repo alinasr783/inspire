@@ -25,7 +25,8 @@ export default async function EmployeeDetailPage({
 
   const { data: me } = await admin
     .from("profiles").select("role").eq("id", user.id).single();
-  if (me?.role !== "admin") notFound();
+  const isOwnProfile = user.id === employeeId;
+  if (me?.role !== "admin" && !isOwnProfile) notFound();
 
   const result = await fetchEmployeeWithTasks(employeeId);
   if (!result) notFound();

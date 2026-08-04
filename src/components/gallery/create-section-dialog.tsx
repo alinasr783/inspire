@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { createGallerySection } from "@/lib/gallery-actions";
 import type { GallerySectionRow } from "@/lib/gallery-actions";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogTrigger, DialogClose, DialogPortal, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
@@ -42,17 +42,14 @@ export function CreateSectionDialog({ unitId, onCreated }: CreateSectionDialogPr
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <Plus className="size-4" />
-            {t("createSection") ?? "Create Section"}
-          </Button>
-        }
-      />
-      <DialogPortal>
-        <DialogContent className="mx-4 max-w-md">
+    <>
+      <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setOpen(true)}>
+        <Plus className="size-4" />
+        {t("createSection") ?? "Create Section"}
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="!max-w-[calc(100%-2rem)] sm:!max-w-md">
           <DialogHeader>
             <DialogTitle>{t("createSection") ?? "Create Section"}</DialogTitle>
           </DialogHeader>
@@ -68,16 +65,16 @@ export function CreateSectionDialog({ unitId, onCreated }: CreateSectionDialogPr
               />
             </div>
             <div className="flex justify-end gap-2">
-              <DialogClose render={<Button variant="outline" disabled={loading} />}>
+              <Button variant="outline" disabled={loading} onClick={() => setOpen(false)}>
                 {t("cancel")}
-              </DialogClose>
+              </Button>
               <Button onClick={handleCreate} disabled={loading || !name.trim()}>
-                {loading ? t("creating") ?? "Creating..." : t("save")}
+                {loading ? (t("creating") ?? "Creating...") : t("save")}
               </Button>
             </div>
           </div>
         </DialogContent>
-      </DialogPortal>
-    </Dialog>
+      </Dialog>
+    </>
   );
 }

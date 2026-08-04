@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { TaskKanban } from "@/components/tasks/task-kanban";
 import { EmployeeCards } from "@/components/tasks/employee-cards";
+import { AdTrackingSection } from "@/components/tasks/ad-tracking-section";
 import { AddTaskDialog } from "@/components/tasks/add-task-dialog";
 import { TaskDetailSheet } from "@/components/tasks/task-detail-sheet";
 import { combineEmployeesWithTasks, calculateOverviewStats } from "@/lib/task-types";
@@ -120,12 +121,15 @@ export function TasksClient({
       {isAdmin ? (
         <EmployeeCards employees={employees} onAddTask={handleAddTask} />
       ) : (
-        <TaskKanban
-          key={refreshKey}
-          tasks={myTasks}
-          isAdmin={false}
-          onOpenDetail={handleOpenDetail}
-        />
+        <>
+          <AdTrackingSection employeeId={userId} />
+          <TaskKanban
+            key={refreshKey}
+            tasks={myTasks}
+            isAdmin={false}
+            onOpenDetail={handleOpenDetail}
+          />
+        </>
       )}
 
       <AddTaskDialog

@@ -422,7 +422,15 @@
     "filterAll": "الكل",
     "filterActive": "نشط",
     "filterOverdue": "متأخر",
-    "filterCompleted": "مكتمل"
+    "filterCompleted": "مكتمل",
+    "adTracking": "متابعة الإعلانات",
+    "ads": "إعلانات",
+    "adCount": "عدد الإعلانات",
+    "date": "التاريخ",
+    "totalThisWeek": "المجموع",
+    "invalidAdCount": "يرجى إدخال رقم صحيح",
+    "adSaved": "تم حفظ عدد الإعلانات بنجاح",
+    "adSaveFailed": "فشل حفظ عدد الإعلانات"
   },
   "UnconfirmedData": {
     "title": "البيانات غير المؤكدة",

@@ -43,5 +43,9 @@ export const queryKeys = {
     all: ["gallery"] as const,
     byUnit: (unitId: string) => [...queryKeys.gallery.all, "unit", unitId] as const,
   },
+  ads: {
+    all: ["ads"] as const,
+    byEmployee: (employeeId: string) => [...queryKeys.ads.all, "employee", employeeId] as const,
+  },
   pendingCount: ["pendingCount"] as const,
 };

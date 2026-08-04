@@ -422,7 +422,15 @@
     "filterAll": "All",
     "filterActive": "Active",
     "filterOverdue": "Overdue",
-    "filterCompleted": "Completed"
+    "filterCompleted": "Completed",
+    "adTracking": "Ad Tracking",
+    "ads": "Ads",
+    "adCount": "Ad Count",
+    "date": "Date",
+    "totalThisWeek": "Total",
+    "invalidAdCount": "Please enter a valid number",
+    "adSaved": "Ad count saved successfully",
+    "adSaveFailed": "Failed to save ad count"
   },
   "UnconfirmedData": {
     "title": "Unconfirmed Data",
