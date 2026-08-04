@@ -21,7 +21,7 @@ interface SectionCardProps {
   canManage: boolean;
 }
 
-async function downloadImage(url: string, filename: string) {
+async function downloadImage(url: string, filename: string, successMsg: string) {
   try {
     const response = await fetch(url);
     const blob = await response.blob();
@@ -33,6 +33,7 @@ async function downloadImage(url: string, filename: string) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(blobUrl);
+    toast.success(successMsg);
   } catch {
     window.open(url, "_blank");
   }
@@ -114,7 +115,7 @@ export function SectionCard({ section, unitId, canManage }: SectionCardProps) {
                   />
                   <div className="absolute inset-x-0 bottom-0 flex items-center justify-between p-1">
                     <button
-                      onClick={(e) => { e.stopPropagation(); downloadImage(img.public_url ?? "", img.original_name ?? "image"); }}
+                      onClick={(e) => { e.stopPropagation(); downloadImage(img.public_url ?? "", img.original_name ?? "image", t("imageDownloaded") ?? "Downloaded successfully"); }}
                       className="flex size-6 items-center justify-center rounded-full bg-black/40 text-white opacity-70 transition-opacity hover:bg-primary hover:opacity-100 active:scale-90"
                       type="button"
                     >

@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
@@ -17,7 +18,7 @@ interface ImageLightboxProps {
   onClose: () => void;
 }
 
-async function downloadImage(url: string, filename: string) {
+async function downloadImage(url: string, filename: string, successMsg: string) {
   try {
     const response = await fetch(url);
     const blob = await response.blob();
@@ -29,6 +30,7 @@ async function downloadImage(url: string, filename: string) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(blobUrl);
+    toast.success(successMsg);
   } catch {
     window.open(url, "_blank");
   }
@@ -48,9 +50,9 @@ export function ImageLightbox({ images, initialIndex, open, onClose }: ImageLigh
 
   const handleDownload = useCallback(() => {
     if (currentImage?.public_url) {
-      downloadImage(currentImage.public_url, currentImage.original_name ?? "image");
+      downloadImage(currentImage.public_url, currentImage.original_name ?? "image", t("imageDownloaded") ?? "Downloaded successfully");
     }
-  }, [currentImage]);
+  }, [currentImage, t]);
 
   return (
     <Lightbox

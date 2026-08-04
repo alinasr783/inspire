@@ -263,6 +263,7 @@
     "sectionDeleted": "Section deleted successfully",
     "imageDeleted": "Image deleted successfully",
     "downloadImage": "Download",
+    "imageDownloaded": "Downloaded successfully",
     "noGallerySections": "No gallery sections yet. Create one to start uploading photos.",
     "noImages": "No images in this section",
     "errors": {
