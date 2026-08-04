@@ -21,7 +21,7 @@ export function ImageLightbox({ images, initialIndex, open, onClose }: ImageLigh
   const slides = images.map((img) => ({
     src: img.public_url ?? "",
     alt: img.original_name ?? "",
-    description: `${t("uploadedBy") ?? "Uploaded by"}: ${img.uploader_name || "—"}\n${new Date(img.created_at).toLocaleString()}`,
+    description: `${t("uploadedBy") ?? "Uploaded by"}: ${img.uploader_name || "\u2014"}\n${new Date(img.created_at).toLocaleString()}`,
   }));
 
   return (
@@ -32,7 +32,9 @@ export function ImageLightbox({ images, initialIndex, open, onClose }: ImageLigh
       slides={slides}
       plugins={[Zoom, Captions]}
       zoom={{ maxZoomPixelRatio: 5, scrollToZoom: true }}
-      captions={{ descriptionTextAlign: "center" }}
+      captions={{ descriptionTextAlign: "center", descriptionMaxLines: 3 }}
+      carousel={{ preload: 2 }}
+      className="gallery-lightbox"
     />
   );
 }

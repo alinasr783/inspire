@@ -27,10 +27,10 @@ export function GalleryManager({ unitId, canManage, initialData }: GalleryManage
   return (
     <Card>
       <CardHeader className="pb-0">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Images className="size-4 text-muted-foreground" />
-            {t("gallery") ?? "Gallery"}
+            <Images className="size-4 shrink-0 text-muted-foreground" />
+            <span className="truncate">{t("gallery") ?? "Gallery"}</span>
           </CardTitle>
           {canManage && (
             <CreateSectionDialog
@@ -40,7 +40,7 @@ export function GalleryManager({ unitId, canManage, initialData }: GalleryManage
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 pt-4">
+      <CardContent className="space-y-4 p-3 pt-4 sm:p-4 sm:pt-4 md:p-6 md:pt-4">
         {currentSections.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
             {t("noGallerySections") ?? "No sections yet"}

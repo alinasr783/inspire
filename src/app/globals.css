@@ -251,3 +251,36 @@ tr[style*="background"] td:last-child {
   content-visibility: auto;
   contain-intrinsic-size: auto 500px;
 }
+
+/* ── Gallery Lightbox mobile fixes ──────────── */
+.yarl__root {
+  --yarl__color_backdrop: rgba(0, 0, 0, 0.92);
+}
+
+.yarl__navigation_prev,
+.yarl__navigation_next {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.yarl__toolbar {
+  gap: 4px;
+}
+
+.yarl__button {
+  min-width: 44px;
+  min-height: 44px;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+}
+
+.yarl__slide_captions_container {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .yarl__slide_captions_container {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+}

@@ -52,7 +52,7 @@ export function CreateSectionDialog({ unitId, onCreated }: CreateSectionDialogPr
         }
       />
       <DialogPortal>
-        <DialogContent>
+        <DialogContent className="mx-4 max-w-md">
           <DialogHeader>
             <DialogTitle>{t("createSection") ?? "Create Section"}</DialogTitle>
           </DialogHeader>

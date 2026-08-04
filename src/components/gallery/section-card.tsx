@@ -64,17 +64,17 @@ export function SectionCard({ section, unitId, canManage }: SectionCardProps) {
   return (
     <>
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-3 sm:p-4">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="flex items-center gap-2 text-sm font-semibold">
-              <FolderOpen className="size-4 text-muted-foreground" />
-              {section.name}
+            <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+              <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
+              <span className="truncate">{section.name}</span>
             </h3>
             {canManage && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-8 text-muted-foreground hover:text-destructive"
+                className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
                 onClick={() => setDeleteSectionOpen(true)}
               >
                 <Trash2 className="size-4" />
@@ -83,7 +83,7 @@ export function SectionCard({ section, unitId, canManage }: SectionCardProps) {
           </div>
 
           {allImages.length > 0 && (
-            <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+            <div className="mt-3 grid grid-cols-2 gap-2 min-[480px]:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {allImages.map((img, index) => (
                 <div key={img.id} className="group relative aspect-square overflow-hidden rounded-lg border bg-muted">
                   <Image
@@ -91,13 +91,14 @@ export function SectionCard({ section, unitId, canManage }: SectionCardProps) {
                     alt={img.original_name ?? ""}
                     fill
                     unoptimized
-                    className="cursor-pointer object-cover transition-transform group-hover:scale-105"
+                    sizes="(max-width: 480px) 50vw, (max-width: 768px) 33vw, 25vw"
+                    className="cursor-pointer object-cover transition-transform active:scale-95 group-hover:scale-105"
                     onClick={() => setLightboxIndex(index)}
                   />
                   {canManage && (
                     <button
                       onClick={(e) => { e.stopPropagation(); setDeleteImageId(img.id); }}
-                      className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-500"
+                      className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-black/40 text-white opacity-70 transition-opacity hover:bg-red-500 hover:opacity-100 active:scale-90"
                       type="button"
                     >
                       <Trash2 className="size-3" />

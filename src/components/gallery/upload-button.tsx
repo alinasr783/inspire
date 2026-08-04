@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { uploadGalleryImages } from "@/lib/gallery-actions";
 import type { GalleryImageRow } from "@/lib/gallery-actions";
 import { Button } from "@/components/ui/button";
-import { X, ImageIcon } from "lucide-react";
+import { X, ImageIcon, Upload } from "lucide-react";
 
 const ACCEPTED = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
 
@@ -85,7 +85,7 @@ export function UploadButton({ unitId, sectionId, onUploaded }: UploadButtonProp
       {previews.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {previews.map((preview, index) => (
-            <div key={index} className="relative size-20 overflow-hidden rounded-lg border">
+            <div key={index} className="relative size-16 overflow-hidden rounded-lg border sm:size-20">
               <img
                 src={preview.url}
                 alt={preview.file.name}
@@ -93,7 +93,7 @@ export function UploadButton({ unitId, sectionId, onUploaded }: UploadButtonProp
               />
               <button
                 onClick={() => removePreview(index)}
-                className="absolute right-0.5 top-0.5 flex size-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                className="absolute right-0.5 top-0.5 flex size-5 items-center justify-center rounded-full bg-black/60 text-white active:scale-90 hover:bg-red-500"
                 type="button"
               >
                 <X className="size-3" />
@@ -104,7 +104,7 @@ export function UploadButton({ unitId, sectionId, onUploaded }: UploadButtonProp
       )}
 
       <div
-        className={`cursor-pointer rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
+        className={`cursor-pointer rounded-xl border-2 border-dashed p-3 text-center transition-colors sm:p-4 ${
           dragOver
             ? "border-primary bg-primary/5"
             : "border-muted-foreground/25 hover:border-muted-foreground/50"
@@ -123,24 +123,40 @@ export function UploadButton({ unitId, sectionId, onUploaded }: UploadButtonProp
           onChange={handleInputChange}
         />
         <div className="flex flex-col items-center gap-1">
-          <ImageIcon className="size-6 text-muted-foreground" />
-          <p className="text-xs text-muted-foreground">
+          <ImageIcon className="size-5 text-muted-foreground sm:size-6" />
+          <p className="max-w-full break-words text-xs text-muted-foreground">
             {previews.length > 0
               ? `${previews.length} ${t("filesSelected") ?? "files selected"}`
-              : dragOver
-                ? (t("dropImagesHere") ?? "Drop images here")
-                : (t("dropImagesHere") ?? "Click or drag to upload")}
+              : (t("dropImagesHere") ?? "Click or drag to upload")}
           </p>
         </div>
       </div>
 
       {previews.length > 0 && (
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={() => { previews.forEach((p) => URL.revokeObjectURL(p.url)); setPreviews([]); }} disabled={uploading}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full sm:w-auto"
+            onClick={() => { previews.forEach((p) => URL.revokeObjectURL(p.url)); setPreviews([]); }}
+            disabled={uploading}
+          >
             {t("cancel")}
           </Button>
-          <Button size="sm" onClick={handleUpload} disabled={uploading}>
-            {uploading ? (t("uploading") ?? "Uploading...") : `${t("uploadImages") ?? "Upload"} (${previews.length})`}
+          <Button
+            size="sm"
+            className="w-full sm:w-auto gap-1.5"
+            onClick={handleUpload}
+            disabled={uploading}
+          >
+            {uploading ? (
+              (t("uploading") ?? "Uploading...")
+            ) : (
+              <>
+                <Upload className="size-3.5" />
+                {t("uploadImages") ?? "Upload"} ({previews.length})
+              </>
+            )}
           </Button>
         </div>
       )}
