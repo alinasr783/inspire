@@ -400,14 +400,24 @@ export default async function DashboardPage({
   }
 
   // ── task status ──
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
   let activeTasks = 0;
   let overdueTasks = 0;
   let completedTasks = 0;
   for (const t of tasks) {
     const s = t.status as string;
-    if (s === "active") activeTasks++;
-    else if (s === "overdue") overdueTasks++;
-    else if (s === "completed") completedTasks++;
+    if (s === "done") {
+      completedTasks++;
+    } else {
+      const due = new Date(t.due_date as string);
+      due.setHours(0, 0, 0, 0);
+      if (due.getTime() < now.getTime()) {
+        overdueTasks++;
+      } else {
+        activeTasks++;
+      }
+    }
   }
 
   // ── contact health ──

@@ -2,7 +2,6 @@
 
 import { headers } from "next/headers";
 import QRCode from "qrcode";
-import crypto from "crypto";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -28,7 +27,7 @@ async function getOrigin() {
 }
 
 function generateToken(): string {
-  return crypto.randomBytes(32).toString("hex");
+  return globalThis.crypto.randomUUID() + globalThis.crypto.randomUUID();
 }
 
 // ── Register / refresh the current device ──
