@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { Building2, Trash2, Eye, Pencil } from "lucide-react";
+import { Building2, Trash2, Eye, Pencil, AlertTriangle } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -195,13 +195,20 @@ const TableRowComponent = memo(function TableRowComponent({
                 onCancel={editCancel}
               />
             ) : (
-              <CellDisplay
-                raw={key === "last_contact_date" ? toDateValue(info.editValue) : info.editValue}
-                ltr={info.ltr}
-                right={info.right}
-                locale={locale}
-                onEdit={() => info.canEdit && cellEdit(uid, col.id)}
-              />
+              <span className="relative block h-full w-full">
+                <CellDisplay
+                  raw={key === "last_contact_date" ? toDateValue(info.editValue) : info.editValue}
+                  ltr={info.ltr}
+                  right={info.right}
+                  locale={locale}
+                  onEdit={() => info.canEdit && cellEdit(uid, col.id)}
+                />
+                {key === "phone" && !unit.phone && (
+                  <span className="absolute end-1 top-1/2 -translate-y-1/2 text-red-500">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                  </span>
+                )}
+              </span>
             )}
           </PresenceTd>
         );
@@ -446,7 +453,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
     const isOwner = unit.created_by === userId || unit.assigned_employee === userId;
     const canEdit = isAdmin || isOwner || key === "feedback";
     const rawVal = col.is_builtin ? String((unit as Record<string, unknown>)[key] ?? "") : String((unit.custom_fields as Record<string, unknown>)?.[key] ?? "");
-    const raw = key === "assigned_employee" ? (employeeMap.get(rawVal) || rawVal) : rawVal;
+    const raw = key === "assigned_employee" ? (employeeMap.get(rawVal) || "—") : rawVal;
     const editValue = key === "assigned_employee" ? rawVal : raw;
     const options =
       key === "assigned_employee" ? Array.from(employeeMap.entries()).map(([id, name]) => ({ value: id, label: name })) :
