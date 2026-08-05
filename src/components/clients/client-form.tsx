@@ -175,7 +175,7 @@ export function ClientForm({ mode, defaultValues, clientId, customColumns, assig
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="customer_name">{t("customerName")} *</Label>
-          <Input id="customer_name" {...register("customer_name")} />
+          <Input id="customer_name" autoComplete="off" {...register("customer_name")} />
           {errors.customer_name && (
             <p className="text-sm text-destructive">{t("errors.createFailed")}</p>
           )}
