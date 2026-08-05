@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 import {
   Megaphone, ChevronLeft, ChevronRight, Save,
@@ -43,7 +43,16 @@ function CustomTooltip({
   label?: string;
 }) {
   const t = useTranslations("Tasks");
+  const locale = useLocale();
   if (!active || !payload?.length) return null;
+
+  const dayName = label
+    ? new Date(label).toLocaleDateString(
+        locale === "ar" ? "ar-EG" : "en-US",
+        { weekday: "long" }
+      )
+    : "";
+
   return (
     <div
       style={{
@@ -54,7 +63,10 @@ function CustomTooltip({
         fontSize: 13,
       }}
     >
-      <p style={{ fontWeight: 600, marginBottom: 2 }}>{label ? formatDisplayDate(label) : ""}</p>
+      <p style={{ fontWeight: 600, marginBottom: 2 }}>
+        {label ? formatDisplayDate(label) : ""}
+        {dayName && <span style={{ fontWeight: 400, color: "var(--muted-foreground)", marginInlineStart: 4 }}>{dayName}</span>}
+      </p>
       <p style={{ color: payload[0].color }}>
         {t("adCount")}: {payload[0].value}
       </p>

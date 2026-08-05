@@ -667,22 +667,6 @@ export default async function DashboardPage({
         </Card>
       </div>
 
-      {/* Financials */}
-      <div className="grid grid-cols-2 gap-4">
-        <StatCard
-          icon={Banknote}
-          label={t("totalCashRequired")}
-          value={formatNumber(totalCash)}
-          color="#06c167"
-        />
-        <StatCard
-          icon={TrendingUp}
-          label={t("totalRemaining")}
-          value={formatNumber(totalRemaining)}
-          color="#276ef1"
-        />
-      </div>
-
       {/* Cheap Units */}
       <div className="grid gap-4 md:grid-cols-2">
         {/* Cheapest Rent */}
