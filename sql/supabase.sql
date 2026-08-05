@@ -12,6 +12,9 @@ CREATE TABLE public.profiles (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   position text DEFAULT ''::text,
+  avatar_url text,
+  primary_color text,
+  notification_prefs jsonb DEFAULT '{}'::jsonb,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
@@ -72,6 +75,7 @@ CREATE TABLE public.clients (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   last_contact_date date,
+  seriousness_rating integer CHECK (seriousness_rating >= 1 AND seriousness_rating <= 10),
   CONSTRAINT clients_pkey PRIMARY KEY (id),
   CONSTRAINT clients_assigned_employee_fkey FOREIGN KEY (assigned_employee) REFERENCES public.profiles(id),
   CONSTRAINT clients_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
@@ -107,12 +111,14 @@ CREATE TABLE public.tasks (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   title text NOT NULL,
   progress integer NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
-  status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'overdue'::text, 'completed'::text])),
+  status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['todo'::text, 'in_progress'::text, 'done'::text])),
   due_date date NOT NULL,
   assigned_to uuid NOT NULL,
   created_by uuid NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  description text,
+  target integer,
   CONSTRAINT tasks_pkey PRIMARY KEY (id),
   CONSTRAINT tasks_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES public.profiles(id),
   CONSTRAINT tasks_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
@@ -150,9 +156,13 @@ CREATE TABLE public.unconfirmed_records (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   whatsapp_state text NOT NULL DEFAULT ''::text,
   file_id uuid,
+  assigned_employee uuid,
+  updated_by uuid,
   CONSTRAINT unconfirmed_records_pkey PRIMARY KEY (id),
   CONSTRAINT unconfirmed_records_file_id_fkey FOREIGN KEY (file_id) REFERENCES public.unconfirmed_files(id),
-  CONSTRAINT unconfirmed_records_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES public.unconfirmed_uploads(id)
+  CONSTRAINT unconfirmed_records_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES public.unconfirmed_uploads(id),
+  CONSTRAINT unconfirmed_records_assigned_employee_fkey FOREIGN KEY (assigned_employee) REFERENCES public.profiles(id),
+  CONSTRAINT unconfirmed_records_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.whatsapp_campaigns (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -253,7 +263,7 @@ CREATE TABLE public.cell_styles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   table_name text NOT NULL,
-  element_type text NOT NULL CHECK (element_type = ANY (ARRAY['table'::text, 'column'::text, 'row'::text, 'cell'::text])),
+  element_type text NOT NULL CHECK (element_type = ANY (ARRAY['table'::text, 'column'::text, 'row'::text, 'cell'::text, 'conditional'::text])),
   element_key text NOT NULL,
   text_color text,
   background_color text,
@@ -261,6 +271,88 @@ CREATE TABLE public.cell_styles (
   font_weight text,
   border_style text,
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  border_color text,
+  border_width text,
+  text_align text,
+  vertical_align text,
   CONSTRAINT cell_styles_pkey PRIMARY KEY (id),
   CONSTRAINT cell_styles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.user_devices (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  fingerprint text NOT NULL,
+  label text,
+  user_agent text,
+  last_seen_at timestamp with time zone NOT NULL DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT user_devices_pkey PRIMARY KEY (id),
+  CONSTRAINT user_devices_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.device_login_tokens (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  token text NOT NULL UNIQUE,
+  used boolean NOT NULL DEFAULT false,
+  expires_at timestamp with time zone NOT NULL DEFAULT (now() + '00:05:00'::interval),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT device_login_tokens_pkey PRIMARY KEY (id),
+  CONSTRAINT device_login_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.unit_gallery_sections (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  unit_id uuid NOT NULL,
+  name text NOT NULL,
+  created_by uuid NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT unit_gallery_sections_pkey PRIMARY KEY (id),
+  CONSTRAINT unit_gallery_sections_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id),
+  CONSTRAINT unit_gallery_sections_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.unit_gallery_images (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  section_id uuid NOT NULL,
+  storage_path text NOT NULL,
+  original_name text,
+  file_size bigint,
+  content_type text,
+  uploaded_by uuid NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT unit_gallery_images_pkey PRIMARY KEY (id),
+  CONSTRAINT unit_gallery_images_section_id_fkey FOREIGN KEY (section_id) REFERENCES public.unit_gallery_sections(id),
+  CONSTRAINT unit_gallery_images_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.daily_ads (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  employee_id uuid NOT NULL,
+  ad_count integer NOT NULL DEFAULT 0 CHECK (ad_count >= 0),
+  entry_date date NOT NULL DEFAULT CURRENT_DATE,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT daily_ads_pkey PRIMARY KEY (id),
+  CONSTRAINT daily_ads_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.visits (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid NOT NULL,
+  unit_id uuid NOT NULL,
+  compound_name text NOT NULL,
+  building_number text NOT NULL,
+  apartment_number text NOT NULL,
+  visit_date timestamp with time zone NOT NULL,
+  status text NOT NULL DEFAULT 'upcoming'::text CHECK (status = ANY (ARRAY['upcoming'::text, 'completed'::text, 'cancelled'::text])),
+  notes text DEFAULT ''::text,
+  created_by uuid NOT NULL,
+  assigned_to uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  post_visit_notes text DEFAULT ''::text,
+  CONSTRAINT visits_pkey PRIMARY KEY (id),
+  CONSTRAINT visits_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
+  CONSTRAINT visits_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id),
+  CONSTRAINT visits_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
+  CONSTRAINT visits_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES public.profiles(id)
 );

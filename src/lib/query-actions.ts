@@ -7,6 +7,9 @@ import type { ClientRow } from "@/lib/client-actions";
 import type { DealRow } from "@/lib/deal-actions";
 import type { TaskRow, EmployeeRow } from "@/lib/task-types";
 import type { DeviceRow } from "@/lib/device-actions";
+import type { DealRow as FinanceDealRow } from "@/lib/finance-types";
+import type { TimeFilter } from "@/lib/finance-types";
+import { getTimeFilterDate } from "@/lib/finance-types";
 
 export async function queryUnits(): Promise<UnitRow[]> {
   const supabase = await createClient();
@@ -104,4 +107,28 @@ export async function queryEmployees(): Promise<EmployeeRow[]> {
     .eq("approval_status", "approved")
     .order("first_name", { ascending: true });
   return (data ?? []) as EmployeeRow[];
+}
+
+export async function queryFinances(timeFilter: TimeFilter = "all"): Promise<FinanceDealRow[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const admin = createAdminClient();
+  const { data: me } = await admin.from("profiles").select("role").eq("id", user.id).single();
+  if (!me || me.role !== "admin") return [];
+
+  const sinceDate = getTimeFilterDate(timeFilter);
+
+  let query = admin
+    .from("deals")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (sinceDate) {
+    query = query.gte("created_at", sinceDate.toISOString());
+  }
+
+  const { data } = await query;
+  return (data ?? []) as FinanceDealRow[];
 }

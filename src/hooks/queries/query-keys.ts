@@ -47,5 +47,9 @@ export const queryKeys = {
     all: ["ads"] as const,
     byEmployee: (employeeId: string) => [...queryKeys.ads.all, "employee", employeeId] as const,
   },
+  finances: {
+    all: ["finances"] as const,
+    list: (timeFilter?: string) => [...queryKeys.finances.all, "list", timeFilter ?? "all"] as const,
+  },
   pendingCount: ["pendingCount"] as const,
 };

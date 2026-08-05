@@ -162,14 +162,16 @@ interface TableRowProps {
     editType: string; ltr: boolean; right: boolean; canEdit: boolean;
   };
   locale: string;
+  duplicatePhones: Set<string>;
 }
 
 const TableRowComponent = memo(function TableRowComponent({
   unit, columns, index, onCellSave, isAdmin, onDelete, userId, onContextMenu,
-  employeeMap, uniqueValues, editing, cellEdit, editCancel, stale, getCellInfo, locale,
+  employeeMap, uniqueValues, editing, cellEdit, editCancel, stale, getCellInfo, locale, duplicatePhones,
 }: TableRowProps) {
   const uid = unit.id;
   const ed = editing;
+  const isDuplicatePhone = !!(unit.phone && duplicatePhones.has(unit.phone));
 
   const handleDeleteClick = useCallback(() => onDelete(uid), [onDelete, uid]);
 
@@ -197,14 +199,14 @@ const TableRowComponent = memo(function TableRowComponent({
             ) : (
               <span className="relative block h-full w-full">
                 <CellDisplay
-                  raw={key === "last_contact_date" ? toDateValue(info.editValue) : info.editValue}
+                  raw={key === "last_contact_date" ? toDateValue(info.raw) : info.raw}
                   ltr={info.ltr}
                   right={info.right}
                   locale={locale}
                   onEdit={() => info.canEdit && cellEdit(uid, col.id)}
                 />
-                {key === "phone" && !unit.phone && (
-                  <span className="absolute end-1 top-1/2 -translate-y-1/2 text-red-500">
+                {key === "phone" && (!unit.phone || isDuplicatePhone) && (
+                  <span className="absolute end-1 top-1/2 -translate-y-1/2 text-red-500" title={locale === "ar" ? "رقم مكرر" : "Duplicate number"}>
                     <AlertTriangle className="h-3.5 w-3.5" />
                   </span>
                 )}
@@ -240,6 +242,14 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   const enabledColumns = useMemo(() => columns.filter((c) => c.enabled), [columns]);
 
   const srvRef = useRef(serverUnits); srvRef.current = serverUnits;
+
+  const duplicatePhones = useMemo(() => {
+    const count = new Map<string, number>();
+    for (const u of localUnits) {
+      if (u.phone) count.set(u.phone, (count.get(u.phone) || 0) + 1);
+    }
+    return new Set([...count].filter(([, c]) => c > 1).map(([p]) => p));
+  }, [localUnits]);
   const bgSaveRef = useRef<Set<string>>(new Set());
 
   const dragIdxRef = useRef<number | null>(null);
@@ -543,6 +553,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
                   stale={staleMap.get(unit.id) ?? false}
                   getCellInfo={getCellInfo}
                   locale={locale}
+                  duplicatePhones={duplicatePhones}
                 />
               ))
             )}

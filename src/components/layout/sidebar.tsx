@@ -6,7 +6,7 @@ import { Link, usePathname } from "@/i18n/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { navItems } from "@/lib/nav-items";
 import { cn } from "@/lib/utils";
-import { UsersRound, Pencil, Plus, Trash2 } from "lucide-react";
+import { UsersRound, Banknote, Pencil, Plus, Trash2 } from "lucide-react";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { usePendingCount } from "@/components/providers/pending-count-provider";
 import { prefetchUnits } from "@/hooks/queries/use-units-query";
@@ -15,6 +15,7 @@ import { prefetchDeals } from "@/hooks/queries/use-deals-query";
 import { prefetchTasks } from "@/hooks/queries/use-tasks-query";
 import { prefetchDevices } from "@/hooks/queries/use-devices-query";
 import { prefetchEmployees } from "@/hooks/queries/use-employees-query";
+import { prefetchFinances } from "@/hooks/queries/use-finances-query";
 
 const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => void> = {
   properties: prefetchUnits,
@@ -23,6 +24,7 @@ const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => voi
   tasks: prefetchTasks,
   devices: prefetchDevices,
   users: prefetchEmployees,
+  finances: (qc) => prefetchFinances(qc),
 };
 
 function SidebarContent({ role, logoUrl }: { role?: string; logoUrl: string | null }) {
@@ -142,33 +144,55 @@ function SidebarContent({ role, logoUrl }: { role?: string; logoUrl: string | nu
         })}
 
         {role === "admin" && (
-          <Link
-            href="/admin/users"
-            prefetch={true}
-            onMouseEnter={() => handlePrefetch("users")}
-            className={cn(
-              "group flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150",
-              pathname.startsWith("/admin/users")
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            <div className="relative">
-              <UsersRound
+          <>
+            <Link
+              href="/finances"
+              prefetch={true}
+              onMouseEnter={() => handlePrefetch("finances")}
+              className={cn(
+                "group flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150",
+                pathname.startsWith("/finances")
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <Banknote
                 className={cn(
                   "h-[18px] w-[18px] shrink-0",
-                  pathname.startsWith("/admin/users") && "text-primary"
+                  pathname.startsWith("/finances") && "text-primary"
                 )}
                 strokeWidth={2}
               />
-              {pendingCount > 0 && (
-                <span className="absolute -end-1 -top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-primary px-1 text-[8px] font-bold text-primary-foreground">
-                  {pendingCount > 99 ? "99+" : pendingCount}
-                </span>
+              <span>{t("finances")}</span>
+            </Link>
+            <Link
+              href="/admin/users"
+              prefetch={true}
+              onMouseEnter={() => handlePrefetch("users")}
+              className={cn(
+                "group flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150",
+                pathname.startsWith("/admin/users")
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
-            </div>
-            <span>{t("users")}</span>
-          </Link>
+            >
+              <div className="relative">
+                <UsersRound
+                  className={cn(
+                    "h-[18px] w-[18px] shrink-0",
+                    pathname.startsWith("/admin/users") && "text-primary"
+                  )}
+                  strokeWidth={2}
+                />
+                {pendingCount > 0 && (
+                  <span className="absolute -end-1 -top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-primary px-1 text-[8px] font-bold text-primary-foreground">
+                    {pendingCount > 99 ? "99+" : pendingCount}
+                  </span>
+                )}
+              </div>
+              <span>{t("users")}</span>
+            </Link>
+          </>
         )}
       </nav>
 

@@ -8,6 +8,7 @@ import {
   FileSpreadsheet,
   MonitorSmartphone,
   UserCircle,
+  CalendarCheck,
 } from "lucide-react";
 
 export const navItems = [
@@ -15,6 +16,7 @@ export const navItems = [
   { key: "properties", href: "/properties", icon: Building2 },
   { key: "unconfirmedData", href: "/unconfirmed-data", icon: FileSpreadsheet },
   { key: "clients", href: "/clients", icon: Users },
+  { key: "visits", href: "/visits", icon: CalendarCheck },
   { key: "deals", href: "/deals", icon: Handshake },
   { key: "tasks", href: "/tasks", icon: ListChecks },
   { key: "reports", href: "/reports", icon: BarChart3 },

@@ -15,6 +15,8 @@ import {
   BarChart3,
   MonitorSmartphone,
   UserCircle,
+  CalendarCheck,
+  Banknote,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,6 +26,7 @@ import { prefetchDeals } from "@/hooks/queries/use-deals-query";
 import { prefetchTasks } from "@/hooks/queries/use-tasks-query";
 import { prefetchDevices } from "@/hooks/queries/use-devices-query";
 import { prefetchEmployees } from "@/hooks/queries/use-employees-query";
+import { prefetchFinances } from "@/hooks/queries/use-finances-query";
 
 const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => void> = {
   properties: prefetchUnits,
@@ -32,6 +35,7 @@ const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => voi
   tasks: prefetchTasks,
   devices: prefetchDevices,
   users: prefetchEmployees,
+  finances: (qc) => prefetchFinances(qc),
 };
 
 const TABS = [
@@ -44,6 +48,7 @@ const TABS = [
 
 const MORE_ITEMS = [
   { key: "unconfirmedData", href: "/unconfirmed-data", icon: FileSpreadsheet },
+  { key: "visits", href: "/visits", icon: CalendarCheck },
   { key: "deals", href: "/deals", icon: Handshake },
   { key: "reports", href: "/reports", icon: BarChart3 },
   { key: "devices", href: "/devices", icon: MonitorSmartphone },
@@ -155,6 +160,23 @@ export function BottomTabBar({ role }: { role?: string }) {
                   </Link>
                 );
               })}
+              {role === "admin" && (
+                <Link
+                  href="/finances"
+                  prefetch={true}
+                  onMouseEnter={() => handlePrefetch("finances")}
+                  onClick={() => setMoreOpen(false)}
+                  className={cn(
+                    "flex flex-col items-center gap-1.5 rounded-xl px-3 py-3 text-xs font-medium transition-colors",
+                    pathname.startsWith("/finances")
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <Banknote className="h-5 w-5" />
+                  {t("finances")}
+                </Link>
+              )}
               {role === "admin" && (
                 <Link
                   href="/admin/users"
