@@ -195,7 +195,15 @@ export function PropertiesClient({
       result = result.filter((u) => u.phone && duplicatePhones.has(u.phone));
     }
 
-    result = [...result].sort((a, b) => String(a.customer_name ?? "").localeCompare(String(b.customer_name ?? ""), locale === "ar" ? "ar" : "en", { sensitivity: "base" }));
+    result = [...result].sort((a, b) => {
+      const nameA = String(a.customer_name ?? "");
+      const nameB = String(b.customer_name ?? "");
+      const isArA = /[\u0600-\u06FF]/.test(nameA);
+      const isArB = /[\u0600-\u06FF]/.test(nameB);
+      if (isArA && !isArB) return -1;
+      if (!isArA && isArB) return 1;
+      return nameA.localeCompare(nameB, isArA ? "ar" : "en", { sensitivity: "base" });
+    });
 
     return result;
   }, [unitsData, filters, customColumns, deferredSearch, duplicatePhones]);
