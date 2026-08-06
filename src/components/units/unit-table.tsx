@@ -16,7 +16,7 @@ import { TableCellContextMenu, type CellInfo } from "@/components/realtime/table
 import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
 import { useCellStyles } from "@/hooks/use-cell-styles";
 
-const STALE_DAYS = 7;
+const STALE_DAYS = 30;
 
 function isStaleContact(unit: UnitRow): boolean {
   const raw = unit.last_contact_date;
@@ -60,6 +60,7 @@ interface UnitTableProps {
   userId: string;
   employeeMap: Map<string, string>;
   uniqueValues: { finishing_status: string[]; rent_sale: string[]; unit_type: string[] };
+  duplicatePhones: Set<string>;
 }
 
 /* -- Cell Editor (click-to-edit) -- */
@@ -232,7 +233,7 @@ const TableRowComponent = memo(function TableRowComponent({
   );
 });
 
-export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId, employeeMap, uniqueValues }: UnitTableProps) {
+export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId, employeeMap, uniqueValues, duplicatePhones }: UnitTableProps) {
   const t = useTranslations("Properties");
   const router = useRouter();
   const { notifyCellEdit } = useRealtime();
@@ -242,14 +243,6 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   const enabledColumns = useMemo(() => columns.filter((c) => c.enabled), [columns]);
 
   const srvRef = useRef(serverUnits); srvRef.current = serverUnits;
-
-  const duplicatePhones = useMemo(() => {
-    const count = new Map<string, number>();
-    for (const u of localUnits) {
-      if (u.phone) count.set(u.phone, (count.get(u.phone) || 0) + 1);
-    }
-    return new Set([...count].filter(([, c]) => c > 1).map(([p]) => p));
-  }, [localUnits]);
   const bgSaveRef = useRef<Set<string>>(new Set());
 
   const dragIdxRef = useRef<number | null>(null);

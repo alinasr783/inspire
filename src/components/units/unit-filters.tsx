@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, X, Calendar } from "lucide-react";
+import { Search, X, Calendar, AlertTriangle } from "lucide-react";
 import type { ColumnConfig } from "@/lib/unit-config-actions";
 
 interface UnitFiltersProps {
@@ -64,15 +64,26 @@ export function UnitFilters({
 
   return (
     <div className="mb-4 space-y-3">
-      <div className="relative flex-1">
-        <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="search"
-          value={val("q", "")}
-          onChange={(e) => setFilter("q", e.target.value)}
-          placeholder={t("filterSearchProps")}
-          className="ps-9"
-        />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={val("q", "")}
+            onChange={(e) => setFilter("q", e.target.value)}
+            placeholder={t("filterSearchProps")}
+            className="ps-9"
+          />
+        </div>
+        <Button
+          variant={val("duplicate_phone") === "1" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setFilter("duplicate_phone", val("duplicate_phone") === "1" ? "all" : "1")}
+          className="gap-1.5 shrink-0"
+        >
+          <AlertTriangle className="h-3.5 w-3.5" />
+          {t("duplicatePhone")}
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

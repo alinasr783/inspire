@@ -92,6 +92,14 @@ export function PropertiesClient({
 
   const unitsData = liveUnits.length > 0 ? liveUnits : initialUnits;
 
+  const duplicatePhones = useMemo(() => {
+    const count = new Map<string, number>();
+    for (const u of unitsData) {
+      if (u.phone) count.set(u.phone, (count.get(u.phone) || 0) + 1);
+    }
+    return new Set([...count].filter(([, c]) => c > 1).map(([p]) => p));
+  }, [unitsData]);
+
   const [filters, setFilters] = useState<Record<string, string>>(() =>
     buildInitialFilters(customColumns)
   );
@@ -183,14 +191,19 @@ export function PropertiesClient({
       }
     }
 
+    if (filters.duplicate_phone === "1") {
+      result = result.filter((u) => u.phone && duplicatePhones.has(u.phone));
+    }
+
     return result;
-  }, [unitsData, filters, customColumns, deferredSearch]);
+  }, [unitsData, filters, customColumns, deferredSearch, duplicatePhones]);
 
   const hasActiveFilters = useMemo(() => {
     if (filters.q) return true;
     for (const key of [...BUILTIN_DROPDOWN_KEYS, "assigned_employee", ...customColumns.map((c) => c.key)]) {
       if (filters[key] && filters[key] !== "all") return true;
     }
+    if (filters.duplicate_phone === "1") return true;
     if (filters.cash_from || filters.cash_to || filters.remaining_from || filters.remaining_to) return true;
     if (filters.last_contact_from || filters.last_contact_to) return true;
     return false;
@@ -226,6 +239,7 @@ export function PropertiesClient({
         userId={userId}
         employeeMap={employeeMap}
         uniqueValues={{ finishing_status: uniqueFinishing, rent_sale: uniqueRentSale, unit_type: uniqueUnitType }}
+        duplicatePhones={duplicatePhones}
       />
 
       {showCount < filteredUnits.length && (
