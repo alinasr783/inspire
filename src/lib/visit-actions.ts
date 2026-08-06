@@ -249,8 +249,8 @@ export async function fetchVisits(): Promise<VisitWithRelations[]> {
     .from("visits")
     .select(`
       *,
-      client:clients!inner(id, customer_name, phone),
-      unit:units!inner(id, customer_name, phone, compound_name, building_number, unit_type),
+      client:clients(id, customer_name, phone),
+      unit:units(id, customer_name, phone, compound_name, building_number, unit_type),
       creator:profiles!visits_created_by_fkey(id, first_name, second_name),
       assignee:assigned_to(id, first_name, second_name)
     `);

@@ -33,8 +33,8 @@ export default async function VisitsPage({
     .from("visits")
     .select(`
       *,
-      client:clients!inner(id, customer_name, phone),
-      unit:units!inner(id, customer_name, phone),
+      client:clients(id, customer_name, phone),
+      unit:units(id, customer_name, phone),
       creator:profiles!visits_created_by_fkey(id, first_name, second_name),
       assignee:assigned_to(id, first_name, second_name)
     `);
@@ -50,14 +50,16 @@ export default async function VisitsPage({
     const unit = v.unit as Record<string, unknown> | null;
     const creator = v.creator as Record<string, unknown> | null;
     const assignee = v.assignee as Record<string, unknown> | null;
+    const isExtClient = v.is_external_client === true;
+    const isExtProp = v.is_external_property === true;
     return {
       id: String(v.id ?? ""),
       client_id: String(v.client_id ?? ""),
       unit_id: String(v.unit_id ?? ""),
-      client_name: String(client?.customer_name ?? "—"),
-      client_phone: String(client?.phone ?? ""),
-      unit_name: String(unit?.customer_name ?? "—"),
-      unit_phone: String(unit?.phone ?? ""),
+      client_name: isExtClient ? `[${String(v.client_broker_phone || "")}]` : String(client?.customer_name ?? "—"),
+      client_phone: isExtClient ? String(v.client_broker_phone || "") : String(client?.phone ?? ""),
+      unit_name: isExtProp ? `[${String(v.property_broker_phone || "")}]` : String(unit?.customer_name ?? "—"),
+      unit_phone: isExtProp ? String(v.property_broker_phone || "") : String(unit?.phone ?? ""),
       compound_name: String(v.compound_name ?? ""),
       building_number: String(v.building_number ?? ""),
       apartment_number: String(v.apartment_number ?? ""),

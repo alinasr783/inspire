@@ -261,11 +261,11 @@ export function VisitForm({
                       <Input {...register(`properties.${idx}.compound_name`)} className="h-9 text-sm" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">{t("buildingNumber")} *</Label>
+                      <Label className="text-xs">{t("buildingNumber")}{!isExtProp ? " *" : ""}</Label>
                       <Input {...register(`properties.${idx}.building_number`)} className="h-9 text-sm" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">{t("apartmentNumber")} *</Label>
+                      <Label className="text-xs">{t("apartmentNumber")}{!isExtProp ? " *" : ""}</Label>
                       <Input {...register(`properties.${idx}.apartment_number`)} className="h-9 text-sm" />
                     </div>
                   </div>
