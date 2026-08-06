@@ -69,8 +69,8 @@ export default async function VisitDetailPage({
     .from("visits")
     .select(`
       *,
-      client:clients!inner(*),
-      unit:units!inner(*),
+      client:clients(*),
+      unit:units(*),
       creator:profiles!visits_created_by_fkey(id, first_name, second_name),
       assignee:assigned_to(id, first_name, second_name)
     `)
@@ -101,6 +101,10 @@ export default async function VisitDetailPage({
   const buildingNumber = s(v.building_number);
   const apartmentNumber = s(v.apartment_number);
   const createdAt = s(v.created_at);
+  const isExternalClient = v.is_external_client === true;
+  const clientBrokerPhone = s(v.client_broker_phone, "");
+  const isExternalProperty = v.is_external_property === true;
+  const propertyBrokerPhone = s(v.property_broker_phone, "");
 
   const status = s(v.status, "upcoming");
 
@@ -149,8 +153,18 @@ export default async function VisitDetailPage({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {isExternalClient ? (
+              <div className="rounded-lg border p-3 border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+                <p className="text-xs text-muted-foreground mb-1">{t("externalBroker")}</p>
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-semibold text-sm">{clientBrokerPhone || "—"}</span>
+                </div>
+              </div>
+            ) : (
+              <>
             <div className="rounded-lg border p-3">
-              <p className="text-xs text-muted-foreground">الاسم / Name</p>
+              <p className="text-xs text-muted-foreground">{locale === "ar" ? "الاسم" : "Name"}</p>
               <Link href={`/clients/${clientId}`} className="font-semibold hover:underline">
                 {client?.customer_name ?? "—"}
               </Link>
@@ -181,45 +195,47 @@ export default async function VisitDetailPage({
               {client?.unit_type && (
                 <div className="rounded-lg border p-3">
                   <span className="text-sm">{client.unit_type}</span>
-                  <p className="text-xs text-muted-foreground mt-0.5">نوع الوحدة</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{locale === "ar" ? "نوع الوحدة" : "Unit Type"}</p>
                 </div>
               )}
               {client?.bedrooms && (
                 <div className="rounded-lg border p-3">
                   <span className="text-sm">{client.bedrooms}</span>
-                  <p className="text-xs text-muted-foreground mt-0.5">غرف نوم</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{locale === "ar" ? "غرف نوم" : "Bedrooms"}</p>
                 </div>
               )}
               {client?.preferred_area && (
                 <div className="rounded-lg border p-3">
                   <span className="text-sm">{client.preferred_area}</span>
-                  <p className="text-xs text-muted-foreground mt-0.5">المنطقة المفضلة</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{locale === "ar" ? "المنطقة المفضلة" : "Preferred Area"}</p>
                 </div>
               )}
               {client?.payment_method && (
                 <div className="rounded-lg border p-3">
                   <span className="text-sm">{client.payment_method}</span>
-                  <p className="text-xs text-muted-foreground mt-0.5">طريقة الدفع</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{locale === "ar" ? "طريقة الدفع" : "Payment"}</p>
                 </div>
               )}
               {client?.source && (
                 <div className="rounded-lg border p-3">
                   <span className="text-sm">{client.source}</span>
-                  <p className="text-xs text-muted-foreground mt-0.5">المصدر</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{locale === "ar" ? "المصدر" : "Source"}</p>
                 </div>
               )}
               {client?.preferred_developer && (
                 <div className="rounded-lg border p-3">
                   <span className="text-sm">{client.preferred_developer}</span>
-                  <p className="text-xs text-muted-foreground mt-0.5">المطور المفضل</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{locale === "ar" ? "المطور المفضل" : "Developer"}</p>
                 </div>
               )}
             </div>
             {client?.additional_notes && (
               <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground mb-1">ملاحظات</p>
+                <p className="text-xs text-muted-foreground mb-1">{locale === "ar" ? "ملاحظات" : "Notes"}</p>
                 <p className="text-sm whitespace-pre-wrap">{client.additional_notes}</p>
               </div>
+            )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -232,8 +248,18 @@ export default async function VisitDetailPage({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {isExternalProperty ? (
+              <div className="rounded-lg border p-3 border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+                <p className="text-xs text-muted-foreground mb-1">{t("externalBroker")}</p>
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-semibold text-sm">{propertyBrokerPhone || "—"}</span>
+                </div>
+              </div>
+            ) : (
+              <>
             <div className="rounded-lg border p-3">
-              <p className="text-xs text-muted-foreground">الاسم / Name</p>
+              <p className="text-xs text-muted-foreground">{locale === "ar" ? "الاسم" : "Name"}</p>
               <Link href={`/properties/${unitId}`} className="font-semibold hover:underline">
                 {unit?.customer_name ?? "—"}
               </Link>
@@ -248,37 +274,37 @@ export default async function VisitDetailPage({
               {unit?.compound_name && (
                 <div className="rounded-lg border p-3">
                   <div className="flex items-center gap-1"><MapPin className="h-3 w-3 text-muted-foreground" /><span className="text-sm">{unit.compound_name}</span></div>
-                  <p className="text-xs text-muted-foreground mt-0.5">الكمبوند</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{locale === "ar" ? "الكمبوند" : "Compound"}</p>
                 </div>
               )}
               {unit?.unit_type && (
                 <div className="rounded-lg border p-3">
                   <div className="flex items-center gap-1"><Layers className="h-3 w-3 text-muted-foreground" /><span className="text-sm">{unit.unit_type}</span></div>
-                  <p className="text-xs text-muted-foreground mt-0.5">نوع الوحدة</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{locale === "ar" ? "نوع الوحدة" : "Unit Type"}</p>
                 </div>
               )}
               {unit?.finishing_status && (
                 <div className="rounded-lg border p-3">
                   <div className="flex items-center gap-1"><Paintbrush className="h-3 w-3 text-muted-foreground" /><span className="text-sm">{unit.finishing_status}</span></div>
-                  <p className="text-xs text-muted-foreground mt-0.5">التشطيب</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{locale === "ar" ? "التشطيب" : "Finishing"}</p>
                 </div>
               )}
               {unit?.rent_sale && (
                 <div className="rounded-lg border p-3">
                   <span className="text-sm">{unit.rent_sale}</span>
-                  <p className="text-xs text-muted-foreground mt-0.5">بيع/إيجار</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{locale === "ar" ? "بيع/إيجار" : "Rent/Sale"}</p>
                 </div>
               )}
               {unit?.area && (
                 <div className="rounded-lg border p-3">
-                  <span className="text-sm">{unit.area} م²</span>
-                  <p className="text-xs text-muted-foreground mt-0.5">المساحة</p>
+                  <span className="text-sm">{unit.area} m²</span>
+                  <p className="text-xs text-muted-foreground mt-0.5">{locale === "ar" ? "المساحة" : "Area"}</p>
                 </div>
               )}
               {unit?.building_number && (
                 <div className="rounded-lg border p-3">
                   <span className="text-sm">{unit.building_number}</span>
-                  <p className="text-xs text-muted-foreground mt-0.5">رقم العمارة</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{locale === "ar" ? "رقم العمارة" : "Building No"}</p>
                 </div>
               )}
             </div>
@@ -286,27 +312,29 @@ export default async function VisitDetailPage({
               {unit?.cash_required != null && (
                 <div className="rounded-lg border p-3">
                   <div className="flex items-center gap-1"><Wallet className="h-3 w-3 text-muted-foreground" /><span className="text-sm font-semibold">{formatPrice(Number(unit.cash_required))}</span></div>
-                  <p className="text-xs text-muted-foreground mt-0.5">المطلوب كاش</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{locale === "ar" ? "المطلوب كاش" : "Cash Required"}</p>
                 </div>
               )}
               {unit?.remaining != null && (
                 <div className="rounded-lg border p-3">
                   <div className="flex items-center gap-1"><Wallet className="h-3 w-3 text-muted-foreground" /><span className="text-sm font-semibold">{formatPrice(Number(unit.remaining))}</span></div>
-                  <p className="text-xs text-muted-foreground mt-0.5">المتبقي</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{locale === "ar" ? "المتبقي" : "Remaining"}</p>
                 </div>
               )}
             </div>
             {unit?.additional_notes && (
               <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground mb-1">ملاحظات</p>
+                <p className="text-xs text-muted-foreground mb-1">{locale === "ar" ? "ملاحظات" : "Notes"}</p>
                 <p className="text-sm whitespace-pre-wrap">{unit.additional_notes}</p>
               </div>
             )}
             {unit?.feedback && (
               <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground mb-1">فيد باك</p>
+                <p className="text-xs text-muted-foreground mb-1">{locale === "ar" ? "فيد باك" : "Feedback"}</p>
                 <p className="text-sm whitespace-pre-wrap">{unit.feedback}</p>
               </div>
+            )}
+              </>
             )}
           </CardContent>
         </Card>

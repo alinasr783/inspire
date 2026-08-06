@@ -17,9 +17,9 @@ import { Plus, Trash2 } from "lucide-react";
 
 const propertyEntrySchema = z.object({
   unit_id: z.string().optional().default(""),
-  compound_name: z.string().trim(),
-  building_number: z.string().trim(),
-  apartment_number: z.string().trim(),
+  compound_name: z.string().trim().min(1),
+  building_number: z.string().trim().default(""),
+  apartment_number: z.string().trim().default(""),
   is_external_property: z.boolean().optional().default(false),
   property_broker_phone: z.string().trim().optional().default(""),
 });
