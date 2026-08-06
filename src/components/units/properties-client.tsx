@@ -195,6 +195,8 @@ export function PropertiesClient({
       result = result.filter((u) => u.phone && duplicatePhones.has(u.phone));
     }
 
+    result = [...result].sort((a, b) => String(a.customer_name ?? "").localeCompare(String(b.customer_name ?? ""), locale === "ar" ? "ar" : "en", { sensitivity: "base" }));
+
     return result;
   }, [unitsData, filters, customColumns, deferredSearch, duplicatePhones]);
 
