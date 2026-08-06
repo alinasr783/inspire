@@ -186,11 +186,9 @@ export async function deleteClient(id: string) {
 
   const { error } = await admin.from("clients").delete().eq("id", id);
 
-  if (error) {
-    redirect(`/${locale}/clients?error=delete-failed`);
-  }
+  if (error) throw new Error(`delete-failed: ${error.message}`);
 
-  redirect(`/${locale}/clients`);
+  return { success: true };
 }
 
 export async function updateClientField(clientId: string, field: string, value: string) {

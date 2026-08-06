@@ -423,10 +423,10 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
     const uid = deleteDialog.uid;
     setDeleting(true);
     setLocalUnits((prev) => prev.filter((u) => u.id !== uid));
-    try { await deleteUnit(uid); router.refresh(); toast.success("Deleted successfully"); } catch { setLocalUnits(srvRef.current); toast.error("Delete failed"); }
+    try { await deleteUnit(uid); toast.success("Deleted successfully"); } catch (e: any) { setLocalUnits(srvRef.current); toast.error(e?.message || "Delete failed"); }
     setDeleting(false);
     setDeleteDialog(null);
-  }, [deleteDialog, router]);
+  }, [deleteDialog]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

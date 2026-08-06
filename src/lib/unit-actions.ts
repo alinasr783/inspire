@@ -185,11 +185,9 @@ export async function deleteUnit(id: string) {
   const admin = createAdminClient();
   const { error } = await admin.from("units").delete().eq("id", id);
 
-  if (error) {
-    redirect(`/${locale}/properties?error=delete-failed`);
-  }
+  if (error) throw new Error(`delete-failed: ${error.message}`);
 
-  redirect(`/${locale}/properties`);
+  return { success: true };
 }
 
 export async function updateUnitField(unitId: string, field: string, value: string) {

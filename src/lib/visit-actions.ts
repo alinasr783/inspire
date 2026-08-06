@@ -82,14 +82,21 @@ export async function createVisit(data: {
   visit_date: string;
   notes?: string;
   assigned_to?: string;
+  is_external_client?: boolean;
+  client_broker_phone?: string;
+  is_external_property?: boolean;
+  property_broker_phone?: string;
 }): Promise<ActionResult & { id?: string }> {
   const user = await getCurrentUser();
   if (!user) return { success: false, error: "unauthorized" };
 
+  const extClient = data.is_external_client ?? false;
+  const extProp = data.is_external_property ?? false;
+
   const admin = createAdminClient();
   const insertData: Record<string, unknown> = {
-    client_id: data.client_id,
-    unit_id: data.unit_id,
+    client_id: extClient ? null : data.client_id || null,
+    unit_id: extProp ? null : data.unit_id || null,
     compound_name: data.compound_name,
     building_number: data.building_number,
     apartment_number: data.apartment_number,
@@ -97,6 +104,10 @@ export async function createVisit(data: {
     notes: data.notes ?? "",
     created_by: user.id,
     status: "upcoming",
+    is_external_client: extClient,
+    client_broker_phone: extClient ? (data.client_broker_phone ?? "") : "",
+    is_external_property: extProp,
+    property_broker_phone: extProp ? (data.property_broker_phone ?? "") : "",
   };
 
   if (data.assigned_to) {

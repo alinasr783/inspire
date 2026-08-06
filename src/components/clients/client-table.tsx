@@ -290,7 +290,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
     if (!deleteDialog) return;
     const cid = deleteDialog.cid;
     setDeleting(true);
-    try { await deleteClient(cid); setLocalClients((prev) => prev.filter((c) => c.id !== cid)); toast.success("Client deleted"); } catch { toast.error("Delete failed"); }
+    try { await deleteClient(cid); setLocalClients((prev) => prev.filter((c) => c.id !== cid)); toast.success("Client deleted"); } catch (e: any) { toast.error(e?.message || "Delete failed"); }
     setDeleting(false);
     setDeleteDialog(null);
   }, [deleteDialog]);
