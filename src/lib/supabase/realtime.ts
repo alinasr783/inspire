@@ -72,14 +72,16 @@ export type StyleChangePayload = {
   ts: number;
 };
 
+const STYLE_CHANNEL = "broadcast:inspire:celledits";
+
 export async function broadcastStyleChange(payload: Omit<StyleChangePayload, "ts">) {
   const supabase = createRealtimeClient();
-  const ch = supabase.channel("broadcast:inspire:cellstyles");
+  const ch = supabase.channel(STYLE_CHANNEL);
   return new Promise<void>((resolve) => {
     ch.subscribe((status) => {
       if (status === "SUBSCRIBED") {
         ch.send({ type: "broadcast", event: "styleChange", payload: { ...payload, ts: Date.now() } });
-        setTimeout(() => { supabase.removeChannel(ch); resolve(); }, 300);
+        setTimeout(() => { supabase.removeChannel(ch); resolve(); }, 500);
       }
     });
   });

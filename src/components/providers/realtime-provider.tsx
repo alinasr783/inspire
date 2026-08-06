@@ -196,14 +196,6 @@ export function RealtimeProvider({
         setCellEditEvents((prev) => prev.filter((e) => e.ts !== edit.ts || e.userId !== edit.userId));
       }, 30000);
     });
-    ch.subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    const supabase = createRealtimeClient();
-    const ch = supabase.channel("broadcast:inspire:cellstyles", { config: { broadcast: { self: false } } });
     ch.on("broadcast" as never, { event: "styleChange" }, (msg: { payload: StyleChangePayload }) => {
       setStyleChangeEvents((prev) => [...prev.slice(-20), msg.payload]);
     });
