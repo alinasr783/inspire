@@ -48,7 +48,20 @@ const ACTIONS_COL_WIDTH = 120;
 const COLUMNS_ORDER = [
   "client_name", "unit_name", "compound_name", "building_number",
   "apartment_number", "visit_date", "status", "notes", "post_visit_notes", "creator_name",
-];
+] as const;
+
+const COLUMN_LABEL_MAP: Record<string, string> = {
+  client_name: "client",
+  unit_name: "property",
+  compound_name: "compoundName",
+  building_number: "buildingNumber",
+  apartment_number: "apartmentNumber",
+  visit_date: "visitDate",
+  status: "status",
+  notes: "notes",
+  post_visit_notes: "postVisitNotes",
+  creator_name: "createdBy",
+};
 
 const EDITABLE_FIELDS = new Set([
   "compound_name", "building_number", "apartment_number",
@@ -310,7 +323,7 @@ export function VisitTable({ visits: serverVisits, locale, isAdmin, userId }: Vi
               <th className="border-b border-r px-2.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap text-muted-foreground">#</th>
               {COLUMNS_ORDER.map((key) => (
                 <th key={key} data-col-key={key} className="relative select-none border-b border-r px-1.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap text-muted-foreground">
-                  <span className="px-1">{t(key)}</span>
+                  <span className="px-1">{t(COLUMN_LABEL_MAP[key] ?? key)}</span>
                   <div
                     draggable={false}
                     className="absolute bottom-0 top-0 z-10 -right-px w-2 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 transition-colors"
