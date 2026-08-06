@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createVisit, updateVisit } from "@/lib/visit-actions";
 import { SearchableSelect } from "@/components/visits/searchable-select";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2 } from "lucide-react";
 
 const propertyEntrySchema = z.object({
@@ -57,8 +58,6 @@ interface VisitFormProps {
 
 const selectClass =
   "flex h-9 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground [&>option]:text-foreground [&>option]:bg-background";
-
-const inputClass = "flex h-9 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm";
 
 export function VisitForm({
   mode,
@@ -183,15 +182,15 @@ export function VisitForm({
         <div className="space-y-1.5 sm:col-span-2">
           <div className="flex items-center gap-3">
             <Label className="text-sm">{t("client")} *</Label>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
-              <input type="checkbox" className="h-3.5 w-3.5" {...register("is_external_client")} />
-              {t("externalBroker") || "External Broker"}
+            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+              <Switch checked={!!isExternalClient} onCheckedChange={(v) => setValue("is_external_client", v)} />
+              {t("externalBroker")}
             </label>
           </div>
 
           {isExternalClient ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">{t("brokerPhone") || "Broker Phone"}:</span>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">{t("brokerPhone")}:</span>
               <Input {...register("client_broker_phone")} placeholder="01xxxxxxxxx" className="h-9" />
             </div>
           ) : (
@@ -212,10 +211,10 @@ export function VisitForm({
 
         <div className="sm:col-span-2">
           <div className="flex items-center justify-between mb-2">
-            <Label className="text-sm">{t("properties") || "Properties"} *</Label>
+              <Label className="text-sm">{t("properties")} *</Label>
             {mode === "create" && (
               <Button type="button" variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => append({ unit_id: "", compound_name: "", building_number: "", apartment_number: "", is_external_property: false, property_broker_phone: "" })}>
-                <Plus className="h-3.5 w-3.5" /> {t("addProperty") || "Add Property"}
+                <Plus className="h-3.5 w-3.5" /> {t("addProperty")}
               </Button>
             )}
           </div>
@@ -226,11 +225,11 @@ export function VisitForm({
               return (
                 <div key={field.id} className="rounded-xl border bg-muted/20 p-4 space-y-3">
                   <div className="flex items-center gap-3 justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">{t("property") || "Property"} {idx + 1}</span>
+                    <span className="text-xs font-medium text-muted-foreground">{t("property")} {idx + 1}</span>
                     <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
-                        <input type="checkbox" className="h-3.5 w-3.5" {...register(`properties.${idx}.is_external_property`)} />
-                        {t("externalBroker") || "External Broker"}
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                        <Switch checked={!!isExtProp} onCheckedChange={(v) => setValue(`properties.${idx}.is_external_property`, v)} />
+                        {t("externalBroker")}
                       </label>
                       {fields.length > 1 && (
                         <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 hover:text-red-600" onClick={() => remove(idx)}>
@@ -242,7 +241,7 @@ export function VisitForm({
 
                   {isExtProp ? (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">{t("brokerPhone") || "Broker Phone"}:</span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">{t("brokerPhone")}:</span>
                       <Input {...register(`properties.${idx}.property_broker_phone`)} placeholder="01xxxxxxxxx" className="h-9" />
                     </div>
                   ) : (

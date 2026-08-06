@@ -888,6 +888,11 @@
       "deleteFailed": "Could not delete the visit, please try again.",
       "notFound": "The requested visit was not found.",
       "unauthorized": "You are not authorized to edit this visit."
-    }
+    },
+    "externalBroker": "External Broker",
+    "brokerPhone": "Broker Phone",
+    "addProperty": "Add Property",
+    "properties": "Properties"
+  }
   }
 }
