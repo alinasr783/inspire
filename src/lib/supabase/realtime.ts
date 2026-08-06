@@ -57,3 +57,40 @@ export type CellEditPayload = {
   action: "update" | "insert" | "delete";
   ts: number;
 };
+
+export type StyleChangePayload = {
+  userId: string;
+  userName: string;
+  userColor: string;
+  table: string;
+  elementType: "table" | "column" | "row" | "cell";
+  scope: "table" | "column" | "row" | "cell";
+  rowId: string;
+  colKey: string;
+  prop: string;
+  value: string;
+  ts: number;
+};
+
+export async function broadcastStyleChange(payload: Omit<StyleChangePayload, "ts">) {
+  const supabase = createRealtimeClient();
+  const ch = supabase.channel("broadcast:inspire:cellstyles");
+  return new Promise<void>((resolve) => {
+    ch.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        ch.send({ type: "broadcast", event: "styleChange", payload: { ...payload, ts: Date.now() } });
+        setTimeout(() => { supabase.removeChannel(ch); resolve(); }, 300);
+      }
+    });
+  });
+}
+
+export function subscribeStyleChanges(callback: (payload: StyleChangePayload) => void) {
+  const supabase = createRealtimeClient();
+  const ch = supabase.channel("broadcast:inspire:cellstyles", { config: { broadcast: { self: false } } });
+  ch.on("broadcast" as never, { event: "styleChange" }, (msg: { payload: StyleChangePayload }) => {
+    callback(msg.payload);
+  });
+  ch.subscribe();
+  return () => { supabase.removeChannel(ch); };
+}

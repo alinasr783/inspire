@@ -4,6 +4,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react
 import { X, Palette, Clock, Table, Columns2, Rows3, Grid3X3, ChevronRight, ArrowLeft, Type, PaintBucket, Braces, Box, Undo2, AlignLeft, AlignCenter, AlignRight, ArrowUp, Minus, ArrowDown, EyeOff, SlidersHorizontal } from "lucide-react";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { upsertCellStyle, deleteCellStyle, deleteAllCellStyles } from "@/lib/cell-style-service";
+import { broadcastStyleChange } from "@/lib/supabase/realtime";
 
 export interface CellInfo {
   table: string;
@@ -336,6 +337,13 @@ export function TableCellContextMenu({ info, position, onClose, shortcut }: { in
       if (currentUser?.id) deleteCellStyle(currentUser.id, info.table, styleScope.current, elementKey()).catch(console.error);
     } else {
       persistStyle({ [prop]: val });
+      if (currentUser?.id && prop !== "reset") {
+        broadcastStyleChange({
+          userId: currentUser.id, userName: `${currentUser.firstName} ${currentUser.secondName}`.trim(), userColor: currentUser.color,
+          table: info.table, elementType: styleScope.current, scope: styleScope.current,
+          rowId: info.rowId, colKey: colKey(), prop, value: val,
+        }).catch(() => {});
+      }
     }
   };
 

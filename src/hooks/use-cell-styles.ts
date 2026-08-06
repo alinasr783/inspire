@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { loadCellStyles, type CellStyle } from "@/lib/cell-style-service";
 import { applyElStyle, ensureSeriousnessHighlightCSS } from "@/components/realtime/table-cell-context-menu";
+import { subscribeStyleChanges, type StyleChangePayload } from "@/lib/supabase/realtime";
 
 export function useCellStyles(tableName: string) {
   const { currentUser } = useRealtime();
@@ -60,4 +61,13 @@ export function useCellStyles(tableName: string) {
       })
       .catch(console.error);
   }, [currentUser?.id, tableName, loaded]);
+
+  useEffect(() => {
+    const unsub = subscribeStyleChanges((payload: StyleChangePayload) => {
+      if (payload.table !== tableName) return;
+      const info = { table: payload.table, rowId: payload.rowId, colKey: payload.colKey, colLabel: payload.colKey, rowData: null };
+      applyElStyle(info, payload.scope, payload.prop, payload.value);
+    });
+    return unsub;
+  }, [tableName]);
 }
