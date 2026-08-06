@@ -117,12 +117,21 @@ export function DealDetailsPage({ deal }: { deal: DealWithRelations }) {
           {hasEmp ? (
             <>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{t("employeeShare")} ({empPct}%)</span>
-                <span className="font-semibold text-amber-600">{formatCurrency(employeePool)}</span>
+                <span className="text-muted-foreground">{t("companyGross")} ({compPct}%)</span>
+                <span className="font-medium">{formatCurrency(deal.final_commission * (compPct / 100))}</span>
+              </div>
+              <div className="flex justify-between text-destructive">
+                <span className="text-muted-foreground">{t("nathryat")} (10%)</span>
+                <span className="font-medium">-{formatCurrency(deal.nathryat || 0)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{t("companyShare")} ({compPct}%)</span>
+                <span className="text-muted-foreground">{t("companyNetProfit")}</span>
                 <span className="font-semibold text-emerald-600">{formatCurrency(deal.company_net_profit)}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t("employeeShare")} ({empPct}%)</span>
+                <span className="font-semibold text-amber-600">{formatCurrency(employeePool)}</span>
               </div>
             </>
           ) : (

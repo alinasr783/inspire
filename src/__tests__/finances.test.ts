@@ -152,6 +152,7 @@ import {
 
 import {
   calcAutoCommission, calcCompanyNetProfit, calcEmployeePool, calcEmployeeProfit,
+  calcNathryat,
   hasBuyer, hasSeller, getTimeFilterDate,
 } from "@/lib/finance-types";
 
@@ -210,11 +211,18 @@ describe("Finances - Pure Calculation Functions", () => {
   test("calcCompanyNetProfit: no employees → full commission", () => {
     expect(calcCompanyNetProfit(100000, 70, false)).toBe(100000);
   });
-  test("calcCompanyNetProfit: with employees, 70% → 70000", () => {
-    expect(calcCompanyNetProfit(100000, 70, true)).toBe(70000);
+  test("calcCompanyNetProfit: with employees, 70% → 70k gross - 10% nathryat = 63k net", () => {
+    // Gross: 100000 * 0.70 = 70000; Nathryat: 70000 * 0.10 = 7000; Net: 63000
+    expect(calcCompanyNetProfit(100000, 70, true)).toBe(63000);
   });
-  test("calcCompanyNetProfit: 80% split → 80000", () => {
-    expect(calcCompanyNetProfit(100000, 80, true)).toBe(80000);
+  test("calcCompanyNetProfit: 80% split → 80k gross - 8k = 72k", () => {
+    expect(calcCompanyNetProfit(100000, 80, true)).toBe(72000);
+  });
+  test("calcNathryat: no employees → 0", () => {
+    expect(calcNathryat(100000, 70, false)).toBe(0);
+  });
+  test("calcNathryat: with employees, 70% → 70000 * 0.10 = 7000", () => {
+    expect(calcNathryat(100000, 70, true)).toBe(7000);
   });
   test("calcEmployeePool: no employees → 0", () => {
     expect(calcEmployeePool(100000, 30, false)).toBe(0);

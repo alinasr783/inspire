@@ -41,11 +41,12 @@ export function FinanceSummary({ summary }: { summary: FinanceSummary }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
         <StatCard icon={TrendingUp} label={t("totalDeals")} value={summary.total_deals.toString()} color="#276ef1" />
         <StatCard icon={Banknote} label={t("totalCommission")} value={formatCurrency(summary.total_commission)} color="#06c167" />
         <StatCard icon={Building2} label={t("companyNetProfit")} value={formatCurrency(summary.total_company_net_profit)} color="#8b5cf6" />
         <StatCard icon={Users} label={t("employeeProfit")} value={formatCurrency(summary.total_employee_profit)} color="#f59e0b" />
+        <StatCard icon={Banknote} label={t("nathryat")} value={formatCurrency(summary.total_nathryat)} color="#9ca3af" />
       </div>
 
       {summary.employee_profits.length > 0 && (

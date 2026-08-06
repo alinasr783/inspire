@@ -14,6 +14,7 @@ import {
   getTimeFilterDate,
   calcAutoCommission,
   calcCompanyNetProfit,
+  calcNathryat,
   calcEmployeePool,
   calcEmployeeProfit,
 } from "@/lib/finance-types";
@@ -62,6 +63,7 @@ export async function createDeal(input: CreateDealInput): Promise<ActionResult> 
 
   const autoCommission = calcAutoCommission(input.contact_type, input.buyer_amount, input.seller_amount);
   const companyNetProfit = calcCompanyNetProfit(input.final_commission, companyPct, hasEmployee);
+  const nathryat = calcNathryat(input.final_commission, companyPct, hasEmployee);
 
   const { data: deal, error: dealError } = await admin
     .from("deals")
@@ -78,6 +80,7 @@ export async function createDeal(input: CreateDealInput): Promise<ActionResult> 
       company_percentage: companyPct,
       employee_percentage: employeePct,
       company_net_profit: companyNetProfit,
+      nathryat: nathryat,
     })
     .select("id")
     .single();
@@ -117,6 +120,7 @@ export async function updateDeal(dealId: string, input: CreateDealInput): Promis
 
   const autoCommission = calcAutoCommission(input.contact_type, input.buyer_amount, input.seller_amount);
   const companyNetProfit = calcCompanyNetProfit(input.final_commission, companyPct, hasEmployee);
+  const nathryat = calcNathryat(input.final_commission, companyPct, hasEmployee);
 
   // Verify deal exists and user can edit
   const { data: existing } = await admin.from("deals").select("id").eq("id", dealId).single();
@@ -136,6 +140,7 @@ export async function updateDeal(dealId: string, input: CreateDealInput): Promis
       company_percentage: companyPct,
       employee_percentage: employeePct,
       company_net_profit: companyNetProfit,
+      nathryat: nathryat,
     })
     .eq("id", dealId);
 
@@ -229,7 +234,7 @@ export async function queryFinancesSimple(): Promise<DealRow[]> {
 }
 
 function emptySummary(): FinanceSummary {
-  return { total_deals: 0, total_commission: 0, total_company_net_profit: 0, total_employee_profit: 0, employee_profits: [] };
+  return { total_deals: 0, total_commission: 0, total_company_net_profit: 0, total_employee_profit: 0, total_nathryat: 0, employee_profits: [] };
 }
 
 function computeSummary(deals: DealWithRelations[]): FinanceSummary {
@@ -237,10 +242,12 @@ function computeSummary(deals: DealWithRelations[]): FinanceSummary {
 
   let totalCommission = 0;
   let totalCompanyNet = 0;
+  let totalNathryat = 0;
 
   for (const deal of deals) {
     totalCommission += deal.final_commission;
     totalCompanyNet += deal.company_net_profit;
+    totalNathryat += deal.nathryat || 0;
 
     for (const emp of deal.employees ?? []) {
       const existing = employeeMap.get(emp.employee_id);
@@ -277,6 +284,7 @@ function computeSummary(deals: DealWithRelations[]): FinanceSummary {
     total_commission: Math.round(totalCommission * 100) / 100,
     total_company_net_profit: Math.round(totalCompanyNet * 100) / 100,
     total_employee_profit: Math.round(totalEmployeeProfit * 100) / 100,
+    total_nathryat: Math.round(totalNathryat * 100) / 100,
     employee_profits: employeeProfits,
   };
 }

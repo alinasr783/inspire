@@ -16,6 +16,7 @@ export type DealRow = {
   company_percentage: number;
   employee_percentage: number;
   company_net_profit: number;
+  nathryat: number;
 };
 
 export type DealEmployeeRow = {
@@ -88,6 +89,7 @@ export type FinanceSummary = {
   total_commission: number;
   total_company_net_profit: number;
   total_employee_profit: number;
+  total_nathryat: number;
   employee_profits: EmployeeProfitSummary[];
 };
 
@@ -125,7 +127,15 @@ export function calcAutoCommission(
 
 export function calcCompanyNetProfit(finalCommission: number, companyPercentage: number, hasEmployee: boolean): number {
   if (!hasEmployee) return finalCommission;
-  return Math.round(finalCommission * (companyPercentage / 100) * 100) / 100;
+  const gross = finalCommission * (companyPercentage / 100);
+  const nathryat = gross * 0.10;
+  return Math.round((gross - nathryat) * 100) / 100;
+}
+
+export function calcNathryat(finalCommission: number, companyPercentage: number, hasEmployee: boolean): number {
+  if (!hasEmployee) return 0;
+  const gross = finalCommission * (companyPercentage / 100);
+  return Math.round(gross * 0.10 * 100) / 100;
 }
 
 export function calcEmployeePool(finalCommission: number, employeePercentage: number, hasEmployee: boolean): number {

@@ -25,6 +25,7 @@ import {
   hasBuyer, hasSeller,
   calcAutoCommission,
   calcCompanyNetProfit,
+  calcNathryat,
   calcEmployeePool,
   calcEmployeeProfit,
 } from "@/lib/finance-types";
@@ -259,6 +260,9 @@ export function DealForm({ mode, existingDeal, clients, units, employees, onSucc
 
   const sideLabel = (s: DealSide) => s === "both" ? t("contactBoth") : s === "buyer" ? t("buyerSide") : t("sellerSide");
 
+  const nathryat = calcNathryat(finalComm, compPct, activeEmployees);
+  const companyGross = activeEmployees ? Math.round(finalComm * (compPct / 100) * 100) / 100 : finalComm;
+
   // ── Preview ──
   const Preview = () => (
     <Card className="sticky top-4">
@@ -266,59 +270,86 @@ export function DealForm({ mode, existingDeal, clients, units, employees, onSucc
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           <Eye className="size-3.5" /> {t("preview")}
         </div>
+
         <div className="flex justify-between">
           <span className="text-muted-foreground">{t("contactType")}</span>
           <Badge variant="secondary">{{ both: t("contactBoth"), buyer_only: t("contactBuyerOnly"), seller_only: t("contactSellerOnly") }[contactType]}</Badge>
         </div>
-        {hasBuyer(contactType) && (
-          <>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">{t("buyer")}</span>
-              <span className="font-medium text-xs">{selectClient?.customer_name || "—"}</span>
-            </div>
-            {buyerAmount && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t("buyerAmount")}</span>
-                <span className="font-medium">{Number(buyerAmount).toLocaleString()}</span>
-              </div>
-            )}
-          </>
-        )}
-        {hasSeller(contactType) && (
-          <>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">{t("seller")}</span>
-              <span className="font-medium text-xs">{selectUnit?.customer_name || "—"}</span>
-            </div>
-            {sellerAmount && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t("sellerAmount")}</span>
-                <span className="font-medium">{Number(sellerAmount).toLocaleString()}</span>
-              </div>
-            )}
-          </>
-        )}
-        <Separator />
-        {autoCommission > 0 && (
-          <div className="flex justify-between text-xs">
-            <span className="text-muted-foreground">{t("autoCommission")}</span>
-            <span>{autoCommission.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+
+        {hasBuyer(contactType) && selectClient && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">{t("buyer")}</span>
+            <span className="font-medium text-xs truncate max-w-[160px]">{selectClient.customer_name}</span>
           </div>
         )}
+        {hasSeller(contactType) && selectUnit && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">{t("seller")}</span>
+            <span className="font-medium text-xs truncate max-w-[160px]">{selectUnit.customer_name}</span>
+          </div>
+        )}
+
+        <Separator />
+
+        {/* Commission formulas */}
+        <div className="rounded-lg bg-muted/30 p-3 space-y-2">
+          <p className="text-[11px] font-semibold text-muted-foreground">{t("commissionFormula")}</p>
+          {hasBuyer(contactType) && buyerAmount && (
+            <div className="flex justify-between text-[11px]">
+              <span className="text-muted-foreground">{t("buyerPercent")}</span>
+              <span className="font-mono">{Number(buyerAmount).toLocaleString()} × 1.5% = {(Number(buyerAmount) * 0.015).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+          )}
+          {hasSeller(contactType) && sellerAmount && (
+            <div className="flex justify-between text-[11px]">
+              <span className="text-muted-foreground">{t("sellerPercent")}</span>
+              <span className="font-mono">{Number(sellerAmount).toLocaleString()} × 2.5% = {(Number(sellerAmount) * 0.025).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+          )}
+          <div className="flex justify-between border-t pt-1.5">
+            <span className="text-muted-foreground font-medium">{t("autoCommission")}</span>
+            <span className="font-bold">{autoCommission.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+          </div>
+        </div>
+
         <div className="flex justify-between">
           <span className="text-muted-foreground font-semibold">{t("finalCommission")}</span>
-          <span className="font-bold text-primary">{finalComm.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+          <span className="font-bold text-primary text-base">{finalComm.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
         </div>
+
         <Separator />
+
         {activeEmployees ? (
           <>
+            {/* Split formula */}
+            <div className="rounded-lg bg-muted/30 p-3 space-y-1.5">
+              <p className="text-[11px] font-semibold text-muted-foreground">{t("splitFormula")}</p>
+              <div className="flex justify-between text-[11px]">
+                <span className="text-muted-foreground">{t("companyGross")}</span>
+                <span className="font-mono">{finalComm.toLocaleString(undefined, { minimumFractionDigits: 2 })} × {companyPercentage}% = {companyGross.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between text-[11px]">
+                <span className="text-muted-foreground">{t("employeePool")}</span>
+                <span className="font-mono">{finalComm.toLocaleString(undefined, { minimumFractionDigits: 2 })} × {employeePercentage}% = {employeePool.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+
             <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">{t("companyShare")} ({companyPercentage}%)</span>
-              <span className="font-semibold text-emerald-600">{companyNet.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              <span className="text-muted-foreground">{t("companyGross")} ({companyPercentage}%)</span>
+              <span>{companyGross.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between text-xs text-destructive">
+              <span className="text-muted-foreground">{t("nathryat")} (10%)</span>
+              <span>-{nathryat.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">{t("employeeShare")} ({employeePercentage}%)</span>
-              <span className="font-semibold text-amber-600">{employeePool.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              <span className="text-muted-foreground font-semibold">{t("companyNetProfit")}</span>
+              <span className="font-bold text-emerald-600">{companyNet.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground font-semibold">{t("employeeShare")} ({employeePercentage}%)</span>
+              <span className="font-bold text-amber-600">{employeePool.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
             {employeeAllocations.filter(a => a.employee_id).map((a) => {
               const e = selectEmployee(a.employee_id);
