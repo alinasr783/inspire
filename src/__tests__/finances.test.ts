@@ -270,13 +270,13 @@ describe("Finances - Server Actions Access Control", () => {
       setAsRegularUser();
       const r = await createDeal(dealInput);
       expect(r.success).toBe(false);
-      expect(r.error).toBe("unauthorized");
+      if (!r.success) expect(r.error).toBe("unauthorized");
     });
     test("unauthenticated → unauthorized", async () => {
       setAsUnauthenticated();
       const r = await createDeal(dealInput);
       expect(r.success).toBe(false);
-      expect(r.error).toBe("unauthorized");
+      if (!r.success) expect(r.error).toBe("unauthorized");
     });
   });
 
@@ -291,13 +291,13 @@ describe("Finances - Server Actions Access Control", () => {
       setAsRegularUser();
       const r = await updateDeal("deal-123", dealInput);
       expect(r.success).toBe(false);
-      expect(r.error).toBe("unauthorized");
+      if (!r.success) expect(r.error).toBe("unauthorized");
     });
     test("unauthenticated → unauthorized", async () => {
       setAsUnauthenticated();
       const r = await updateDeal("deal-123", dealInput);
       expect(r.success).toBe(false);
-      expect(r.error).toBe("unauthorized");
+      if (!r.success) expect(r.error).toBe("unauthorized");
     });
   });
 
@@ -311,13 +311,13 @@ describe("Finances - Server Actions Access Control", () => {
       setAsRegularUser();
       const r = await deleteDeal("deal-123");
       expect(r.success).toBe(false);
-      expect(r.error).toBe("unauthorized");
+      if (!r.success) expect(r.error).toBe("unauthorized");
     });
     test("unauthenticated → unauthorized", async () => {
       setAsUnauthenticated();
       const r = await deleteDeal("deal-123");
       expect(r.success).toBe(false);
-      expect(r.error).toBe("unauthorized");
+      if (!r.success) expect(r.error).toBe("unauthorized");
     });
   });
 

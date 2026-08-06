@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface PostVisitNotesDialogProps {
   open: boolean;
@@ -22,6 +21,8 @@ export function PostVisitNotesDialog({
   const [notes, setNotes] = useState(defaultValue);
   const [saving, setSaving] = useState(false);
 
+  if (!open) return null;
+
   const handleSave = async () => {
     setSaving(true);
     await onSave(notes);
@@ -31,17 +32,23 @@ export function PostVisitNotesDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t("postVisitNotesTitle")}</DialogTitle>
-          <DialogDescription>{t("postVisitNotesDesc")}</DialogDescription>
-        </DialogHeader>
+    <div className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center">
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+        onClick={() => onOpenChange(false)}
+      />
+      <div className="relative z-10 w-full max-w-md rounded-t-2xl sm:rounded-2xl border bg-card p-6 shadow-lg sm:mx-4 animate-in slide-in-from-bottom sm:slide-in-from-bottom-4 sm:zoom-in-95 sm:fade-in">
+        <h2 className="text-lg font-semibold leading-none tracking-tight">
+          {t("postVisitNotesTitle")}
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {t("postVisitNotesDesc")}
+        </p>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={5}
-          className="flex w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="mt-4 flex w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           placeholder={t("postVisitNotesPlaceholder")}
           autoFocus
         />
@@ -64,7 +71,7 @@ export function PostVisitNotesDialog({
             )}
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }

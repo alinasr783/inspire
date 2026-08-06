@@ -74,12 +74,13 @@ export default async function VisitsPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-row items-center justify-between gap-3">
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{t("title")}</h1>
         <Link href="/visits/new" className="shrink-0">
           <Button size="sm">
             <Plus className="h-4 w-4" />
-            {t("addVisit")}
+            <span className="hidden sm:inline">{t("addVisit")}</span>
+            <span className="sm:hidden">{t("addVisitShort")}</span>
           </Button>
         </Link>
       </div>

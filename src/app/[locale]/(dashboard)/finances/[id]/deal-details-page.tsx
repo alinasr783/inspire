@@ -20,7 +20,10 @@ import {
   CalendarDays,
   MapPin,
   Home,
+  ChevronRight,
 } from "lucide-react";
+
+const rtlFlip = "rtl:scale-x-[-1]";
 
 function formatCurrency(v: number | null | undefined): string {
   if (v == null) return "—";
@@ -61,7 +64,7 @@ export function DealDetailsPage({ deal }: { deal: DealWithRelations }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push("/finances")}>
-            <ArrowLeft className="size-5" />
+            <ArrowLeft className={`size-5 ${rtlFlip}`} />
           </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{t("dealDetails")}</h1>

@@ -18,6 +18,8 @@ import {
   Eye, Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const rtlFlip = "rtl:scale-x-[-1]";
 import {
   type ContactType, type DealSide,
   hasBuyer, hasSeller,
@@ -345,7 +347,7 @@ export function DealForm({ mode, existingDeal, clients, units, employees, onSucc
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push("/finances")}>
-            <ArrowLeft className="size-5" />
+            <ArrowLeft className={`size-5 ${rtlFlip}`} />
           </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{mode === "create" ? t("addDeal") : t("editDeal")}</h1>
@@ -589,11 +591,11 @@ export function DealForm({ mode, existingDeal, clients, units, employees, onSucc
           {/* Navigation */}
           <div className="flex gap-3 pt-2">
             <Button variant="outline" onClick={() => step > 0 ? setStep(step - 1) : router.push("/finances")} className="gap-1">
-              <ChevronLeft className="size-4" /> {step === 0 ? t("cancel") : t("back")}
+              <ChevronLeft className={`size-4 ${rtlFlip}`} /> {step === 0 ? t("cancel") : t("back")}
             </Button>
             {step < STEPS.length - 1 ? (
               <Button onClick={() => setStep(step + 1)} disabled={!canProceed()} className="flex-1 gap-1">
-                {t("next")} <ChevronRight className="size-4" />
+                {t("next")} <ChevronRight className={`size-4 ${rtlFlip}`} />
               </Button>
             ) : (
               <Button onClick={handleSubmit} disabled={!canProceed() || submitting} className="flex-1 gap-2">

@@ -829,6 +829,7 @@
     "title": "Visits",
     "allVisits": "All Visits",
     "addVisit": "Add Visit",
+    "addVisitShort": "Add",
     "editVisit": "Edit Visit",
     "visitDetails": "Visit Details",
     "client": "Client",

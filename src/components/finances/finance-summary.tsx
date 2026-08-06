@@ -7,6 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { FinanceSummary, EmployeeProfitSummary } from "@/lib/finance-types";
 import { Banknote, TrendingUp, Building2, Users, ChevronRight } from "lucide-react";
 
+const rtlFlip = "rtl:scale-x-[-1]";
+
 function formatCurrency(v: number): string {
   return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -90,7 +92,7 @@ function EmployeeCard({ emp }: { emp: EmployeeProfitSummary }) {
         <p className="text-sm font-bold text-emerald-600">{formatCurrency(emp.total_profit)}</p>
         <p className="text-[11px] text-muted-foreground">{t("netProfit")}</p>
       </div>
-      <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+      <ChevronRight className={`size-4 text-muted-foreground shrink-0 ${rtlFlip}`} />
     </button>
   );
 }
