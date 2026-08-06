@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { loadCellStyles, type CellStyle } from "@/lib/cell-style-service";
 import { applyElStyle, ensureSeriousnessHighlightCSS } from "@/components/realtime/table-cell-context-menu";
-import { subscribeStyleChanges, type StyleChangePayload } from "@/lib/supabase/realtime";
+import type { StyleChangePayload } from "@/lib/supabase/realtime";
 
 export function useCellStyles(tableName: string) {
-  const { currentUser } = useRealtime();
+  const { currentUser, styleChangeEvents } = useRealtime();
   const [loaded, setLoaded] = useState(false);
+  const appliedRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
     if (!currentUser?.id || loaded) return;
@@ -63,11 +64,11 @@ export function useCellStyles(tableName: string) {
   }, [currentUser?.id, tableName, loaded]);
 
   useEffect(() => {
-    const unsub = subscribeStyleChanges((payload: StyleChangePayload) => {
-      if (payload.table !== tableName) return;
-      const info = { table: payload.table, rowId: payload.rowId, colKey: payload.colKey, colLabel: payload.colKey, rowData: null };
-      applyElStyle(info, payload.scope, payload.prop, payload.value);
-    });
-    return unsub;
-  }, [tableName]);
+    if (!styleChangeEvents.length) return;
+    const latest = styleChangeEvents[styleChangeEvents.length - 1];
+    if (latest.table !== tableName || appliedRef.current.has(latest.ts)) return;
+    appliedRef.current.add(latest.ts);
+    const info = { table: latest.table, rowId: latest.rowId, colKey: latest.colKey, colLabel: latest.colKey, rowData: null };
+    applyElStyle(info, latest.scope, latest.prop, latest.value);
+  }, [styleChangeEvents, tableName]);
 }

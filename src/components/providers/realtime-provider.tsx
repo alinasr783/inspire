@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { getUserColor, getUserInitials } from "@/lib/realtime-user-color";
 import { usePresence } from "@/hooks/use-presence";
 import { useCursorBroadcast, type RemoteCursor } from "@/hooks/use-cursor-broadcast";
-import { createRealtimeClient, type PresenceState, type CellEditPayload } from "@/lib/supabase/realtime";
+import { createRealtimeClient, type PresenceState, type CellEditPayload, type StyleChangePayload } from "@/lib/supabase/realtime";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 type ConnectionState = "connected" | "connecting" | "disconnected";
@@ -30,6 +30,7 @@ type RealtimeContextValue = {
   } | null;
   cellEditEvents: CellEditPayload[];
   notifyCellEdit: (payload: Omit<CellEditPayload, "userId" | "userName" | "userColor" | "initials" | "ts">) => void;
+  styleChangeEvents: StyleChangePayload[];
   refreshCurrentUser: (data: { firstName?: string; secondName?: string; avatarUrl?: string | null }) => void;
 };
 
@@ -41,6 +42,7 @@ const RealtimeContext = createContext<RealtimeContextValue>({
   currentUser: null,
   cellEditEvents: [],
   notifyCellEdit: () => {},
+  styleChangeEvents: [],
   refreshCurrentUser: () => {},
 });
 
@@ -65,6 +67,7 @@ export function RealtimeProvider({
   const [cursors, setCursors] = useState<RemoteCursor[]>([]);
   const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
   const [cellEditEvents, setCellEditEvents] = useState<CellEditPayload[]>([]);
+  const [styleChangeEvents, setStyleChangeEvents] = useState<StyleChangePayload[]>([]);
   const [userData, setUserData] = useState<{
     firstName?: string;
     secondName?: string;
@@ -197,6 +200,17 @@ export function RealtimeProvider({
     return () => { supabase.removeChannel(ch); };
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    const supabase = createRealtimeClient();
+    const ch = supabase.channel("broadcast:inspire:cellstyles", { config: { broadcast: { self: false } } });
+    ch.on("broadcast" as never, { event: "styleChange" }, (msg: { payload: StyleChangePayload }) => {
+      setStyleChangeEvents((prev) => [...prev.slice(-20), msg.payload]);
+    });
+    ch.subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user?.id]);
+
   return (
     <RealtimeContext.Provider
       value={{
@@ -207,6 +221,7 @@ export function RealtimeProvider({
         currentUser,
         cellEditEvents,
         notifyCellEdit,
+        styleChangeEvents,
         refreshCurrentUser,
       }}
     >
