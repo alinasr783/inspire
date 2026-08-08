@@ -95,21 +95,37 @@ export function DealDetailsPage({ deal }: { deal: DealWithRelations }) {
             <span className="text-lg font-bold text-primary">{formatCurrency(deal.final_commission)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">{t("autoCommission")}</span>
+            <span className="text-muted-foreground">{t("commissionSum")}</span>
             <span className="font-medium">{formatCurrency(deal.auto_commission)}</span>
           </div>
 
           {deal.buyer_amount != null && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">{t("buyerAmount")}</span>
-              <span className="font-medium">{deal.buyer_amount.toLocaleString()}</span>
-            </div>
+            <>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t("buyerAmount")}</span>
+                <span className="font-medium">{deal.buyer_amount.toLocaleString()}</span>
+              </div>
+              {deal.buyer_commission != null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t("buyerCommission")}</span>
+                  <span className="font-medium text-blue-600">{deal.buyer_commission.toLocaleString()}</span>
+                </div>
+              )}
+            </>
           )}
           {deal.seller_amount != null && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">{t("sellerAmount")}</span>
-              <span className="font-medium">{deal.seller_amount.toLocaleString()}</span>
-            </div>
+            <>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t("sellerAmount")}</span>
+                <span className="font-medium">{deal.seller_amount.toLocaleString()}</span>
+              </div>
+              {deal.seller_commission != null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t("sellerCommission")}</span>
+                  <span className="font-medium text-emerald-600">{deal.seller_commission.toLocaleString()}</span>
+                </div>
+              )}
+            </>
           )}
 
           <Separator />
@@ -182,7 +198,7 @@ export function DealDetailsPage({ deal }: { deal: DealWithRelations }) {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Users className="size-4 text-blue-600" />
-              {t("buyer")}: {client.customer_name}
+              {t("buyer")}: {deal.buyer_name || client.customer_name}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm pb-4">
@@ -276,7 +292,7 @@ export function DealDetailsPage({ deal }: { deal: DealWithRelations }) {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Building2 className="size-4 text-emerald-600" />
-              {t("seller")}: {unit.customer_name}
+              {t("seller")}: {deal.seller_name || unit.customer_name}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm pb-4">
@@ -358,6 +374,24 @@ export function DealDetailsPage({ deal }: { deal: DealWithRelations }) {
             <div className="text-[11px] text-muted-foreground">
               {tProps("createdAt")}: {formatDate(unit.created_at, "ar")}
             </div>
+          </CardContent>
+        </Card>
+      )}
+      {!client && deal.buyer_name && (
+        <Card>
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><Users className="size-4 text-blue-600" />{t("buyer")}: {deal.buyer_name}</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm pb-4">
+            {deal.buyer_amount != null && <div className="flex justify-between"><span className="text-muted-foreground">{t("buyerAmount")}</span><span className="font-medium">{deal.buyer_amount.toLocaleString()}</span></div>}
+            {deal.buyer_commission != null && <div className="flex justify-between"><span className="text-muted-foreground">{t("buyerCommission")}</span><span className="font-medium text-blue-600">{deal.buyer_commission.toLocaleString()}</span></div>}
+          </CardContent>
+        </Card>
+      )}
+      {!unit && deal.seller_name && (
+        <Card>
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><Building2 className="size-4 text-emerald-600" />{t("seller")}: {deal.seller_name}</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm pb-4">
+            {deal.seller_amount != null && <div className="flex justify-between"><span className="text-muted-foreground">{t("sellerAmount")}</span><span className="font-medium">{deal.seller_amount.toLocaleString()}</span></div>}
+            {deal.seller_commission != null && <div className="flex justify-between"><span className="text-muted-foreground">{t("sellerCommission")}</span><span className="font-medium text-emerald-600">{deal.seller_commission.toLocaleString()}</span></div>}
           </CardContent>
         </Card>
       )}

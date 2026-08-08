@@ -151,7 +151,7 @@ import {
 // ── Import pure functions ──
 
 import {
-  calcAutoCommission, calcCompanyNetProfit, calcEmployeePool, calcEmployeeProfit,
+  calcManualCommission, calcCompanyNetProfit, calcEmployeePool, calcEmployeeProfit,
   calcNathryat,
   hasBuyer, hasSeller, getTimeFilterDate,
 } from "@/lib/finance-types";
@@ -196,17 +196,17 @@ function resetResults() {
 // ── Pure function tests ──
 
 describe("Finances - Pure Calculation Functions", () => {
-  test("calcAutoCommission: both parties → 1.5% buyer + 2.5% seller", () => {
-    expect(calcAutoCommission("both", 5000000, 5000000)).toBe(200000);
+  test("calcManualCommission: both parties → sum of buyer + seller", () => {
+    expect(calcManualCommission("both", 75000, 125000)).toBe(200000);
   });
-  test("calcAutoCommission: buyer only → 1.5%", () => {
-    expect(calcAutoCommission("buyer_only", 1000000, null)).toBe(15000);
+  test("calcManualCommission: buyer only → buyer commission only", () => {
+    expect(calcManualCommission("buyer_only", 15000, null)).toBe(15000);
   });
-  test("calcAutoCommission: seller only → 2.5%", () => {
-    expect(calcAutoCommission("seller_only", null, 2000000)).toBe(50000);
+  test("calcManualCommission: seller only → seller commission only", () => {
+    expect(calcManualCommission("seller_only", null, 50000)).toBe(50000);
   });
-  test("calcAutoCommission: null amounts → 0", () => {
-    expect(calcAutoCommission("both", null, null)).toBe(0);
+  test("calcManualCommission: null commissions → 0", () => {
+    expect(calcManualCommission("both", null, null)).toBe(0);
   });
   test("calcCompanyNetProfit: no employees → full commission", () => {
     expect(calcCompanyNetProfit(100000, 70, false)).toBe(100000);
@@ -255,10 +255,12 @@ describe("Finances - Pure Calculation Functions", () => {
 
 const dealInput = {
   contact_type: "both" as const,
-  buyer_client_id: "client-1",
-  seller_unit_id: "unit-1",
+  buyer_name: "Ahmed",
+  seller_name: "Mohamed",
   buyer_amount: 5000000,
   seller_amount: 5000000,
+  buyer_commission: 75000,
+  seller_commission: 125000,
   final_commission: 200000,
   company_percentage: 70,
   employee_percentage: 30,

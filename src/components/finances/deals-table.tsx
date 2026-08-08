@@ -97,8 +97,8 @@ export function DealsTable({
                     {contactLabel(deal.contact_type)}
                   </span>
                 </td>
-                <td className="px-4 py-3 max-w-[120px] truncate border-e">{deal.buyer_client?.customer_name || "—"}</td>
-                <td className="px-4 py-3 max-w-[120px] truncate border-e">{deal.seller_unit?.customer_name || "—"}</td>
+                <td className="px-4 py-3 max-w-[120px] truncate border-e">{deal.buyer_name || deal.buyer_client?.customer_name || "—"}</td>
+                <td className="px-4 py-3 max-w-[120px] truncate border-e">{deal.seller_name || deal.seller_unit?.customer_name || "—"}</td>
                 <td className="px-4 py-3 text-end whitespace-nowrap font-medium border-e">{formatCurrency(deal.buyer_amount)}</td>
                 <td className="px-4 py-3 text-end whitespace-nowrap font-medium border-e">{formatCurrency(deal.seller_amount)}</td>
                 <td className="px-4 py-3 text-end whitespace-nowrap font-semibold border-e">{formatCurrency(deal.final_commission)}</td>

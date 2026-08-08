@@ -8,8 +8,12 @@ export type DealRow = {
   contact_type: ContactType;
   buyer_client_id: string | null;
   seller_unit_id: string | null;
+  buyer_name: string;
+  seller_name: string;
   buyer_amount: number | null;
   seller_amount: number | null;
+  buyer_commission: number | null;
+  seller_commission: number | null;
   auto_commission: number | null;
   final_commission: number;
   has_employee: boolean;
@@ -114,14 +118,14 @@ export function hasSeller(contactType: ContactType): boolean {
   return contactType === "both" || contactType === "seller_only";
 }
 
-export function calcAutoCommission(
+export function calcManualCommission(
   contactType: ContactType,
-  buyerAmount: number | null | undefined,
-  sellerAmount: number | null | undefined
+  buyerCommission: number | null | undefined,
+  sellerCommission: number | null | undefined
 ): number {
   let total = 0;
-  if (hasBuyer(contactType) && buyerAmount != null) total += Number(buyerAmount) * 0.015;
-  if (hasSeller(contactType) && sellerAmount != null) total += Number(sellerAmount) * 0.025;
+  if (hasBuyer(contactType) && buyerCommission != null) total += Number(buyerCommission);
+  if (hasSeller(contactType) && sellerCommission != null) total += Number(sellerCommission);
   return Math.round(total * 100) / 100;
 }
 

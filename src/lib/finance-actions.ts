@@ -12,7 +12,7 @@ import {
   type EmployeeProfitSummary,
   type TimeFilter,
   getTimeFilterDate,
-  calcAutoCommission,
+  calcManualCommission,
   calcCompanyNetProfit,
   calcNathryat,
   calcEmployeePool,
@@ -37,10 +37,12 @@ async function isAdmin(): Promise<boolean> {
 
 type CreateDealInput = {
   contact_type: ContactType;
-  buyer_client_id?: string | null;
-  seller_unit_id?: string | null;
+  buyer_name?: string;
+  seller_name?: string;
   buyer_amount?: number | null;
   seller_amount?: number | null;
+  buyer_commission?: number | null;
+  seller_commission?: number | null;
   final_commission: number;
   company_percentage?: number;
   employee_percentage?: number;
@@ -61,7 +63,7 @@ export async function createDeal(input: CreateDealInput): Promise<ActionResult> 
   const companyPct = input.company_percentage ?? 70;
   const employeePct = input.employee_percentage ?? 30;
 
-  const autoCommission = calcAutoCommission(input.contact_type, input.buyer_amount, input.seller_amount);
+  const manualCommission = calcManualCommission(input.contact_type, input.buyer_commission, input.seller_commission);
   const companyNetProfit = calcCompanyNetProfit(input.final_commission, companyPct, hasEmployee);
   const nathryat = calcNathryat(input.final_commission, companyPct, hasEmployee);
 
@@ -70,11 +72,13 @@ export async function createDeal(input: CreateDealInput): Promise<ActionResult> 
     .insert({
       created_by: user.id,
       contact_type: input.contact_type,
-      buyer_client_id: input.buyer_client_id || null,
-      seller_unit_id: input.seller_unit_id || null,
+      buyer_name: input.buyer_name || "",
+      seller_name: input.seller_name || "",
       buyer_amount: input.buyer_amount ?? null,
       seller_amount: input.seller_amount ?? null,
-      auto_commission: autoCommission,
+      buyer_commission: input.buyer_commission ?? null,
+      seller_commission: input.seller_commission ?? null,
+      auto_commission: manualCommission,
       final_commission: input.final_commission,
       has_employee: hasEmployee,
       company_percentage: companyPct,
@@ -118,7 +122,7 @@ export async function updateDeal(dealId: string, input: CreateDealInput): Promis
   const companyPct = input.company_percentage ?? 70;
   const employeePct = input.employee_percentage ?? 30;
 
-  const autoCommission = calcAutoCommission(input.contact_type, input.buyer_amount, input.seller_amount);
+  const manualCommission = calcManualCommission(input.contact_type, input.buyer_commission, input.seller_commission);
   const companyNetProfit = calcCompanyNetProfit(input.final_commission, companyPct, hasEmployee);
   const nathryat = calcNathryat(input.final_commission, companyPct, hasEmployee);
 
@@ -130,11 +134,13 @@ export async function updateDeal(dealId: string, input: CreateDealInput): Promis
     .from("deals")
     .update({
       contact_type: input.contact_type,
-      buyer_client_id: input.buyer_client_id || null,
-      seller_unit_id: input.seller_unit_id || null,
+      buyer_name: input.buyer_name || "",
+      seller_name: input.seller_name || "",
       buyer_amount: input.buyer_amount ?? null,
       seller_amount: input.seller_amount ?? null,
-      auto_commission: autoCommission,
+      buyer_commission: input.buyer_commission ?? null,
+      seller_commission: input.seller_commission ?? null,
+      auto_commission: manualCommission,
       final_commission: input.final_commission,
       has_employee: hasEmployee,
       company_percentage: companyPct,
