@@ -140,6 +140,12 @@ export function DealDetailsPage({ deal }: { deal: DealWithRelations }) {
                 <span className="text-muted-foreground">{t("nathryat")} (10%)</span>
                 <span className="font-medium">-{formatCurrency(deal.nathryat || 0)}</span>
               </div>
+              {deal.expenses != null && deal.expenses > 0 && (
+                <div className="flex justify-between text-destructive">
+                  <span className="text-muted-foreground">{t("expenses")}</span>
+                  <span className="font-medium">-{formatCurrency(deal.expenses)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t("companyNetProfit")}</span>
                 <span className="font-semibold text-emerald-600">{formatCurrency(deal.company_net_profit)}</span>
@@ -390,8 +396,11 @@ export function DealDetailsPage({ deal }: { deal: DealWithRelations }) {
         <Card>
           <CardHeader><CardTitle className="text-base flex items-center gap-2"><Building2 className="size-4 text-emerald-600" />{t("seller")}: {deal.seller_name}</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm pb-4">
-            {deal.seller_amount != null && <div className="flex justify-between"><span className="text-muted-foreground">{t("sellerAmount")}</span><span className="font-medium">{deal.seller_amount.toLocaleString()}</span></div>}
-            {deal.seller_commission != null && <div className="flex justify-between"><span className="text-muted-foreground">{t("sellerCommission")}</span><span className="font-medium text-emerald-600">{deal.seller_commission.toLocaleString()}</span></div>}
+              {deal.seller_amount != null && <div className="flex justify-between"><span className="text-muted-foreground">{t("sellerAmount")}</span><span className="font-medium">{deal.seller_amount.toLocaleString()}</span></div>}
+              {deal.building_number && <div className="flex justify-between"><span className="text-muted-foreground">{t("buildingNumber")}</span><span className="font-medium">{deal.building_number}</span></div>}
+              {deal.apartment_number && <div className="flex justify-between"><span className="text-muted-foreground">{t("apartmentNumber")}</span><span className="font-medium">{deal.apartment_number}</span></div>}
+              {deal.compound_name && <div className="flex justify-between"><span className="text-muted-foreground">{t("compoundName")}</span><span className="font-medium">{deal.compound_name}</span></div>}
+              {deal.seller_commission != null && <div className="flex justify-between"><span className="text-muted-foreground">{t("sellerCommission")}</span><span className="font-medium text-emerald-600">{deal.seller_commission.toLocaleString()}</span></div>}
           </CardContent>
         </Card>
       )}

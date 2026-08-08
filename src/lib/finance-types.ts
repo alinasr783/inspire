@@ -14,6 +14,10 @@ export type DealRow = {
   seller_amount: number | null;
   buyer_commission: number | null;
   seller_commission: number | null;
+  building_number: string;
+  apartment_number: string;
+  compound_name: string;
+  expenses: number;
   auto_commission: number | null;
   final_commission: number;
   has_employee: boolean;
@@ -129,11 +133,11 @@ export function calcManualCommission(
   return Math.round(total * 100) / 100;
 }
 
-export function calcCompanyNetProfit(finalCommission: number, companyPercentage: number, hasEmployee: boolean): number {
-  if (!hasEmployee) return finalCommission;
+export function calcCompanyNetProfit(finalCommission: number, companyPercentage: number, hasEmployee: boolean, expenses: number = 0): number {
+  if (!hasEmployee) return finalCommission - expenses;
   const gross = finalCommission * (companyPercentage / 100);
   const nathryat = gross * 0.10;
-  return Math.round((gross - nathryat) * 100) / 100;
+  return Math.round((gross - nathryat - expenses) * 100) / 100;
 }
 
 export function calcNathryat(finalCommission: number, companyPercentage: number, hasEmployee: boolean): number {

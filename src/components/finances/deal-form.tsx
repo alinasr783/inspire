@@ -69,6 +69,10 @@ export function DealForm({ mode, existingDeal, employees, onSuccess }: Props) {
   const [sellerAmount, setSellerAmount] = useState(existingDeal?.seller_amount?.toString() || "");
   const [buyerCommission, setBuyerCommission] = useState(existingDeal?.buyer_commission?.toString() || "");
   const [sellerCommission, setSellerCommission] = useState(existingDeal?.seller_commission?.toString() || "");
+  const [buildingNumber, setBuildingNumber] = useState(existingDeal?.building_number || "");
+  const [apartmentNumber, setApartmentNumber] = useState(existingDeal?.apartment_number || "");
+  const [compoundName, setCompoundName] = useState(existingDeal?.compound_name || "");
+  const [expenses, setExpenses] = useState(existingDeal?.expenses?.toString() || "");
   const [finalCommission, setFinalCommission] = useState(existingDeal?.final_commission?.toString() || "");
   const [hasEmployee, setHasEmployee] = useState(existingDeal?.has_employee ?? true);
   const [companyPercentage, setCompanyPercentage] = useState(existingDeal?.company_percentage?.toString() || "70");
@@ -89,7 +93,7 @@ export function DealForm({ mode, existingDeal, employees, onSuccess }: Props) {
   const activeEmployees = hasEmployee && employeeAllocations.length > 0;
   const employeePool = calcEmployeePool(finalComm, empPct, activeEmployees);
   const compPct = companyPercentage ? Number(companyPercentage) : 70;
-  const companyNet = calcCompanyNetProfit(finalComm, compPct, activeEmployees);
+  const companyNet = calcCompanyNetProfit(finalComm, compPct, activeEmployees, expenses ? Number(expenses) : 0);
   const nathryat = calcNathryat(finalComm, compPct, activeEmployees);
   const companyGross = activeEmployees ? Math.round(finalComm * (compPct / 100) * 100) / 100 : finalComm;
 
@@ -142,6 +146,10 @@ export function DealForm({ mode, existingDeal, employees, onSuccess }: Props) {
     seller_amount: hasSeller(contactType) ? (sellerAmount ? Number(sellerAmount) : null) : null,
     buyer_commission: hasBuyer(contactType) ? (buyerCommission ? Number(buyerCommission) : null) : null,
     seller_commission: hasSeller(contactType) ? (sellerCommission ? Number(sellerCommission) : null) : null,
+    building_number: buildingNumber,
+    apartment_number: apartmentNumber,
+    compound_name: compoundName,
+    expenses: expenses ? Number(expenses) : 0,
     final_commission: finalComm,
     company_percentage: Number(companyPercentage),
     employee_percentage: Number(employeePercentage),
@@ -202,6 +210,9 @@ export function DealForm({ mode, existingDeal, employees, onSuccess }: Props) {
           <>
             <div className="flex justify-between text-xs"><span className="text-muted-foreground">{t("companyGross")} ({companyPercentage}%)</span><span>{companyGross.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
             <div className="flex justify-between text-xs text-destructive"><span className="text-muted-foreground">{t("nathryat")} (10%)</span><span>-{nathryat.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+            {expenses && Number(expenses) > 0 && (
+              <div className="flex justify-between text-xs text-destructive"><span className="text-muted-foreground">{t("expenses")}</span><span>-{Number(expenses).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+            )}
             <div className="flex justify-between text-xs"><span className="text-muted-foreground font-semibold">{t("companyNetProfit")}</span><span className="font-bold text-emerald-600">{companyNet.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
             <div className="flex justify-between text-xs"><span className="text-muted-foreground font-semibold">{t("employeeShare")} ({employeePercentage}%)</span><span className="font-bold text-amber-600">{employeePool.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
             {employeeAllocations.filter(a => a.employee_id).map((a) => {
@@ -308,6 +319,20 @@ export function DealForm({ mode, existingDeal, employees, onSuccess }: Props) {
                         </div>
                       </div>
                     </div>
+                    <div className="grid grid-cols-3 gap-3 pt-1">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">{t("compoundName")}</Label>
+                        <Input placeholder={t("compoundName")} value={compoundName} onChange={(e) => setCompoundName(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">{t("buildingNumber")}</Label>
+                        <Input placeholder={t("buildingNumber")} value={buildingNumber} onChange={(e) => setBuildingNumber(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">{t("apartmentNumber")}</Label>
+                        <Input placeholder={t("apartmentNumber")} value={apartmentNumber} onChange={(e) => setApartmentNumber(e.target.value)} />
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -323,6 +348,15 @@ export function DealForm({ mode, existingDeal, employees, onSuccess }: Props) {
                       <Banknote className="absolute start-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
                     </div>
                     <p className="text-[11px] text-muted-foreground">{t("commissionHint")}</p>
+                    <Separator className="my-3" />
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-destructive">{t("expenses")}</Label>
+                      <div className="relative">
+                        <Input type="number" placeholder="0" value={expenses} onChange={(e) => setExpenses(e.target.value)} className="ps-8" dir="ltr" />
+                        <Banknote className="absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-destructive" />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">{t("expensesHint")}</p>
+                    </div>
                   </div>
                 </div>
               </CardContent>

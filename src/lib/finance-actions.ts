@@ -43,6 +43,10 @@ type CreateDealInput = {
   seller_amount?: number | null;
   buyer_commission?: number | null;
   seller_commission?: number | null;
+  building_number?: string;
+  apartment_number?: string;
+  compound_name?: string;
+  expenses?: number;
   final_commission: number;
   company_percentage?: number;
   employee_percentage?: number;
@@ -64,7 +68,8 @@ export async function createDeal(input: CreateDealInput): Promise<ActionResult> 
   const employeePct = input.employee_percentage ?? 30;
 
   const manualCommission = calcManualCommission(input.contact_type, input.buyer_commission, input.seller_commission);
-  const companyNetProfit = calcCompanyNetProfit(input.final_commission, companyPct, hasEmployee);
+  const expenses = input.expenses ?? 0;
+  const companyNetProfit = calcCompanyNetProfit(input.final_commission, companyPct, hasEmployee, expenses);
   const nathryat = calcNathryat(input.final_commission, companyPct, hasEmployee);
 
   const { data: deal, error: dealError } = await admin
@@ -78,6 +83,10 @@ export async function createDeal(input: CreateDealInput): Promise<ActionResult> 
       seller_amount: input.seller_amount ?? null,
       buyer_commission: input.buyer_commission ?? null,
       seller_commission: input.seller_commission ?? null,
+      building_number: input.building_number || "",
+      apartment_number: input.apartment_number || "",
+      compound_name: input.compound_name || "",
+      expenses: expenses,
       auto_commission: manualCommission,
       final_commission: input.final_commission,
       has_employee: hasEmployee,
@@ -123,7 +132,8 @@ export async function updateDeal(dealId: string, input: CreateDealInput): Promis
   const employeePct = input.employee_percentage ?? 30;
 
   const manualCommission = calcManualCommission(input.contact_type, input.buyer_commission, input.seller_commission);
-  const companyNetProfit = calcCompanyNetProfit(input.final_commission, companyPct, hasEmployee);
+  const expenses = input.expenses ?? 0;
+  const companyNetProfit = calcCompanyNetProfit(input.final_commission, companyPct, hasEmployee, expenses);
   const nathryat = calcNathryat(input.final_commission, companyPct, hasEmployee);
 
   // Verify deal exists and user can edit
@@ -140,6 +150,10 @@ export async function updateDeal(dealId: string, input: CreateDealInput): Promis
       seller_amount: input.seller_amount ?? null,
       buyer_commission: input.buyer_commission ?? null,
       seller_commission: input.seller_commission ?? null,
+      building_number: input.building_number || "",
+      apartment_number: input.apartment_number || "",
+      compound_name: input.compound_name || "",
+      expenses: expenses,
       auto_commission: manualCommission,
       final_commission: input.final_commission,
       has_employee: hasEmployee,
