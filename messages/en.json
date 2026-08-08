@@ -779,6 +779,7 @@
     "apartmentNumber": "Apartment No.",
     "expenses": "Expenses",
     "expensesHint": "Company expenses during deal — deducted from net profit",
+    "propertyInfo": "Property Info",
     "autoCommission": "Auto-calculated Commission",
     "finalCommission": "Final Commission",
     "commissionHint": "You can override the final commission manually",

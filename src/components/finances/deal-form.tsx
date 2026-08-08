@@ -319,22 +319,26 @@ export function DealForm({ mode, existingDeal, employees, onSuccess }: Props) {
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-3 pt-1">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">{t("compoundName")}</Label>
-                        <Input placeholder={t("compoundName")} value={compoundName} onChange={(e) => setCompoundName(e.target.value)} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">{t("buildingNumber")}</Label>
-                        <Input placeholder={t("buildingNumber")} value={buildingNumber} onChange={(e) => setBuildingNumber(e.target.value)} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">{t("apartmentNumber")}</Label>
-                        <Input placeholder={t("apartmentNumber")} value={apartmentNumber} onChange={(e) => setApartmentNumber(e.target.value)} />
-                      </div>
-                    </div>
                   </div>
                 )}
+
+                <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
+                  <Label className="text-sm font-bold flex items-center gap-2"><Building2 className="size-4 text-purple-600" /> {t("propertyInfo")}</Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">{t("compoundName")}</Label>
+                      <Input placeholder={t("compoundName")} value={compoundName} onChange={(e) => setCompoundName(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">{t("buildingNumber")}</Label>
+                      <Input placeholder={t("buildingNumber")} value={buildingNumber} onChange={(e) => setBuildingNumber(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">{t("apartmentNumber")}</Label>
+                      <Input placeholder={t("apartmentNumber")} value={apartmentNumber} onChange={(e) => setApartmentNumber(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
 
                 <div className="rounded-xl border bg-muted/30 p-4">
                   <div className="flex items-center justify-between">

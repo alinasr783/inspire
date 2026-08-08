@@ -401,6 +401,9 @@ export function DealDetailsPage({ deal }: { deal: DealWithRelations }) {
               {deal.apartment_number && <div className="flex justify-between"><span className="text-muted-foreground">{t("apartmentNumber")}</span><span className="font-medium">{deal.apartment_number}</span></div>}
               {deal.compound_name && <div className="flex justify-between"><span className="text-muted-foreground">{t("compoundName")}</span><span className="font-medium">{deal.compound_name}</span></div>}
               {deal.seller_commission != null && <div className="flex justify-between"><span className="text-muted-foreground">{t("sellerCommission")}</span><span className="font-medium text-emerald-600">{deal.seller_commission.toLocaleString()}</span></div>}
+              {deal.building_number && <div className="flex justify-between"><span className="text-muted-foreground">{t("buildingNumber")}</span><span className="font-medium">{deal.building_number}</span></div>}
+              {deal.apartment_number && <div className="flex justify-between"><span className="text-muted-foreground">{t("apartmentNumber")}</span><span className="font-medium">{deal.apartment_number}</span></div>}
+              {deal.compound_name && <div className="flex justify-between"><span className="text-muted-foreground">{t("compoundName")}</span><span className="font-medium">{deal.compound_name}</span></div>}
           </CardContent>
         </Card>
       )}
