@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
-import { useRouter } from "@/i18n/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -48,7 +47,6 @@ const selectClass = "flex h-8 w-full rounded-lg border border-input bg-transpare
 
 export function UnitForm({ mode, defaultValues, unitId, allColumns, customFieldValues }: UnitFormProps) {
   const t = useTranslations("Properties");
-  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const enabledColumns = allColumns.filter((c) => c.enabled);
   const customColumns = enabledColumns.filter((c) => !c.is_builtin);
@@ -92,6 +90,8 @@ export function UnitForm({ mode, defaultValues, unitId, allColumns, customFieldV
   });
 
   const onSubmit = async (values: FormValues) => {
+    console.log("[UnitForm] onSubmit called with values:", values);
+
     const fd = new FormData();
     Object.entries(values).forEach(([k, v]) => {
       if (v !== undefined && v !== null && v !== "") {
@@ -118,10 +118,14 @@ export function UnitForm({ mode, defaultValues, unitId, allColumns, customFieldV
     }
     fd.append("custom_fields", JSON.stringify(customFields));
 
-    if (mode === "edit" && unitId) {
-      await updateUnit(unitId, fd);
-    } else {
-      await createUnit(fd);
+    try {
+      if (mode === "edit" && unitId) {
+        await updateUnit(unitId, fd);
+      } else {
+        await createUnit(fd);
+      }
+    } catch {
+      // redirect() throws, this is normal
     }
   };
 
@@ -292,8 +296,8 @@ export function UnitForm({ mode, defaultValues, unitId, allColumns, customFieldV
         <Button type="submit" disabled={isSubmitting}>
           {t("save")}
         </Button>
-        <Button type="button" variant="outline" onClick={() => router.back()}>
-          {t("cancel")}
+        <Button type="button" variant="outline" onClick={() => window.history.back()}>
+          {mode === "edit" ? t("cancel") : t("cancel")}
         </Button>
       </div>
     </form>

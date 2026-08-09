@@ -55,7 +55,7 @@ export async function createUnit(formData: FormData) {
   const supabase = await createClient();
 
   const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (!user || userError) redirect(`/${locale}/auth/login`);
+  if (!user || userError) throw new Error("unauthorized");
 
   const raw: Record<string, FormDataEntryValue | null> = {};
   for (const key of Object.keys(unitSchema.shape)) {
@@ -76,8 +76,7 @@ export async function createUnit(formData: FormData) {
 
   const parsed = unitSchema.safeParse({ ...raw, custom_fields: customFields });
   if (!parsed.success) {
-    console.error("[createUnit] Validation failed:", parsed.error.flatten());
-    redirect(`/${locale}/properties/new?error=validation`);
+    throw new Error("validation");
   }
 
   const admin = createAdminClient();
@@ -89,7 +88,7 @@ export async function createUnit(formData: FormData) {
 
   if (error) {
     console.error("[createUnit] Insert failed:", error);
-    redirect(`/${locale}/properties/new?error=create-failed`);
+    throw new Error("create-failed");
   }
 
   revalidatePath("/properties", "page");

@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Link } from "@/i18n/navigation";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getColumnConfig } from "@/lib/unit-config-actions";
 import type { UnitRow } from "@/lib/unit-actions";
@@ -204,11 +204,13 @@ function ActivityItem({
   label,
   value,
   hint,
+  ltr,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   hint?: string;
+  ltr?: boolean;
 }) {
   return (
     <div className="flex items-start gap-3">
@@ -219,7 +221,7 @@ function ActivityItem({
         <p className="text-xs uppercase tracking-wide text-muted-foreground">
           {label}
         </p>
-        <p className="text-sm font-medium" dir="ltr">
+        <p className="text-sm font-medium" dir={ltr ? "ltr" : undefined}>
           {value}
         </p>
         {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
@@ -283,6 +285,8 @@ export default async function UnitDetailPage({
     .select("role")
     .eq("id", user.id)
     .single();
+
+  const isAr = locale === "ar";
 
   const canEdit = unitData.created_by === user.id || profile?.role === "admin";
   const canManageGallery = profile?.role === "admin" || unitData.created_by === user.id || unitData.assigned_employee === user.id;
@@ -397,7 +401,7 @@ export default async function UnitDetailPage({
                     <Phone className="size-3.5" />
                     <a
                       href={`tel:${phoneDigits}`}
-                      dir="ltr"
+                      dir={isAr ? undefined : "ltr"}
                       className="font-medium text-foreground hover:underline"
                     >
                       {unitData.phone}
@@ -489,7 +493,7 @@ export default async function UnitDetailPage({
           label={t("cashRequired")}
           value={
             cashDisplay ? (
-              <span className="text-xl" dir="ltr">
+              <span className="text-xl" dir={isAr ? undefined : "ltr"}>
                 {cashDisplay}
               </span>
             ) : (
@@ -503,7 +507,7 @@ export default async function UnitDetailPage({
           label={t("remaining")}
           value={
             remainingDisplay ? (
-              <span className="text-xl" dir="ltr">
+              <span className="text-xl" dir={isAr ? undefined : "ltr"}>
                 {remainingDisplay}
               </span>
             ) : (
@@ -564,12 +568,12 @@ export default async function UnitDetailPage({
                 {t("propertyInformation")}
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-4">
+            <CardContent className="pb-6 pt-4">
               <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
                 <InfoRow label={t("customerName")}>
                   {unitData.customer_name}
                 </InfoRow>
-                <InfoRow label={t("phone")} ltr>
+                <InfoRow label={t("phone")} ltr={!isAr}>
                   {unitData.phone || "—"}
                 </InfoRow>
                 <InfoRow label={t("compoundName")}>
@@ -584,7 +588,7 @@ export default async function UnitDetailPage({
                   </InfoRow>
                 )}
                 {unitData.building_number && (
-                  <InfoRow label={t("buildingNumber")} ltr>
+                  <InfoRow label={t("buildingNumber")} ltr={!isAr}>
                     {unitData.building_number}
                   </InfoRow>
                 )}
@@ -607,14 +611,14 @@ export default async function UnitDetailPage({
                     {unitData.unit_type}
                   </InfoRow>
                 )}
-                <InfoRow label={t("cashRequired")} ltr>
+                <InfoRow label={t("cashRequired")} ltr={!isAr}>
                   {cashDisplay || "—"}
                 </InfoRow>
-                <InfoRow label={t("remaining")} ltr>
+                <InfoRow label={t("remaining")} ltr={!isAr}>
                   {remainingDisplay || "—"}
                 </InfoRow>
                 {contactValid && (
-                  <InfoRow label={t("lastContactDate")} ltr>
+                  <InfoRow label={t("lastContactDate")} ltr={!isAr}>
                     {formatDate(unitData.last_contact_date!, locale)}
                   </InfoRow>
                 )}
@@ -629,7 +633,7 @@ export default async function UnitDetailPage({
                 {t("additionalNotes")} &amp; {t("feedback")}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-5 pt-4">
+            <CardContent className="space-y-5 pb-6 pt-4">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {t("additionalNotes")}
@@ -696,7 +700,7 @@ export default async function UnitDetailPage({
                 {t("assignment")}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 pt-4">
+            <CardContent className="space-y-4 pb-6 pt-4">
               <PersonRow
                 name={assigneeName}
                 initials={initialsOf(assigneeName)}
@@ -719,18 +723,20 @@ export default async function UnitDetailPage({
                 {t("activity")}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 pt-4">
+            <CardContent className="space-y-4 pb-6 pt-4">
               <ActivityItem
                 icon={<CalendarClock className="size-4" />}
                 label={t("createdAt")}
                 value={timeAgo(unitData.created_at, locale)}
                 hint={formatDate(unitData.created_at, locale)}
+                ltr={!isAr}
               />
               <ActivityItem
                 icon={<Clock3 className="size-4" />}
                 label={t("updatedAt")}
                 value={timeAgo(unitData.updated_at, locale)}
                 hint={formatDate(unitData.updated_at, locale)}
+                ltr={!isAr}
               />
               <ActivityItem
                 icon={<MessageCircle className="size-4" />}
@@ -745,6 +751,7 @@ export default async function UnitDetailPage({
                     ? formatDate(unitData.last_contact_date!, locale)
                     : t("notContacted")
                 }
+                ltr={!isAr}
               />
             </CardContent>
           </Card>
