@@ -6,7 +6,7 @@ import { Link, usePathname } from "@/i18n/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { navItems } from "@/lib/nav-items";
 import { cn } from "@/lib/utils";
-import { UsersRound, Banknote, Pencil, Plus, Trash2 } from "lucide-react";
+import { UsersRound, Banknote, Pencil, Plus, Trash2, FileText } from "lucide-react";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { usePendingCount } from "@/components/providers/pending-count-provider";
 import { prefetchUnits } from "@/hooks/queries/use-units-query";
@@ -16,6 +16,7 @@ import { prefetchTasks } from "@/hooks/queries/use-tasks-query";
 import { prefetchDevices } from "@/hooks/queries/use-devices-query";
 import { prefetchEmployees } from "@/hooks/queries/use-employees-query";
 import { prefetchFinances } from "@/hooks/queries/use-finances-query";
+import { prefetchContracts } from "@/hooks/queries/use-contracts-query";
 
 const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => void> = {
   properties: prefetchUnits,
@@ -25,6 +26,7 @@ const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => voi
   devices: prefetchDevices,
   users: prefetchEmployees,
   finances: (qc) => prefetchFinances(qc),
+  contracts: (qc) => prefetchContracts(qc),
 };
 
 function SidebarContent({ role, logoUrl }: { role?: string; logoUrl: string | null }) {

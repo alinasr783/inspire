@@ -27,9 +27,11 @@ export default async function PropertiesPage({
   } = await supabase.auth.getUser();
   if (!user) redirect(`/${locale}/auth/login`);
 
+  const admin = createAdminClient();
+
   const allColumns = await getColumnConfig();
 
-  const { data: allUnits } = await supabase
+  const { data: allUnits } = await admin
     .from("units")
     .select("*")
     .order("created_at", { ascending: false });
@@ -37,7 +39,7 @@ export default async function PropertiesPage({
   const unitsData = (allUnits ?? []) as UnitRow[];
 
   const uniqueVals = async (col: string) => {
-    const { data } = await supabase
+    const { data } = await admin
       .from("units")
       .select(col)
       .not(col, "is", null)
@@ -50,7 +52,7 @@ export default async function PropertiesPage({
   const uniqueCompounds = await uniqueVals("compound_name");
   const uniqueAreas = await uniqueVals("area");
 
-  const allUnitsQuery = await supabase.from("units").select("cash_required, remaining");
+  const allUnitsQuery = await admin.from("units").select("cash_required, remaining");
   const allNums = (allUnitsQuery.data ?? []) as {
     cash_required: number | null;
     remaining: number | null;
@@ -69,7 +71,6 @@ export default async function PropertiesPage({
         : null,
   };
 
-  const admin = createAdminClient();
   const { data: currentProfile } = await admin
     .from("profiles")
     .select("role")

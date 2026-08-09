@@ -17,6 +17,7 @@ import {
   UserCircle,
   CalendarCheck,
   Banknote,
+  FileText,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ import { prefetchTasks } from "@/hooks/queries/use-tasks-query";
 import { prefetchDevices } from "@/hooks/queries/use-devices-query";
 import { prefetchEmployees } from "@/hooks/queries/use-employees-query";
 import { prefetchFinances } from "@/hooks/queries/use-finances-query";
+import { prefetchContracts } from "@/hooks/queries/use-contracts-query";
 
 const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => void> = {
   properties: prefetchUnits,
@@ -36,6 +38,7 @@ const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => voi
   devices: prefetchDevices,
   users: prefetchEmployees,
   finances: (qc) => prefetchFinances(qc),
+  contracts: (qc) => prefetchContracts(qc),
 };
 
 const TABS = [
@@ -50,6 +53,7 @@ const MORE_ITEMS = [
   { key: "unconfirmedData", href: "/unconfirmed-data", icon: FileSpreadsheet },
   { key: "visits", href: "/visits", icon: CalendarCheck },
   { key: "deals", href: "/deals", icon: Handshake },
+  { key: "contracts", href: "/contracts", icon: FileText },
   { key: "reports", href: "/reports", icon: BarChart3 },
   { key: "devices", href: "/devices", icon: MonitorSmartphone },
   { key: "profile", href: "/profile", icon: UserCircle },

@@ -16,6 +16,7 @@
     "profile": "Profile",
     "devices": "Connected Devices",
     "visits": "Visits",
+    "contracts": "Contracts",
     "users":  "Users",
     "more":  "More"
   },
@@ -912,6 +913,28 @@
     "brokerPhone": "Broker Phone",
     "addProperty": "Add Property",
     "properties": "Properties"
-  }
+  },
+  "Contracts": {
+    "title": "Contract Management",
+    "createContract": "Create Contract",
+    "savedContracts": "Saved Contracts",
+    "templates": "Contract Templates",
+    "fillContract": "Fill Contract",
+    "editTemplate": "Edit Template",
+    "deleteTemplate": "Delete Template",
+    "downloadWord": "Download Word",
+    "downloadPdf": "Download PDF",
+    "print": "Print",
+    "saveToSystem": "Save to System",
+    "preview": "Preview",
+    "noTemplates": "No contract templates yet",
+    "noInstances": "No saved contracts",
+    "createFirst": "Click 'Create Contract' to create your first template",
+    "saveSuccess": "Template saved successfully",
+    "saveFailed": "Failed to save template",
+    "deleteSuccess": "Template deleted successfully",
+    "deleteFailed": "Failed to delete template",
+    "deleteConfirmTitle": "Delete Template",
+    "deleteConfirmDesc": "Are you sure you want to delete this template? All associated contracts will also be deleted."
   }
 }

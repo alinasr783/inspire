@@ -38,6 +38,7 @@ CREATE TABLE public.units (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   compound_name text NOT NULL DEFAULT ''::text,
   assigned_employee uuid,
+  share_text text,
   CONSTRAINT units_pkey PRIMARY KEY (id),
   CONSTRAINT units_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
   CONSTRAINT units_assigned_employee_fkey FOREIGN KEY (assigned_employee) REFERENCES public.profiles(id)
@@ -337,8 +338,8 @@ CREATE TABLE public.daily_ads (
 );
 CREATE TABLE public.visits (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  client_id uuid NOT NULL,
-  unit_id uuid NOT NULL,
+  client_id uuid,
+  unit_id uuid,
   compound_name text NOT NULL,
   building_number text NOT NULL,
   apartment_number text NOT NULL,
@@ -350,9 +351,80 @@ CREATE TABLE public.visits (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   post_visit_notes text DEFAULT ''::text,
+  is_external_client boolean DEFAULT false,
+  client_broker_phone text,
+  is_external_property boolean DEFAULT false,
+  property_broker_phone text,
   CONSTRAINT visits_pkey PRIMARY KEY (id),
   CONSTRAINT visits_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
   CONSTRAINT visits_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id),
   CONSTRAINT visits_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
   CONSTRAINT visits_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.deals (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  created_by uuid NOT NULL,
+  contact_type text NOT NULL CHECK (contact_type = ANY (ARRAY['both'::text, 'buyer_only'::text, 'seller_only'::text])),
+  buyer_client_id uuid,
+  seller_unit_id uuid,
+  buyer_amount numeric,
+  seller_amount numeric,
+  auto_commission numeric,
+  final_commission numeric NOT NULL,
+  has_employee boolean NOT NULL DEFAULT false,
+  company_net_profit numeric NOT NULL DEFAULT 0,
+  company_percentage integer NOT NULL DEFAULT 70,
+  employee_percentage integer NOT NULL DEFAULT 30,
+  buyer_commission numeric,
+  seller_commission numeric,
+  buyer_name text DEFAULT ''::text,
+  seller_name text DEFAULT ''::text,
+  nathryat numeric NOT NULL DEFAULT 0,
+  building_number text DEFAULT ''::text,
+  apartment_number text DEFAULT ''::text,
+  compound_name text DEFAULT ''::text,
+  expenses numeric DEFAULT 0,
+  CONSTRAINT deals_pkey PRIMARY KEY (id),
+  CONSTRAINT deals_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
+  CONSTRAINT deals_buyer_client_id_fkey FOREIGN KEY (buyer_client_id) REFERENCES public.clients(id),
+  CONSTRAINT deals_seller_unit_id_fkey FOREIGN KEY (seller_unit_id) REFERENCES public.units(id)
+);
+CREATE TABLE public.deal_employees (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  deal_id uuid NOT NULL,
+  employee_id uuid NOT NULL,
+  side text NOT NULL CHECK (side = ANY (ARRAY['buyer'::text, 'seller'::text, 'both'::text])),
+  percentage numeric NOT NULL,
+  profit_amount numeric NOT NULL DEFAULT 0,
+  CONSTRAINT deal_employees_pkey PRIMARY KEY (id),
+  CONSTRAINT deal_employees_deal_id_fkey FOREIGN KEY (deal_id) REFERENCES public.deals(id),
+  CONSTRAINT deal_employees_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.contract_templates (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  content jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  is_active boolean NOT NULL DEFAULT true,
+  CONSTRAINT contract_templates_pkey PRIMARY KEY (id),
+  CONSTRAINT contract_templates_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.contract_instances (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  template_id uuid NOT NULL,
+  filled_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  related_client_id uuid,
+  related_unit_id uuid,
+  related_deal_id uuid,
+  CONSTRAINT contract_instances_pkey PRIMARY KEY (id),
+  CONSTRAINT contract_instances_unit_id_fkey FOREIGN KEY (related_unit_id) REFERENCES public.units(id),
+  CONSTRAINT contract_instances_deal_id_fkey FOREIGN KEY (related_deal_id) REFERENCES public.generated_deals(id),
+  CONSTRAINT contract_instances_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.contract_templates(id),
+  CONSTRAINT contract_instances_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
+  CONSTRAINT contract_instances_client_id_fkey FOREIGN KEY (related_client_id) REFERENCES public.clients(id)
 );

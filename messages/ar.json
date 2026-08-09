@@ -16,6 +16,7 @@
     "profile": "الملف الشخصي",
     "devices": "الأجهزة المتصلة",
     "visits": "الزيارات",
+    "contracts": "ادارة العقود",
     "users": "المستخدمون",
     "more": "المزيد"
   },
@@ -913,6 +914,28 @@
     "brokerPhone": "رقم البروكر",
     "addProperty": "إضافة عقار",
     "properties": "العقارات"
-  }
+  },
+  "Contracts": {
+    "title": "ادارة العقود",
+    "createContract": "انشاء عقد",
+    "savedContracts": "العقود المحفوظة",
+    "templates": "قوالب العقود",
+    "fillContract": "ملء العقد",
+    "editTemplate": "تعديل القالب",
+    "deleteTemplate": "حذف القالب",
+    "downloadWord": "تحميل Word",
+    "downloadPdf": "تحميل PDF",
+    "print": "طباعة",
+    "saveToSystem": "حفظ في النظام",
+    "preview": "معاينة",
+    "noTemplates": "لا توجد قوالب عقود حالياً",
+    "noInstances": "لا توجد عقود محفوظة",
+    "createFirst": "اضغط على زر انشاء عقد لإنشاء أول قالب عقد",
+    "saveSuccess": "تم حفظ القالب بنجاح",
+    "saveFailed": "فشل حفظ القالب",
+    "deleteSuccess": "تم حذف القالب بنجاح",
+    "deleteFailed": "فشل حذف القالب",
+    "deleteConfirmTitle": "حذف القالب",
+    "deleteConfirmDesc": "هل أنت متأكد من حذف هذا القالب؟ سيتم حذف جميع العقود المرتبطة به أيضاً."
   }
 }

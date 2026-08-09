@@ -130,11 +130,11 @@ export async function fetchReports(rangeMonths: number = 12): Promise<ReportData
 
   const endDate = new Date();
 
-  const unitQuery = admin.from("units").select("created_at, unit_type, finishing_status, rent_sale, cash_required, remaining, compound_name, created_by, assigned_employee, last_contact_date");
-  const clientQuery = admin.from("clients").select("created_at, unit_type, source, created_by, assigned_employee, last_contact_date");
-  const taskQuery = admin.from("tasks").select("status, created_by, assigned_to");
-  const dealQuery = admin.from("generated_deals").select("recommendation_status, created_by");
-  const unconfirmedQuery = admin.from("unconfirmed_records").select("last_contact_date, created_at");
+  const unitQuery = admin.from("units").select("created_at, unit_type, finishing_status, rent_sale, cash_required, remaining, compound_name, created_by, assigned_employee, last_contact_date").limit(50000);
+  const clientQuery = admin.from("clients").select("created_at, unit_type, source, created_by, assigned_employee, last_contact_date").limit(50000);
+  const taskQuery = admin.from("tasks").select("status, created_by, assigned_to").limit(50000);
+  const dealQuery = admin.from("generated_deals").select("recommendation_status, created_by").limit(50000);
+  const unconfirmedQuery = admin.from("unconfirmed_records").select("last_contact_date, created_at").limit(50000);
 
   if (!isAdmin) {
     unitQuery.or(`created_by.eq.${userId},assigned_employee.eq.${userId}`);

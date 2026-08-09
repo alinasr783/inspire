@@ -31,6 +31,7 @@ const baseSchema = z.object({
   last_contact_date: z.string().trim().optional().default(""),
   additional_notes: z.string().trim().optional().default(""),
   feedback: z.string().trim().optional().default(""),
+  assigned_employee: z.string().trim().optional().default(""),
 });
 
 type FormValues = z.output<typeof baseSchema>;
@@ -118,14 +119,14 @@ export function UnitForm({ mode, defaultValues, unitId, allColumns, customFieldV
     }
     fd.append("custom_fields", JSON.stringify(customFields));
 
+    console.log("[UnitForm] FormData entries:", Array.from(fd.entries()));
+
     try {
-      if (mode === "edit" && unitId) {
-        await updateUnit(unitId, fd);
-      } else {
-        await createUnit(fd);
-      }
-    } catch {
-      // redirect() throws, this is normal
+      console.log("[UnitForm] Calling createUnit...");
+      await createUnit(fd);
+      console.log("[UnitForm] createUnit succeeded (redirect should happen)");
+    } catch (err) {
+      console.error("[UnitForm] createUnit error:", err);
     }
   };
 

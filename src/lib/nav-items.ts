@@ -9,6 +9,7 @@ import {
   MonitorSmartphone,
   UserCircle,
   CalendarCheck,
+  FileText,
 } from "lucide-react";
 
 export const navItems = [
@@ -20,6 +21,7 @@ export const navItems = [
   { key: "deals", href: "/deals", icon: Handshake },
   { key: "tasks", href: "/tasks", icon: ListChecks },
   { key: "reports", href: "/reports", icon: BarChart3 },
+  { key: "contracts", href: "/contracts", icon: FileText },
   { key: "devices", href: "/devices", icon: MonitorSmartphone },
   { key: "profile", href: "/profile", icon: UserCircle },
 ] as const;

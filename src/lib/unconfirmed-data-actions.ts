@@ -396,7 +396,8 @@ export async function getUploads() {
   const { data: uploads, error } = await admin
     .from("unconfirmed_uploads")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(5000);
 
   if (error) throw new Error("fetch-failed");
 
@@ -438,7 +439,7 @@ export async function getRecords(options?: { uploadId?: string; status?: string;
   if (options?.fileId) query = query.eq("file_id", options.fileId);
   if (fileIds) query = query.in("file_id", fileIds);
 
-  const { data: records, error } = await query.order("row_number", { ascending: true });
+  const { data: records, error } = await query.order("row_number", { ascending: true }).limit(10000);
   if (error) throw new Error("fetch-failed");
 
   if (options?.q) {

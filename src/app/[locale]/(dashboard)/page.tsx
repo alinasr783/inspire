@@ -226,14 +226,17 @@ export default async function DashboardPage({
       .from("units")
       .select(
         "created_at, rent_sale, unit_type, last_contact_date, cash_required, remaining"
-      ),
+      )
+      .limit(50000),
     admin
       .from("clients")
-      .select("created_at, last_contact_date"),
+      .select("created_at, last_contact_date")
+      .limit(50000),
     admin
       .from("generated_deals")
-      .select("created_at, recommendation_status, final_score"),
-    admin.from("tasks").select("created_at, status, progress, due_date"),
+      .select("created_at, recommendation_status, final_score")
+      .limit(50000),
+    admin.from("tasks").select("created_at, status, progress, due_date").limit(50000),
     admin
       .from("units")
       .select(

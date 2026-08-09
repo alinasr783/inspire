@@ -51,5 +51,12 @@ export const queryKeys = {
     all: ["finances"] as const,
     list: (timeFilter?: string) => [...queryKeys.finances.all, "list", timeFilter ?? "all"] as const,
   },
+  contracts: {
+    all: ["contracts"] as const,
+    templates: () => [...queryKeys.contracts.all, "templates"] as const,
+    template: (id: string) => [...queryKeys.contracts.all, "template", id] as const,
+    instances: () => [...queryKeys.contracts.all, "instances"] as const,
+    instance: (id: string) => [...queryKeys.contracts.all, "instance", id] as const,
+  },
   pendingCount: ["pendingCount"] as const,
 };

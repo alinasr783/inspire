@@ -54,8 +54,13 @@ export async function createUnit(formData: FormData) {
   const locale = await getLocale();
   const supabase = await createClient();
 
+  console.log("[createUnit] Step 1: Checking auth...");
   const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (!user || userError) throw new Error("unauthorized");
+  if (!user || userError) {
+    console.error("[createUnit] Auth failed:", userError);
+    throw new Error("unauthorized");
+  }
+  console.log("[createUnit] User authenticated:", user.id);
 
   const raw: Record<string, FormDataEntryValue | null> = {};
   for (const key of Object.keys(unitSchema.shape)) {
@@ -63,6 +68,7 @@ export async function createUnit(formData: FormData) {
     const val = formData.get(key);
     if (val !== null && val !== "") raw[key] = val;
   }
+  console.log("[createUnit] Step 2: Raw data:", JSON.stringify(raw));
 
   let customFields: Record<string, unknown> = {};
   const customFieldsRaw = formData.get("custom_fields");
@@ -76,23 +82,30 @@ export async function createUnit(formData: FormData) {
 
   const parsed = unitSchema.safeParse({ ...raw, custom_fields: customFields });
   if (!parsed.success) {
+    console.error("[createUnit] Validation failed:", JSON.stringify(parsed.error.flatten()));
     throw new Error("validation");
   }
+  console.log("[createUnit] Step 3: Parsed data valid:", JSON.stringify(parsed.data));
 
   const admin = createAdminClient();
 
-  const { error } = await admin.from("units").insert({
+  console.log("[createUnit] Step 4: Inserting into DB...");
+  const { data: inserted, error } = await admin.from("units").insert({
     ...parsed.data,
     created_by: user.id,
-  });
+  }).select();
 
   if (error) {
-    console.error("[createUnit] Insert failed:", error);
+    console.error("[createUnit] DB insert failed:", JSON.stringify(error));
     throw new Error("create-failed");
   }
+  console.log("[createUnit] Step 5: Unit created:", inserted);
 
+  console.log("[createUnit] Step 6: Revalidating paths...");
   revalidatePath("/properties", "page");
   revalidatePath("/", "layout");
+
+  console.log("[createUnit] Step 7: Redirecting to /properties...");
   redirect(`/${locale}/properties`);
 }
 
