@@ -157,7 +157,7 @@ function InfoRow({
   ltr?: boolean;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1 text-start">
       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
@@ -391,7 +391,7 @@ export default async function UnitDetailPage({
                 )}
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
+              <div className="mt-3 flex flex-wrap items-center justify-start gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
                 {unitData.phone && (
                   <span className="inline-flex items-center gap-1">
                     <Phone className="size-3.5" />
@@ -463,11 +463,12 @@ export default async function UnitDetailPage({
               </a>
               {canEdit && (
                 <>
-                  <Link href={`/properties/${unitData.id}/edit`}>
-                    <Button variant="outline" size="sm" className="w-full justify-center gap-1.5">
-                      <Pencil className="size-4" />
-                      {t("editUnit")}
-                    </Button>
+                  <Link
+                    href={`/properties/${unitData.id}/edit`}
+                    className={cn(buttonVariants({ variant: "outline", size: "sm" }), "justify-center gap-1.5")}
+                  >
+                    <Pencil className="size-4" />
+                    {t("editUnit")}
                   </Link>
                   <DeleteUnitButton unitId={unitData.id} />
                 </>
@@ -656,7 +657,10 @@ export default async function UnitDetailPage({
             </CardContent>
           </Card>
 
-          {enabledCustom.length > 0 && (
+          {enabledCustom.length > 0 && enabledCustom.some((col) => {
+            const val = (unitData.custom_fields as Record<string, unknown>)?.[col.key];
+            return val != null && String(val).trim() !== "";
+          }) && (
             <Card>
               <CardHeader className="pb-0">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -664,16 +668,17 @@ export default async function UnitDetailPage({
                   {t("customFields")}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-4">
+            <CardContent className="pb-6 pt-4">
                 <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
                   {enabledCustom.map((col) => {
                     const val = (unitData.custom_fields as Record<string, unknown>)?.[col.key];
+                    if (val == null || String(val).trim() === "") return null;
                     return (
                       <InfoRow
                         key={col.key}
                         label={locale === "ar" ? col.label_ar : col.label_en}
                       >
-                        {val != null ? String(val) : "—"}
+                        {String(val)}
                       </InfoRow>
                     );
                   })}

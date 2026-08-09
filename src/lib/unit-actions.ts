@@ -6,8 +6,8 @@ import { getLocale } from "next-intl/server";
 import { z } from "zod";
 import * as XLSX from "xlsx";
 
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 export type UnitRow = {
   id: string;
@@ -76,18 +76,24 @@ export async function createUnit(formData: FormData) {
 
   const parsed = unitSchema.safeParse({ ...raw, custom_fields: customFields });
   if (!parsed.success) {
+    console.error("[createUnit] Validation failed:", parsed.error.flatten());
     redirect(`/${locale}/properties/new?error=validation`);
   }
 
-  const { error } = await supabase.from("units").insert({
+  const admin = createAdminClient();
+
+  const { error } = await admin.from("units").insert({
     ...parsed.data,
     created_by: user.id,
   });
 
   if (error) {
+    console.error("[createUnit] Insert failed:", error);
     redirect(`/${locale}/properties/new?error=create-failed`);
   }
 
+  revalidatePath("/properties", "page");
+  revalidatePath("/", "layout");
   redirect(`/${locale}/properties`);
 }
 
@@ -582,7 +588,8 @@ export async function confirmGroupUnits(rows: Array<{ mapped: Record<string, str
     throw new Error(`All ${rows.length} rows failed validation:\n${details}`);
   }
 
-  const { error } = await supabase.from("units").insert(validRows);
+  const admin = createAdminClient();
+  const { error } = await admin.from("units").insert(validRows);
 
   if (error) throw new Error(`DB error: ${error.message} (code: ${error.code}, details: ${error.details}, hint: ${error.hint || "none"})`);
 
