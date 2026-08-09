@@ -578,12 +578,21 @@ export function renderTiptapHtml(
         return `<${tag} style="margin-bottom:10px;padding-right:24px">${items}</${tag}>`;
       }
       case "pageBreak": {
-        return `<div style="page-break-after:always;display:block;margin:20px 0;border-top:2px dashed #ccc;border-bottom:2px dashed #ccc;padding:10px;text-align:center;color:#999;font-size:12px">— نهاية الصفحة —</div>`;
+        return `<div style="page-break-after:always;display:flex;align-items:center;gap:16px;margin:30px 0;padding:16px;border-top:3px double #d4d4d8;border-bottom:3px double #d4d4d8;text-align:center;background:#fafafa;border-radius:4px"><span style="flex:1;border-top:1px dashed #d4d4d8"></span><span style="font-size:12px;color:#71717a;font-weight:600;font-family:Cairo,sans-serif">— نهاية الصفحة —</span><span style="flex:1;border-top:1px dashed #d4d4d8"></span></div>`;
       }
       default:
         return (n.content || []).map(renderNode).join("");
     }
   }
 
-  return renderNode(node);
+  let html = renderNode(node);
+
+  // Bulletproof fallback: direct string replace of [KEY] with filled values
+  for (const [key, value] of Object.entries(filledData)) {
+    if (value) {
+      html = html.split(`[${key}]`).join(value);
+    }
+  }
+
+  return html;
 }

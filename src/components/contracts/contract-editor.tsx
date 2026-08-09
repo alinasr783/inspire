@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent, Extension } from "@tiptap/react";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
@@ -18,6 +18,7 @@ import TableHeader from "@tiptap/extension-table-header";
 import Image from "@tiptap/extension-image";
 import { InputField } from "./input-field-extension";
 import { PageBreak } from "./page-break-extension";
+import { renderTiptapHtml } from "@/lib/generate-docx";
 import { ContractEditorToolbar } from "./contract-editor-toolbar";
 import { GOOGLE_FONTS_URL } from "./arabic-fonts";
 import { Button } from "@/components/ui/button";
@@ -124,6 +125,8 @@ export function ContractEditor({
   onNameChange,
 }: ContractEditorProps) {
   const [isPreview, setIsPreview] = useState(false);
+  const [showLivePreview, setShowLivePreview] = useState(false);
+  const [previewKey, setPreviewKey] = useState(0);
   const [inputDialogOpen, setInputDialogOpen] = useState(false);
   const [inputName, setInputName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -184,6 +187,7 @@ export function ContractEditor({
       },
     },
     editable: !isPreview,
+    onUpdate: () => setPreviewKey((k) => k + 1),
   });
 
   useEffect(() => {
@@ -278,6 +282,12 @@ const handleSave = useCallback(async () => {
     await onSave(json);
   }, [editor, onSave]);
 
+  const livePreviewHtml = useMemo(() => {
+    if (!showLivePreview || !editor) return "";
+    return renderTiptapHtml(serializeProseMirrorNode(editor.state.doc), {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showLivePreview, previewKey]);
+
   if (!editor) return null;
 
   return (
@@ -310,6 +320,19 @@ const handleSave = useCallback(async () => {
           onCreateInput={handleCreateInput}
         />
 
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showLivePreview ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowLivePreview((p) => !p)}
+          >
+            {showLivePreview ? "إخفاء المعاينة المباشرة" : "معاينة مباشرة"}
+          </Button>
+          {showLivePreview && (
+            <span className="text-xs text-muted-foreground">يتم تحديث المعاينة تلقائياً مع كل تعديل</span>
+          )}
+        </div>
+
         <div className="relative rounded-xl border bg-card shadow-lg">
           {isPreview && (
             <div className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 rounded-t-xl border-b bg-amber-500/10 px-4 py-2">
@@ -328,6 +351,15 @@ const handleSave = useCallback(async () => {
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {saving ? "جاري الحفظ..." : "حفظ القالب"}
             </Button>
+          </div>
+        )}
+
+        {showLivePreview && livePreviewHtml && (
+          <div className="rounded-xl border bg-white p-6 shadow-inner">
+            <div
+              dangerouslySetInnerHTML={{ __html: livePreviewHtml }}
+              className="prose prose-sm max-w-none"
+            />
           </div>
         )}
       </div>

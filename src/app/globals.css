@@ -441,22 +441,63 @@ tr[style*="background"] td:last-child {
 .page-break-node {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin: 16px 0;
-  padding: 8px;
-  border-top: 2px dashed var(--border);
-  border-bottom: 2px dashed var(--border);
+  gap: 12px;
+  margin: 20px 0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--muted);
   user-select: none;
-  cursor: default;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.page-break-node:hover {
+  background: var(--border);
+}
+
+.page-break-selected {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.page-break-line {
+  flex: 1;
+  height: 0;
+  border-top: 2px dashed var(--border);
 }
 
 .page-break-label {
   font-size: 11px;
   font-weight: 600;
   color: var(--muted-foreground);
-  opacity: 0.7;
   font-family: 'Cairo', sans-serif;
   direction: rtl;
+  white-space: nowrap;
+}
+
+.page-break-delete {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.page-break-delete:hover {
+  background: #ef4444;
+  color: #fff;
+}
+
+.page-break-node:hover .page-break-delete {
+  display: flex;
 }
 
 .tiptap .page-break-node[data-type="page-break"] {

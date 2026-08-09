@@ -7,7 +7,7 @@ import { renderTiptapHtml } from "@/lib/generate-docx";
 import { generateDocx } from "@/lib/generate-docx";
 import { generatePdf } from "@/lib/generate-pdf";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Download, Printer, FileText, FileImage, Loader2 } from "lucide-react";
+import { ArrowRight, Printer, FileText, FileImage, Loader2 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -64,23 +64,21 @@ export default function ViewInstancePage() {
   const handlePrint = useCallback(() => {
     const win = window.open("", "_blank");
     if (!win) return;
-    win.document.write(`
-      <!DOCTYPE html>
-      <html dir="rtl" lang="ar">
-      <head><meta charset="utf-8"><title>${instance?.template?.name || "عقد"}</title>
-      <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Reem+Kufi:wght@400;500;600;700&family=Aref+Ruqaa:wght@400;700&display=swap" rel="stylesheet">
-      <style>
-        @page { margin: 15mm; size: A4; }
-        body { font-family: 'Cairo', sans-serif; direction: rtl; line-height: 2; color: #000; font-size: 14px; }
-        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-      </style>
-      </head>
-      <body>${previewHtml}</body>
-      </html>
-    `);
+    const fontLink = "https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Reem+Kufi:wght@400;500;600;700&family=Aref+Ruqaa:wght@400;700&display=swap";
+    win.document.write(`<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head><meta charset="utf-8"><title>${instance?.template?.name || "عقد"}</title>
+<link href="${fontLink}" rel="stylesheet">
+<style>
+  @page { margin: 15mm; size: A4; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  body { font-family: 'Cairo', sans-serif; direction: rtl; line-height: 2; color: #000; font-size: 14px; padding: 20px; }
+</style></head>
+<body>${previewHtml}</body>
+</html>`);
     win.document.close();
     win.focus();
-    setTimeout(() => win.print(), 500);
+    win.print();
   }, [previewHtml, instance]);
 
   if (isLoading) {
