@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { getLocale } from "next-intl/server";
 import { z } from "zod";
 import * as XLSX from "xlsx";
@@ -287,6 +288,8 @@ export async function updateShareText(unitId: string, text: string) {
     .eq("id", unitId);
 
   if (error) throw new Error("update-failed");
+
+  revalidatePath("/", "layout");
 
   return { success: true };
 }
