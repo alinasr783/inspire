@@ -268,6 +268,8 @@
     "imageDeleted": "تم حذف الصورة بنجاح",
     "downloadImage": "تحميل",
     "imageDownloaded": "تم التحميل بنجاح",
+    "shareText": "نص المشاركة",
+    "shareTextPlaceholder": "أدخل تفاصيل العقار للمشاركة...",
     "noGallerySections": "لا توجد أقسام بعد. قم بإنشاء قسم لبدء رفع الصور.",
     "noImages": "لا توجد صور في هذا القسم",
     "errors": {

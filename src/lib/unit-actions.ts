@@ -28,6 +28,7 @@ export type UnitRow = {
   created_by: string;
   created_at: string;
   updated_at: string;
+  share_text: string | null;
 };
 
 const unitSchema = z.object({
@@ -244,6 +245,45 @@ export async function updateUnitField(unitId: string, field: string, value: stri
   const { error } = await admin
     .from("units")
     .update({ [field]: updateValue, updated_at: new Date().toISOString() })
+    .eq("id", unitId);
+
+  if (error) throw new Error("update-failed");
+
+  return { success: true };
+}
+
+export async function updateShareText(unitId: string, text: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("unauthorized");
+
+  const admin = createAdminClient();
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const isAdmin = profile?.role === "admin";
+
+  if (!isAdmin) {
+    const { data: unit } = await admin
+      .from("units")
+      .select("created_by, assigned_employee")
+      .eq("id", unitId)
+      .single();
+
+    const isOwner = unit?.created_by === user.id;
+    const isAssigned = unit?.assigned_employee === user.id;
+    if (!isOwner && !isAssigned) {
+      throw new Error("unauthorized");
+    }
+  }
+
+  const { error } = await admin
+    .from("units")
+    .update({ share_text: text.trim() || null, updated_at: new Date().toISOString() })
     .eq("id", unitId);
 
   if (error) throw new Error("update-failed");

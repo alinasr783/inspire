@@ -9,6 +9,7 @@ import { getColumnConfig } from "@/lib/unit-config-actions";
 import type { UnitRow } from "@/lib/unit-actions";
 import { getUnitGallery } from "@/lib/gallery-actions";
 import { GalleryManager } from "@/components/gallery/gallery-manager";
+import { MobileShareSection } from "@/components/properties/mobile-share-section";
 import { CopyButton } from "@/components/clients/copy-button";
 import { DeleteUnitButton } from "@/components/units/delete-unit-button";
 import { WhatsAppIcon, TelegramIcon } from "@/components/ui/brand-icons";
@@ -32,7 +33,7 @@ import {
   Wallet,
 } from "lucide-react";
 
-const STALE_DAYS = 7;
+const STALE_DAYS = 30;
 const WARN_DAYS = 4;
 
 type ContactStatus = "healthy" | "warning" | "stale" | "neutral";
@@ -338,6 +339,16 @@ export default async function UnitDetailPage({
   ].filter(Boolean).join("\n");
   const shareUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
 
+  const defaultMobileShareText = [
+    unitData.compound_name && `${t("compoundName")}: ${unitData.compound_name}`,
+    unitData.area && `${t("area")}: ${unitData.area}`,
+    unitData.unit_type && `${t("unitType")}: ${unitData.unit_type}`,
+    unitData.finishing_status && `${t("finishingStatus")}: ${unitData.finishing_status}`,
+    cashDisplay && `${t("cashRequired")}: ${cashDisplay}`,
+    remainingDisplay && `${t("remaining")}: ${remainingDisplay}`,
+  ].filter(Boolean).join("\n");
+  const mobileShareText = unitData.share_text || defaultMobileShareText;
+
   return (
     <div className="space-y-6 pb-20 md:pb-0">
       <nav className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -464,6 +475,11 @@ export default async function UnitDetailPage({
             </div>
           </div>
         </div>
+        <MobileShareSection
+          unitId={unitData.id}
+          shareText={mobileShareText}
+          canEdit={canManageGallery}
+        />
       </Card>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
