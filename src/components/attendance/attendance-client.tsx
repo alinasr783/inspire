@@ -132,10 +132,10 @@ export function AttendanceClient({
             {t("onTime")}
           </div>
           <div className="mt-2 text-2xl font-bold tracking-tight text-blue-600">
-            {records.filter((r) => {
-              const t = new Date(r.check_in_time);
-              return t.getHours() < 10;
-            }).length}
+              {records.filter((r) => {
+                const t = new Date(r.check_in_time);
+                return t.getHours() < 11 || (t.getHours() === 11 && t.getMinutes() < 30);
+              }).length}
           </div>
         </div>
         <div className="rounded-xl border bg-card p-4 shadow-sm ring-1 ring-foreground/5">

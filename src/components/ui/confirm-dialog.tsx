@@ -1,9 +1,7 @@
 "use client";
 
-import * as React from "react";
-import { AlertDialog } from "@base-ui/react/alert-dialog";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 
 function ConfirmDialog({
   open,
@@ -26,35 +24,33 @@ function ConfirmDialog({
   loading?: boolean;
   onConfirm: () => void;
 }) {
+  if (!open) return null;
+
   return (
-    <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
-      <AlertDialog.Portal>
-        <AlertDialog.Backdrop
-          className="fixed inset-0 z-50 bg-black/20 sm:backdrop-blur-[2px] transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0"
+    <>
+      {/* Desktop: centered dialog */}
+      <div className="hidden sm:block">
+        <div
+          className="fixed inset-0 z-50 bg-black/20 backdrop-blur-[2px] transition-opacity duration-150"
+          onClick={() => onOpenChange(false)}
         />
-        <AlertDialog.Popup
-          className={cn(
-            "fixed start-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-card p-4 sm:p-6 text-card-foreground shadow-lg transition duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 max-h-[75vh] overflow-y-auto overscroll-contain"
-          )}
+        <div
+          className="fixed start-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-card p-6 text-card-foreground shadow-lg"
         >
-          <AlertDialog.Title className="text-lg font-semibold leading-none tracking-tight">
+          <h2 className="text-lg font-semibold leading-none tracking-tight">
             {title}
-          </AlertDialog.Title>
+          </h2>
 
           {description && (
-            <AlertDialog.Description className="mt-3 text-sm text-muted-foreground leading-relaxed">
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
               {description}
-            </AlertDialog.Description>
+            </p>
           )}
 
           <div className="mt-6 flex justify-end gap-3">
-            <AlertDialog.Close
-              render={
-                <Button variant="outline" disabled={loading} />
-              }
-            >
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               {cancelLabel}
-            </AlertDialog.Close>
+            </Button>
             <Button
               variant={variant}
               onClick={onConfirm}
@@ -63,9 +59,56 @@ function ConfirmDialog({
               {confirmLabel}
             </Button>
           </div>
-        </AlertDialog.Popup>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
+        </div>
+      </div>
+
+      {/* Mobile: bottom sheet */}
+      <div className="sm:hidden">
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+          onClick={() => onOpenChange(false)}
+        />
+        <div
+          className="fixed inset-x-0 bottom-0 z-50 animate-in slide-in-from-bottom rounded-t-2xl border-t border-border bg-card px-4 pb-8 pt-4"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 2rem)" }}
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-base font-semibold">{title}</h2>
+            <button
+              onClick={() => onOpenChange(false)}
+              className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+
+          {description && (
+            <p className="mb-4 text-sm text-muted-foreground leading-relaxed">
+              {description}
+            </p>
+          )}
+
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
+              {cancelLabel}
+            </Button>
+            <Button
+              variant={variant}
+              className="flex-1"
+              onClick={onConfirm}
+              disabled={loading}
+            >
+              {confirmLabel}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 

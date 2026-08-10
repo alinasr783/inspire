@@ -62,6 +62,7 @@ export function AttendanceTable({
   const [deleteDialog, setDeleteDialog] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showMobileMap, setShowMobileMap] = useState(false);
 
   const sortedRecords = useMemo(
     () =>
@@ -121,6 +122,7 @@ export function AttendanceTable({
         .join(" ") || t("employee");
       setMapTitle(name);
       setMapUrl(getOpenStreetMapUrl(record.latitude, record.longitude));
+      setShowMobileMap(true);
     }
   };
 
@@ -423,35 +425,116 @@ export function AttendanceTable({
         </Dialog>
       )}
 
-      {/* Delete Confirm Dialog */}
-      <ConfirmDialog
-        open={!!deleteDialog}
-        onOpenChange={(o) => { if (!o) setDeleteDialog(null); }}
-        title={t("deleteConfirm")}
-        confirmLabel={deleting ? "..." : t("delete")}
-        cancelLabel={t("cancel")}
-        variant="destructive"
-        loading={deleting}
-        onConfirm={handleDelete}
-      />
+      {/* Delete Confirm */}
+      {deleteDialog && (
+        <>
+          {/* Desktop */}
+          <div className="hidden sm:block">
+            <ConfirmDialog
+              open={!!deleteDialog}
+              onOpenChange={(o) => { if (!o) setDeleteDialog(null); }}
+              title={t("deleteConfirm")}
+              confirmLabel={deleting ? "..." : t("delete")}
+              cancelLabel={t("cancel")}
+              variant="destructive"
+              loading={deleting}
+              onConfirm={handleDelete}
+            />
+          </div>
 
-      {/* Map Dialog */}
-      {mapUrl && (
-        <Dialog open={!!mapUrl} onOpenChange={() => setMapUrl(null)}>
-          <DialogContent className="sm:max-w-2xl p-4 sm:p-6">
-            <DialogHeader>
-              <DialogTitle className="text-base">{t("employeeLocation")}: {mapTitle}</DialogTitle>
-            </DialogHeader>
-            <div className="aspect-[4/3] sm:aspect-video w-full overflow-hidden rounded-lg border">
-              <iframe
-                src={mapUrl}
-                className="h-full w-full border-0"
-                loading="lazy"
-                title="OpenStreetMap"
-              />
+          {/* Mobile Bottom Sheet */}
+          <div className="sm:hidden">
+            <div
+              className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm animate-in fade-in-0"
+              onClick={() => setDeleteDialog(null)}
+            />
+            <div className="fixed inset-x-0 bottom-0 z-[60] animate-in slide-in-from-bottom rounded-t-2xl border-t border-border bg-card p-5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}>
+              <div className="mb-2 mx-auto h-1 w-10 rounded-full bg-muted-foreground/20" />
+              <h3 className="text-base font-semibold mb-2">{t("deleteConfirm")}</h3>
+              <p className="text-sm text-muted-foreground mb-4">{t("deleteConfirm")}</p>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 h-11"
+                  onClick={() => setDeleteDialog(null)}
+                  disabled={deleting}
+                >
+                  {t("cancel")}
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1 h-11"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? "..." : t("delete")}
+                </Button>
+              </div>
             </div>
-          </DialogContent>
-        </Dialog>
+          </div>
+        </>
+      )}
+
+      {/* Map View */}
+      {mapUrl && (
+        <>
+          {/* Desktop */}
+          <div className="hidden sm:block">
+            <Dialog open={!!mapUrl} onOpenChange={() => { setMapUrl(null); setShowMobileMap(false); }}>
+              <DialogContent className="sm:max-w-2xl p-4 sm:p-6">
+                <DialogHeader>
+                  <DialogTitle className="text-base">{t("employeeLocation")}: {mapTitle}</DialogTitle>
+                </DialogHeader>
+                <div className="aspect-[4/3] sm:aspect-video w-full overflow-hidden rounded-lg border">
+                  <iframe
+                    src={mapUrl}
+                    className="h-full w-full border-0"
+                    loading="lazy"
+                    title="OpenStreetMap"
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {/* Mobile Bottom Sheet */}
+          {showMobileMap && (
+            <div className="sm:hidden">
+              <div
+                className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm animate-in fade-in-0"
+                onClick={() => { setMapUrl(null); setShowMobileMap(false); }}
+              />
+              <div className="fixed inset-x-0 bottom-0 z-[60] animate-in slide-in-from-bottom rounded-t-2xl border-t border-border bg-card" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)", maxHeight: "75vh" }}>
+                <div className="sticky top-0 bg-card rounded-t-2xl pt-4 px-5 pb-3 border-b border-border">
+                  <div className="mb-2 mx-auto h-1 w-10 rounded-full bg-muted-foreground/20" />
+                  <h3 className="text-base font-semibold">{t("employeeLocation")}: {mapTitle}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <MapPin className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">OpenStreetMap</span>
+                  </div>
+                </div>
+                <div className="aspect-[4/3] w-full">
+                  <iframe
+                    src={mapUrl}
+                    className="h-full w-full border-0"
+                    loading="lazy"
+                    title="OpenStreetMap"
+                  />
+                </div>
+                <div className="p-4 flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setMapUrl(null); setShowMobileMap(false); }}
+                    className="h-10 px-6"
+                  >
+                    {t("cancel")}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </>
   );
