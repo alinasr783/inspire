@@ -20,6 +20,7 @@ import {
   FileText,
   X,
   UserCheck,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { prefetchUnits } from "@/hooks/queries/use-units-query";
@@ -55,6 +56,7 @@ const TABS = [
 const MORE_ITEMS = [
   { key: "unconfirmedData", href: "/unconfirmed-data", icon: FileSpreadsheet },
   { key: "attendance", href: "/attendance", icon: UserCheck },
+  { key: "calendar", href: "/calendar", icon: CalendarDays },
   { key: "visits", href: "/visits", icon: CalendarCheck },
   { key: "deals", href: "/deals", icon: Handshake },
   { key: "contracts", href: "/contracts", icon: FileText },

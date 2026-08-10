@@ -622,3 +622,203 @@ export async function deleteEmployee(
   revalidatePath("/");
   return { success: true };
 }
+
+export type ContactHealth = {
+  recent: number;
+  stale: number;
+  never: number;
+};
+
+export type MonthlyTrend = { month: string; count: number }[];
+
+export type CategoryChart = { name: string; value: number; color: string }[];
+
+export type TopCompound = { name: string; count: number };
+
+const CHART_COLORS = [
+  "#06c167", "#276ef1", "#8b5cf6", "#f59e0b", "#ef4444",
+  "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1",
+];
+
+const DAY_MS = 86400000;
+const STALE_DAYS = 7;
+const STALE_DAYS_OWNERS = 30;
+
+function daysSince(iso: string | null): number | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return Math.floor((Date.now() - d.getTime()) / DAY_MS);
+}
+
+function monthLabels(count: number, endDate: Date): string[] {
+  const months: string[] = [];
+  const d = new Date(endDate);
+  for (let i = count - 1; i >= 0; i--) {
+    const m = new Date(d.getFullYear(), d.getMonth() - i, 1);
+    months.push(`${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`);
+  }
+  return months;
+}
+
+function fillMonthly(rows: { created_at: string }[], count: number, endDate: Date): MonthlyTrend {
+  const labels = monthLabels(count, endDate);
+  const counts = new Map<string, number>();
+  labels.forEach((l) => counts.set(l, 0));
+
+  for (const row of rows) {
+    const d = new Date(row.created_at);
+    if (isNaN(d.getTime())) continue;
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (counts.has(key)) counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  return labels.map((l) => ({ month: l, count: counts.get(l) ?? 0 }));
+}
+
+export async function getEmployeeClientContactHealth(
+  employeeId: string
+): Promise<ContactHealth> {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  const { data: clients } = await admin
+    .from("clients")
+    .select("last_contact_date")
+    .eq("created_by", employeeId);
+
+  let recent = 0, stale = 0, never = 0;
+  for (const c of clients ?? []) {
+    const ds = daysSince(c.last_contact_date as string | null);
+    if (ds == null) never++;
+    else if (ds > STALE_DAYS) stale++;
+    else recent++;
+  }
+
+  return { recent, stale, never };
+}
+
+export async function getEmployeeClientsMonthlyTrend(
+  employeeId: string,
+  months: number = 12
+): Promise<MonthlyTrend> {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  const { data: clients } = await admin
+    .from("clients")
+    .select("created_at")
+    .eq("created_by", employeeId);
+
+  return fillMonthly((clients ?? []) as { created_at: string }[], months, new Date());
+}
+
+export async function getEmployeeOwnerContactHealth(
+  employeeId: string
+): Promise<ContactHealth> {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  const { data: created } = await admin
+    .from("units")
+    .select("last_contact_date")
+    .eq("created_by", employeeId);
+
+  const { data: assigned } = await admin
+    .from("units")
+    .select("last_contact_date")
+    .eq("assigned_employee", employeeId);
+
+  let recent = 0, stale = 0, never = 0;
+  const seen = new Set<string>();
+  for (const list of [created ?? [], assigned ?? []]) {
+    for (const u of list) {
+      const key = u.last_contact_date as string ?? "null";
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const ds = daysSince(u.last_contact_date as string | null);
+      if (ds == null) never++;
+      else if (ds > STALE_DAYS_OWNERS) stale++;
+      else recent++;
+    }
+  }
+
+  return { recent, stale, never };
+}
+
+export async function getEmployeeUnitsMonthlyTrend(
+  employeeId: string,
+  months: number = 12
+): Promise<MonthlyTrend> {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  const { data: created } = await admin
+    .from("units")
+    .select("created_at")
+    .eq("created_by", employeeId);
+
+  const { data: assigned } = await admin
+    .from("units")
+    .select("created_at")
+    .eq("assigned_employee", employeeId);
+
+  const all = (created ?? []).concat(assigned ?? []);
+  return fillMonthly(all as { created_at: string }[], months, new Date());
+}
+
+export async function getEmployeeUnitsByRentSale(
+  employeeId: string
+): Promise<CategoryChart> {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  const { data: created } = await admin
+    .from("units")
+    .select("rent_sale")
+    .eq("created_by", employeeId);
+
+  const { data: assigned } = await admin
+    .from("units")
+    .select("rent_sale")
+    .eq("assigned_employee", employeeId);
+
+  const all = (created ?? []).concat(assigned ?? []);
+  const map = new Map<string, number>();
+  for (const u of all) {
+    const val = (u.rent_sale as string ?? "").trim();
+    if (val) map.set(val, (map.get(val) ?? 0) + 1);
+  }
+
+  const sorted = [...map.entries()].sort((a, b) => b[1] - a[1]);
+  return sorted.map(([name, value], i) => ({ name, value, color: CHART_COLORS[i % CHART_COLORS.length] }));
+}
+
+export async function getEmployeeTopCompounds(
+  employeeId: string
+): Promise<TopCompound[]> {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  const { data: created } = await admin
+    .from("units")
+    .select("compound_name")
+    .eq("created_by", employeeId);
+
+  const { data: assigned } = await admin
+    .from("units")
+    .select("compound_name")
+    .eq("assigned_employee", employeeId);
+
+  const all = (created ?? []).concat(assigned ?? []);
+  const map = new Map<string, number>();
+  for (const u of all) {
+    const c = (u.compound_name as string ?? "").trim();
+    if (c) map.set(c, (map.get(c) ?? 0) + 1);
+  }
+
+  return [...map.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count }));
+}

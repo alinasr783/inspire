@@ -12,6 +12,12 @@ import {
   getEmployeeAttendance,
   getEmployeeWorkLogs,
   getEmployeeDeals,
+  getEmployeeClientContactHealth,
+  getEmployeeClientsMonthlyTrend,
+  getEmployeeOwnerContactHealth,
+  getEmployeeUnitsMonthlyTrend,
+  getEmployeeUnitsByRentSale,
+  getEmployeeTopCompounds,
   type TeamMemberRow,
   type TeamMemberProfile,
   type MemberClient,
@@ -21,6 +27,10 @@ import {
   type MemberAttendance,
   type MemberWorkLog,
   type MemberDeal,
+  type ContactHealth,
+  type MonthlyTrend,
+  type CategoryChart,
+  type TopCompound,
 } from "@/lib/team-actions";
 
 export function useTeamMembersQuery(initialData?: TeamMemberRow[]) {
@@ -124,6 +134,66 @@ export function useEmployeeDealsQuery(employeeId: string, initialData?: MemberDe
   return useQuery({
     queryKey: queryKeys.team.memberDeals(employeeId),
     queryFn: () => getEmployeeDeals(employeeId),
+    initialData,
+    staleTime: 5 * 60 * 1000,
+    enabled: !!employeeId,
+  });
+}
+
+export function useEmployeeClientContactHealthQuery(employeeId: string, initialData?: ContactHealth) {
+  return useQuery({
+    queryKey: [...queryKeys.team.member(employeeId), "clientContactHealth"],
+    queryFn: () => getEmployeeClientContactHealth(employeeId),
+    initialData,
+    staleTime: 5 * 60 * 1000,
+    enabled: !!employeeId,
+  });
+}
+
+export function useEmployeeClientsMonthlyTrendQuery(employeeId: string, months?: number, initialData?: MonthlyTrend) {
+  return useQuery({
+    queryKey: [...queryKeys.team.member(employeeId), "clientsMonthlyTrend", months ?? 12],
+    queryFn: () => getEmployeeClientsMonthlyTrend(employeeId, months),
+    initialData,
+    staleTime: 5 * 60 * 1000,
+    enabled: !!employeeId,
+  });
+}
+
+export function useEmployeeOwnerContactHealthQuery(employeeId: string, initialData?: ContactHealth) {
+  return useQuery({
+    queryKey: [...queryKeys.team.member(employeeId), "ownerContactHealth"],
+    queryFn: () => getEmployeeOwnerContactHealth(employeeId),
+    initialData,
+    staleTime: 5 * 60 * 1000,
+    enabled: !!employeeId,
+  });
+}
+
+export function useEmployeeUnitsMonthlyTrendQuery(employeeId: string, months?: number, initialData?: MonthlyTrend) {
+  return useQuery({
+    queryKey: [...queryKeys.team.member(employeeId), "unitsMonthlyTrend", months ?? 12],
+    queryFn: () => getEmployeeUnitsMonthlyTrend(employeeId, months),
+    initialData,
+    staleTime: 5 * 60 * 1000,
+    enabled: !!employeeId,
+  });
+}
+
+export function useEmployeeUnitsByRentSaleQuery(employeeId: string, initialData?: CategoryChart) {
+  return useQuery({
+    queryKey: [...queryKeys.team.member(employeeId), "unitsByRentSale"],
+    queryFn: () => getEmployeeUnitsByRentSale(employeeId),
+    initialData,
+    staleTime: 5 * 60 * 1000,
+    enabled: !!employeeId,
+  });
+}
+
+export function useEmployeeTopCompoundsQuery(employeeId: string, initialData?: TopCompound[]) {
+  return useQuery({
+    queryKey: [...queryKeys.team.member(employeeId), "topCompounds"],
+    queryFn: () => getEmployeeTopCompounds(employeeId),
     initialData,
     staleTime: 5 * 60 * 1000,
     enabled: !!employeeId,

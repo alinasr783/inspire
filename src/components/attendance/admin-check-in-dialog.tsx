@@ -84,7 +84,7 @@ export function AdminCheckInDialog({
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("adminCheckInTitle")}</DialogTitle>
             <DialogDescription>{t("adminCheckInDesc")}</DialogDescription>
@@ -93,14 +93,14 @@ export function AdminCheckInDialog({
             <div>
               <label className="text-sm font-medium">{t("employee")}</label>
               {loadingEmployees ? (
-                <div className="mt-1 h-9 flex items-center">
+                <div className="mt-1.5 h-11 flex items-center">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
               ) : (
                 <select
                   value={selectedEmployee}
                   onChange={(e) => setSelectedEmployee(e.target.value)}
-                  className="mt-1 w-full h-9 rounded-lg border border-input bg-transparent px-3 py-1 text-sm"
+                  className="mt-1.5 w-full h-11 rounded-lg border border-input bg-background px-3 py-2 text-sm"
                 >
                   <option value="">{t("selectEmployee")}</option>
                   {employees.map((emp) => (
@@ -117,7 +117,7 @@ export function AdminCheckInDialog({
                 type="text"
                 value={selectedDate}
                 disabled
-                className="mt-1 w-full h-9 rounded-lg border border-input bg-muted px-3 py-1 text-sm text-muted-foreground"
+                className="mt-1.5 w-full h-11 rounded-lg border border-input bg-muted px-3 py-2 text-sm text-muted-foreground"
               />
             </div>
             <div>
@@ -126,7 +126,7 @@ export function AdminCheckInDialog({
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                className="mt-1 w-full h-9 rounded-lg border border-input bg-transparent px-3 py-1 text-sm"
+                className="mt-1.5 w-full h-11 rounded-lg border border-input bg-background px-3 py-2 text-sm"
               />
             </div>
             <div>
@@ -136,10 +136,10 @@ export function AdminCheckInDialog({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={t("notesPlaceholder")}
-                className="mt-1 w-full h-9 rounded-lg border border-input bg-transparent px-3 py-1 text-sm"
+                className="mt-1.5 w-full h-11 rounded-lg border border-input bg-background px-3 py-2 text-sm"
               />
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-1">
               <Button variant="outline" onClick={() => setOpen(false)}>
                 {t("cancel")}
               </Button>
