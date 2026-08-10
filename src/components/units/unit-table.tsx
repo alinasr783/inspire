@@ -593,7 +593,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
 
   return (
     <TooltipProvider>
-      <div ref={containerRef} className="rounded-lg border">
+      <div ref={containerRef} className="overflow-x-auto overflow-y-clip rounded-lg border">
         <table className="border-collapse text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
             <col style={{ width: 60 }} />
@@ -602,7 +602,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
             ))}
             <col style={{ width: ACTIONS_COL_WIDTH }} />
           </colgroup>
-          <thead className="sticky top-0 z-10">
+          <thead className="sticky top-[-1rem] sm:top-[-1.5rem] md:top-[-2rem] z-10">
             <tr className="bg-muted/95 backdrop-blur-sm">
               <th className="border-b border-r px-2.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">{t("id")}</th>
               {localCols.map((col, idx) => (

@@ -210,6 +210,9 @@ export async function deleteUnit(id: string) {
 
   if (error) throw new Error(`delete-failed: ${error.message}`);
 
+  revalidatePath("/properties", "page");
+  revalidatePath("/", "layout");
+
   return { success: true };
 }
 
@@ -650,6 +653,8 @@ export async function highlightRow(unitId: string, color: "green" | "red" | null
     .eq("id", unitId);
 
   if (error) throw new Error("update-failed");
+
+  revalidatePath("/properties", "page");
 
   return { success: true };
 }

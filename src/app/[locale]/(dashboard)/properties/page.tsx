@@ -108,14 +108,14 @@ export default async function PropertiesPage({
         </div>
       </div>
 
-      <Card className="flex max-h-[calc(100vh-180px)] flex-col">
-        <CardHeader className="shrink-0 pb-3">
+      <Card>
+        <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             {t("allProperties")}
             <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">{unitsData.length}</span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="min-h-0 flex-1 overflow-y-auto pt-0">
+        <CardContent>
           <PropertiesClient
             initialUnits={unitsData}
             columns={allColumns}
