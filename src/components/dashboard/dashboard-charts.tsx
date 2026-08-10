@@ -18,13 +18,13 @@ export type MonthlyPoint = {
   month: string;
   properties: number;
   clients: number;
-  deals: number;
+  visits: number;
 };
 
 const COLORS = {
   properties: "#06c167",
   clients: "#276ef1",
-  deals: "#8b5cf6",
+  visits: "#f59e0b",
 } as const;
 
 function CustomTooltip({
@@ -129,13 +129,13 @@ export function MonthlyTrendChart({
               ))}
             </Bar>
             <Bar
-              dataKey="deals"
-              name={t("totalDeals")}
-              fill={COLORS.deals}
+              dataKey="visits"
+              name={t("totalVisits")}
+              fill={COLORS.visits}
               radius={[4, 4, 0, 0]}
             >
               {data.map((_, i) => (
-                <Cell key={`d-${i}`} fill={COLORS.deals} />
+                <Cell key={`v-${i}`} fill={COLORS.visits} />
               ))}
             </Bar>
           </BarChart>

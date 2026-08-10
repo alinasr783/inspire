@@ -17,20 +17,20 @@ import {
   Plus,
   TrendingUp,
   CheckCircle2,
-  Clock,
   Banknote,
-  Target,
   CalendarDays,
   ChevronRight,
   Home,
   Trophy,
   Info,
+  CalendarCheck,
 } from "lucide-react";
 
 // ── helpers ──
 
 const DAY_MS = 86400000;
 const STALE_DAYS = 7;
+const STALE_DAYS_OWNERS = 30;
 
 function daysSince(iso: string | null): number | null {
   if (!iso) return null;
@@ -59,7 +59,7 @@ function aggregateMonthly(
   ];
   const months =
     locale === "ar" ? arMonths : enMonths;
-  const buckets = new Map<string, { month: string; properties: number; clients: number; deals: number }>();
+  const buckets = new Map<string, { month: string; properties: number; clients: number; visits: number }>();
 
   for (let i = 5; i >= 0; i--) {
     const d = new Date(since.getFullYear(), since.getMonth() + (5 - i), 1);
@@ -68,7 +68,7 @@ function aggregateMonthly(
       month: months[d.getMonth()],
       properties: 0,
       clients: 0,
-      deals: 0,
+      visits: 0,
     });
   }
 
@@ -86,7 +86,7 @@ function aggregateMonthly(
 function mergeMonthly(
   base: MonthlyPoint[],
   rows: { created_at: string }[],
-  field: "clients" | "deals"
+  field: "clients" | "visits"
 ): MonthlyPoint[] {
   for (const row of rows) {
     const d = new Date(row.created_at);
@@ -216,7 +216,7 @@ export default async function DashboardPage({
   const [
     { data: allUnits },
     { data: allClients },
-    { data: allDeals },
+    { data: allVisits },
     { data: allTasks },
     { data: cheapRentUnits },
     { data: cheapSaleUnits },
@@ -225,16 +225,16 @@ export default async function DashboardPage({
     admin
       .from("units")
       .select(
-        "created_at, rent_sale, unit_type, last_contact_date, cash_required, remaining"
+        "created_at, rent_sale, unit_type, last_contact_date, cash_required, remaining, created_by, assigned_employee"
       )
       .limit(50000),
     admin
       .from("clients")
-      .select("created_at, last_contact_date")
+      .select("created_at, last_contact_date, created_by, assigned_employee")
       .limit(50000),
     admin
-      .from("generated_deals")
-      .select("created_at, recommendation_status, final_score")
+      .from("visits")
+      .select("created_at, status")
       .limit(50000),
     admin.from("tasks").select("created_at, status, progress, due_date").limit(50000),
     admin
@@ -266,7 +266,7 @@ export default async function DashboardPage({
 
   const units = (allUnits ?? []) as Record<string, unknown>[];
   const clients = (allClients ?? []) as Record<string, unknown>[];
-  const deals = (allDeals ?? []) as Record<string, unknown>[];
+  const visits = (allVisits ?? []) as Record<string, unknown>[];
   const tasks = (allTasks ?? []) as Record<string, unknown>[];
   const cheapRent = (cheapRentUnits ?? []) as {
     id: string;
@@ -370,7 +370,15 @@ export default async function DashboardPage({
   // ── counts ──
   const propsCount = units.length;
   const clientsCount = clients.length;
-  const dealsCount = deals.length;
+  const visitsCount = visits.length;
+
+  // ── user-specific counts ──
+  const userClientsCount = clients.filter(
+    (c) => c.created_by === user?.id || c.assigned_employee === user?.id
+  ).length;
+  const userUnitsCount = units.filter(
+    (u) => u.created_by === user?.id || u.assigned_employee === user?.id
+  ).length;
 
   // ── financials ──
   let totalCash = 0;
@@ -391,15 +399,28 @@ export default async function DashboardPage({
     else if (rs.includes("بيع") || rs.toLowerCase().includes("sale")) saleCount++;
   }
 
-  // ── deal pipeline ──
-  let pendingDeals = 0;
-  let approvedDeals = 0;
-  let rejectedDeals = 0;
-  for (const d of deals) {
-    const s = d.recommendation_status as string;
-    if (s === "pending") pendingDeals++;
-    else if (s === "approved") approvedDeals++;
-    else if (s === "rejected") rejectedDeals++;
+  // ── clients contact health (clients data, 7-day threshold) ──
+  let clientsStale = 0;
+  let clientsContacted = 0;
+  let clientsNever = 0;
+  for (const c of clients) {
+    const lcd = c.last_contact_date as string | null;
+    const ds = daysSince(lcd);
+    if (ds == null) clientsNever++;
+    else if (ds > STALE_DAYS) clientsStale++;
+    else clientsContacted++;
+  }
+
+  // ── owners contact health (units data, 30-day threshold) ──
+  let ownersStale = 0;
+  let ownersContacted = 0;
+  let ownersNever = 0;
+  for (const u of units) {
+    const lcd = u.last_contact_date as string | null;
+    const ds = daysSince(lcd);
+    if (ds == null) ownersNever++;
+    else if (ds > STALE_DAYS_OWNERS) ownersStale++;
+    else ownersContacted++;
   }
 
   // ── task status ──
@@ -423,18 +444,6 @@ export default async function DashboardPage({
     }
   }
 
-  // ── contact health ──
-  let staleProps = 0;
-  let contactedProps = 0;
-  let neverContactedProps = 0;
-  for (const u of units) {
-    const lcd = u.last_contact_date as string | null;
-    const ds = daysSince(lcd);
-    if (ds == null) neverContactedProps++;
-    else if (ds > STALE_DAYS) staleProps++;
-    else contactedProps++;
-  }
-
   // ── charts data ──
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
@@ -451,8 +460,8 @@ export default async function DashboardPage({
   );
   monthlyData = mergeMonthly(
     monthlyData,
-    deals as { created_at: string }[],
-    "deals"
+    visits as { created_at: string }[],
+    "visits"
   );
 
   // ── today ──
@@ -493,6 +502,10 @@ export default async function DashboardPage({
               <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
                 <CalendarDays className="me-1 inline size-3 sm:size-3.5" />
                 {today}
+                {" · "}
+                {t("userClientsCount", { count: userClientsCount })}
+                {" · "}
+                {t("userPropertiesCount", { count: userUnitsCount })}
               </p>
             </div>
           </div>
@@ -509,10 +522,10 @@ export default async function DashboardPage({
                 {t("addClient")}
               </Button>
             </Link>
-            <Link href="/deals" className="sm:w-auto">
+            <Link href="/visits/new" className="sm:w-auto">
               <Button size="sm" className="w-full gap-1.5">
-                <Target className="size-3.5" />
-                {t("generateDeals")}
+                <Plus className="size-3.5" />
+                {t("addVisit")}
               </Button>
             </Link>
           </div>
@@ -536,11 +549,11 @@ export default async function DashboardPage({
           color="#276ef1"
         />
         <StatCard
-          icon={Handshake}
-          label={t("totalDeals")}
-          value={formatNumber(dealsCount)}
-          sub={t("dealsSub", { approved: approvedDeals })}
-          color="#8b5cf6"
+          icon={CalendarCheck}
+          label={t("totalVisits")}
+          value={formatNumber(visitsCount)}
+          sub={t("visitsSub", { count: visitsCount })}
+          color="#f59e0b"
         />
         <StatCard
           icon={ListChecks}
@@ -558,37 +571,6 @@ export default async function DashboardPage({
 
       {/* Status Overview Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        {/* Deal Pipeline */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Target className="size-4 text-purple-600" />
-              {t("dealPipeline")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{t("pipelinePending")}</span>
-              <span className="font-semibold">{pendingDeals}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{t("pipelineApproved")}</span>
-              <span className="font-semibold text-emerald-600">{approvedDeals}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{t("pipelineRejected")}</span>
-              <span className="font-semibold text-muted-foreground">{rejectedDeals}</span>
-            </div>
-            <ProportionBar
-              segments={[
-                { label: t("pipelineApproved"), count: approvedDeals, color: "#10b981" },
-                { label: t("pipelinePending"), count: pendingDeals, color: "#f59e0b" },
-                { label: t("pipelineRejected"), count: rejectedDeals, color: "#6b7280" },
-              ]}
-            />
-          </CardContent>
-        </Card>
-
         {/* Task Overview */}
         <Card>
           <CardHeader className="pb-3">
@@ -622,48 +604,71 @@ export default async function DashboardPage({
           </CardContent>
         </Card>
 
-        {/* Contact Health */}
+        {/* Clients Contact Health */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Clock className="size-4 text-emerald-600" />
-              {t("contactHealth")}
+              <Users className="size-4 text-blue-600" />
+              {t("clientsContactHealth")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{t("healthContacted")}</span>
-              <span className="font-semibold text-emerald-600">{contactedProps}</span>
+              <span className="text-muted-foreground">{t("contactsContacted")}</span>
+              <span className="font-semibold text-emerald-600">{clientsContacted}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{t("healthStale")}</span>
-              <span className={cn("font-semibold", staleProps > 0 && "text-red-600")}>
-                {staleProps}
+              <span className="text-muted-foreground">{t("contactsStale")}</span>
+              <span className={cn("font-semibold", clientsStale > 0 && "text-red-600")}>
+                {clientsStale}
               </span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{t("healthNever")}</span>
+              <span className="text-muted-foreground">{t("contactsNever")}</span>
               <span className="font-semibold text-muted-foreground">
-                {neverContactedProps}
+                {clientsNever}
               </span>
             </div>
             <ProportionBar
               segments={[
-                {
-                  label: t("healthContacted"),
-                  count: contactedProps,
-                  color: "#10b981",
-                },
-                {
-                  label: t("healthStale"),
-                  count: staleProps,
-                  color: "#ef4444",
-                },
-                {
-                  label: t("healthNever"),
-                  count: neverContactedProps,
-                  color: "#9ca3af",
-                },
+                { label: t("contactsContacted"), count: clientsContacted, color: "#10b981" },
+                { label: t("contactsStale"), count: clientsStale, color: "#ef4444" },
+                { label: t("contactsNever"), count: clientsNever, color: "#9ca3af" },
+              ]}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Owners Contact Health */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Building2 className="size-4 text-emerald-600" />
+              {t("ownersContactHealth")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{t("ownersContacted")}</span>
+              <span className="font-semibold text-emerald-600">{ownersContacted}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{t("ownersStale")}</span>
+              <span className={cn("font-semibold", ownersStale > 0 && "text-red-600")}>
+                {ownersStale}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{t("ownersNever")}</span>
+              <span className="font-semibold text-muted-foreground">
+                {ownersNever}
+              </span>
+            </div>
+            <ProportionBar
+              segments={[
+                { label: t("ownersContacted"), count: ownersContacted, color: "#10b981" },
+                { label: t("ownersStale"), count: ownersStale, color: "#ef4444" },
+                { label: t("ownersNever"), count: ownersNever, color: "#9ca3af" },
               ]}
             />
           </CardContent>
