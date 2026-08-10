@@ -20,7 +20,7 @@ import { InputField } from "./input-field-extension";
 import { PageBreak } from "./page-break-extension";
 import { renderTiptapHtml } from "@/lib/generate-docx";
 import { ContractEditorToolbar } from "./contract-editor-toolbar";
-import { GOOGLE_FONTS_URL } from "./arabic-fonts";
+import { GOOGLE_FONTS_URL, ARABIC_FONTS, FONT_SIZES } from "./arabic-fonts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -129,6 +129,8 @@ export function ContractEditor({
   const [previewKey, setPreviewKey] = useState(0);
   const [inputDialogOpen, setInputDialogOpen] = useState(false);
   const [inputName, setInputName] = useState("");
+  const [inputFontFamily, setInputFontFamily] = useState("");
+  const [inputFontSize, setInputFontSize] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
@@ -208,9 +210,9 @@ export function ContractEditor({
   }, [editor]);
 
   const createInputField = useCallback(
-    (name: string) => {
+    (name: string, fontFamily?: string, fontSize?: string) => {
       if (!editor || !name.trim()) return;
-      editor.chain().focus().setInputField(name.trim()).run();
+      editor.chain().focus().setInputField(name.trim(), fontFamily || undefined, fontSize || undefined).run();
     },
     [editor]
   );
@@ -221,10 +223,12 @@ export function ContractEditor({
     if (from !== to) {
       editor.chain().focus().deleteSelection().run();
     }
-    createInputField(inputName.trim());
+    createInputField(inputName.trim(), inputFontFamily || undefined, inputFontSize || undefined);
     setInputDialogOpen(false);
     setInputName("");
-  }, [inputName, editor, createInputField]);
+    setInputFontFamily("");
+    setInputFontSize("");
+  }, [inputName, inputFontFamily, inputFontSize, editor, createInputField]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -355,11 +359,13 @@ const handleSave = useCallback(async () => {
         )}
 
         {showLivePreview && livePreviewHtml && (
-          <div className="rounded-xl border bg-white p-6 shadow-inner">
-            <div
-              dangerouslySetInnerHTML={{ __html: livePreviewHtml }}
-              className="prose prose-sm max-w-none"
-            />
+          <div className="flex justify-center bg-muted/30 py-6">
+            <div className="bg-white shadow-2xl" style={{ width: "210mm", minHeight: "297mm", padding: "20mm" }}>
+              <div
+                dangerouslySetInnerHTML={{ __html: livePreviewHtml }}
+                className="prose prose-sm max-w-none"
+              />
+            </div>
           </div>
         )}
       </div>
@@ -389,6 +395,43 @@ const handleSave = useCallback(async () => {
                   }
                 }}
               />
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <div className="space-y-2">
+                  <Label className="text-right block text-xs">نوع الخط</Label>
+                  <select
+                    value={inputFontFamily}
+                    onChange={(e) => setInputFontFamily(e.target.value)}
+                    className="h-9 w-full rounded-lg border bg-background px-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary text-right"
+                    dir="rtl"
+                  >
+                    <option value="">نفس خط العقد</option>
+                    <optgroup label="─ عصرية ─">
+                      {ARABIC_FONTS.filter((f) => f.category === "عصرية").map((f) => (
+                        <option key={f.value} value={f.value}>{f.label}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="─ تقليدية ─">
+                      {ARABIC_FONTS.filter((f) => f.category === "تقليدية").map((f) => (
+                        <option key={f.value} value={f.value}>{f.label}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-right block text-xs">حجم الخط</Label>
+                  <select
+                    value={inputFontSize}
+                    onChange={(e) => setInputFontSize(e.target.value)}
+                    className="h-9 w-full rounded-lg border bg-background px-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary text-right"
+                    dir="rtl"
+                  >
+                    <option value="">نفس حجم العقد</option>
+                    {FONT_SIZES.map((s) => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <p className="text-right text-xs text-muted-foreground">
                 سيظهر هذا الحقل كعنصر تفاعلي في النموذج عند ملء العقد
               </p>

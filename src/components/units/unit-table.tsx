@@ -164,11 +164,14 @@ interface TableRowProps {
   };
   locale: string;
   duplicatePhones: Set<string>;
+  isSelected: boolean;
+  onRowMouseEnter: (uid: string) => void;
 }
 
 const TableRowComponent = memo(function TableRowComponent({
   unit, columns, index, onCellSave, isAdmin, onDelete, userId, onContextMenu,
   employeeMap, uniqueValues, editing, cellEdit, editCancel, stale, getCellInfo, locale, duplicatePhones,
+  isSelected, onRowMouseEnter,
 }: TableRowProps) {
   const uid = unit.id;
   const ed = editing;
@@ -179,7 +182,12 @@ const TableRowComponent = memo(function TableRowComponent({
   const handleDeleteClick = useCallback(() => onDelete(uid), [onDelete, uid]);
 
   return (
-    <tr className={`border-b last:border-0 hover:bg-muted/30 ${stale ? "inspire-stale-contact" : ""}`} data-row-id={uid} data-stale={stale ? "true" : undefined}>
+    <tr
+      className={`border-b last:border-0 hover:bg-muted/30 ${stale ? "inspire-stale-contact" : ""} ${isSelected ? "bg-primary/10 dark:bg-muted/40" : ""}`}
+      data-row-id={uid}
+      data-stale={stale ? "true" : undefined}
+      onMouseEnter={() => onRowMouseEnter(uid)}
+    >
       <td className="border-b border-r px-2.5 py-2 text-center text-xs tabular-nums text-muted-foreground" style={highlightBg ? { backgroundColor: highlightBg } : undefined}>{index + 1}</td>
       {columns.map((col) => {
         const key = col.key;
@@ -253,6 +261,53 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
 
   const srvRef = useRef(serverUnits); srvRef.current = serverUnits;
   const bgSaveRef = useRef<Set<string>>(new Set());
+
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const selectedRowRef = useRef<string | null>(null);
+  const localUnitsRef = useRef(localUnits);
+  localUnitsRef.current = localUnits;
+
+  useEffect(() => {
+    if (localUnits.length > 0) {
+      const exists = selectedRowRef.current && localUnits.find((u) => u.id === selectedRowRef.current);
+      if (!exists) {
+        const firstId = localUnits[0].id;
+        selectedRowRef.current = firstId;
+        setSelectedRowId(firstId);
+      }
+    }
+  }, [localUnits]);
+
+  const handleRowMouseEnter = useCallback((uid: string) => {
+    selectedRowRef.current = uid;
+    setSelectedRowId(uid);
+  }, []);
+
+  useEffect(() => {
+    function onArrow(e: KeyboardEvent) {
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      const units = localUnitsRef.current;
+      if (units.length === 0) return;
+      e.preventDefault();
+
+      const current = selectedRowRef.current;
+      const idx = current ? units.findIndex((u) => u.id === current) : -1;
+      const nextIdx = e.key === "ArrowUp"
+        ? Math.max(0, idx <= 0 ? 0 : idx - 1)
+        : Math.min(units.length - 1, idx < 0 ? 0 : idx + 1);
+      const nextId = units[nextIdx]?.id;
+      if (!nextId) return;
+
+      selectedRowRef.current = nextId;
+      setSelectedRowId(nextId);
+      const el = document.querySelector(`tr[data-row-id="${nextId}"]`);
+      if (el) el.scrollIntoView({ block: "nearest", behavior: "auto" });
+    }
+    document.addEventListener("keydown", onArrow);
+    return () => document.removeEventListener("keydown", onArrow);
+  }, []);
 
   const dragIdxRef = useRef<number | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -538,7 +593,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
 
   return (
     <TooltipProvider>
-      <div ref={containerRef} className="overflow-x-auto rounded-lg border">
+      <div ref={containerRef} className="rounded-lg border">
         <table className="border-collapse text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
             <col style={{ width: 60 }} />
@@ -547,8 +602,8 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
             ))}
             <col style={{ width: ACTIONS_COL_WIDTH }} />
           </colgroup>
-          <thead>
-            <tr className="bg-muted/40">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-muted/95 backdrop-blur-sm">
               <th className="border-b border-r px-2.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">{t("id")}</th>
               {localCols.map((col, idx) => (
                 <th key={col.id}
@@ -603,6 +658,8 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
                   getCellInfo={getCellInfo}
                   locale={locale}
                   duplicatePhones={duplicatePhones}
+                  isSelected={selectedRowId === unit.id}
+                  onRowMouseEnter={handleRowMouseEnter}
                 />
               ))
             )}

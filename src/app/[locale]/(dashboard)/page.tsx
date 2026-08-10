@@ -367,23 +367,34 @@ export default async function DashboardPage({
     .sort((a, b) => b.score - a.score)
     .slice(0, 5);
 
+  // ── scope data for non-admin ──
+  const isAdmin = profile?.role === "admin";
+  const scopedUnits: Record<string, unknown>[] = isAdmin
+    ? units
+    : units.filter((u) => u.created_by === user?.id || u.assigned_employee === user?.id);
+  const scopedClients: Record<string, unknown>[] = isAdmin
+    ? clients
+    : clients.filter((c) => c.created_by === user?.id || c.assigned_employee === user?.id);
+  const scopedVisits: Record<string, unknown>[] = isAdmin
+    ? visits
+    : visits.filter((v) => v.created_by === user?.id || v.assigned_to === user?.id);
+  const scopedTasks: Record<string, unknown>[] = isAdmin
+    ? tasks
+    : tasks.filter((t) => t.assigned_to === user?.id || t.created_by === user?.id);
+
   // ── counts ──
-  const propsCount = units.length;
-  const clientsCount = clients.length;
-  const visitsCount = visits.length;
+  const propsCount = scopedUnits.length;
+  const clientsCount = scopedClients.length;
+  const visitsCount = scopedVisits.length;
 
   // ── user-specific counts ──
-  const userClientsCount = clients.filter(
-    (c) => c.created_by === user?.id || c.assigned_employee === user?.id
-  ).length;
-  const userUnitsCount = units.filter(
-    (u) => u.created_by === user?.id || u.assigned_employee === user?.id
-  ).length;
+  const userClientsCount = scopedClients.length;
+  const userUnitsCount = scopedUnits.length;
 
   // ── financials ──
   let totalCash = 0;
   let totalRemaining = 0;
-  for (const u of units) {
+  for (const u of scopedUnits) {
     const c = u.cash_required as number | null;
     const r = u.remaining as number | null;
     if (c != null) totalCash += Number(c);
@@ -393,7 +404,7 @@ export default async function DashboardPage({
   // ── rent / sale split ──
   let rentCount = 0;
   let saleCount = 0;
-  for (const u of units) {
+  for (const u of scopedUnits) {
     const rs = (u.rent_sale as string | null) ?? "";
     if (rs.includes("يجار") || rs.toLowerCase().includes("rent")) rentCount++;
     else if (rs.includes("بيع") || rs.toLowerCase().includes("sale")) saleCount++;
@@ -403,7 +414,7 @@ export default async function DashboardPage({
   let clientsStale = 0;
   let clientsContacted = 0;
   let clientsNever = 0;
-  for (const c of clients) {
+  for (const c of scopedClients) {
     const lcd = c.last_contact_date as string | null;
     const ds = daysSince(lcd);
     if (ds == null) clientsNever++;
@@ -415,7 +426,7 @@ export default async function DashboardPage({
   let ownersStale = 0;
   let ownersContacted = 0;
   let ownersNever = 0;
-  for (const u of units) {
+  for (const u of scopedUnits) {
     const lcd = u.last_contact_date as string | null;
     const ds = daysSince(lcd);
     if (ds == null) ownersNever++;
@@ -429,7 +440,7 @@ export default async function DashboardPage({
   let activeTasks = 0;
   let overdueTasks = 0;
   let completedTasks = 0;
-  for (const t of tasks) {
+  for (const t of scopedTasks) {
     const s = t.status as string;
     if (s === "done") {
       completedTasks++;
@@ -449,18 +460,18 @@ export default async function DashboardPage({
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
   sixMonthsAgo.setDate(1);
   let monthlyData = aggregateMonthly(
-    units as { created_at: string }[],
+    scopedUnits as { created_at: string }[],
     sixMonthsAgo,
     locale
   );
   monthlyData = mergeMonthly(
     monthlyData,
-    clients as { created_at: string }[],
+    scopedClients as { created_at: string }[],
     "clients"
   );
   monthlyData = mergeMonthly(
     monthlyData,
-    visits as { created_at: string }[],
+    scopedVisits as { created_at: string }[],
     "visits"
   );
 
@@ -691,7 +702,8 @@ export default async function DashboardPage({
                 {t("noUnitsFound")}
               </p>
             ) : (
-              <ul className="divide-y [&>li:last-child]:pb-3">\n                {cheapRent.map((unit) => (
+              <ul className="divide-y [&>li:last-child]:pb-3">
+                {cheapRent.map((unit) => (
                   <li key={unit.id}>
                     <Link
                       href={`/properties/${unit.id}`}
@@ -738,7 +750,8 @@ export default async function DashboardPage({
                 {t("noUnitsFound")}
               </p>
             ) : (
-              <ul className="divide-y [&>li:last-child]:pb-3">\n                {cheapSale.map((unit) => (
+              <ul className="divide-y [&>li:last-child]:pb-3">
+                {cheapSale.map((unit) => (
                   <li key={unit.id}>
                     <Link
                       href={`/properties/${unit.id}`}

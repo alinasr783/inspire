@@ -166,6 +166,8 @@ function processTextRun(
   let text = node.text || "";
   let isInputField = false;
   let inputName = "";
+  let inputFontFamily = "";
+  let inputFontSize = "";
 
   if (node.marks) {
     for (const mark of node.marks) {
@@ -173,13 +175,21 @@ function processTextRun(
         isInputField = true;
         inputName = text.startsWith("[") && text.endsWith("]") ? text.slice(1, -1).trim() : text.trim();
         text = filledData[inputName] || inputName || text;
+        inputFontFamily = String((mark.attrs as Record<string, unknown>)?.fontFamily || "");
+        inputFontSize = String((mark.attrs as Record<string, unknown>)?.fontSize || "");
         break;
       }
     }
   }
 
-  const font = isInputField ? defaultFont : resolveFont(defaultFont, node.marks);
-  const fontSize = resolveFontSize(defaultSize, node.marks);
+  const font = isInputField && inputFontFamily
+    ? (FONT_MAP[inputFontFamily] || inputFontFamily)
+    : isInputField
+      ? defaultFont
+      : resolveFont(defaultFont, node.marks);
+  const fontSize = isInputField && inputFontSize
+    ? (parseFloat(inputFontSize.replace(/pt/i, "")) || 0) * 2 || defaultSize
+    : resolveFontSize(defaultSize, node.marks);
   const color = resolveColor(node.marks);
   const highlight = resolveHighlight(node.marks);
 
@@ -543,7 +553,16 @@ export function renderTiptapHtml(
             if (mark.type === "inputField") {
               const name = content.startsWith("[") && content.endsWith("]") ? content.slice(1, -1).trim() : content.trim();
               const val = filledData[name] || "";
-              content = val || name || content;
+              const ff = String((mark.attrs as Record<string, unknown>)?.fontFamily || "");
+              const fs = String((mark.attrs as Record<string, unknown>)?.fontSize || "");
+              let style = "";
+              if (ff) style += `font-family:${ff};`;
+              if (fs) style += `font-size:${fs};`;
+              if (style) {
+                content = `<span style="${style}">${val || name || content}</span>`;
+              } else {
+                content = val || name || content;
+              }
             }
             if (mark.type === "bold") content = `<strong>${content}</strong>`;
             if (mark.type === "italic") content = `<em>${content}</em>`;
@@ -561,6 +580,8 @@ export function renderTiptapHtml(
             }
           }
         }
+        // Preserve multiple spaces
+        content = content.replace(/ {2,}/g, (m) => "\u00A0".repeat(m.length));
         return content;
       }
       case "hardBreak": {
