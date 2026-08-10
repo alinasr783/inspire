@@ -66,4 +66,17 @@ export const queryKeys = {
       [...queryKeys.dailyWorkLogs.all, "stats", year, month] as const,
   },
   pendingCount: ["pendingCount"] as const,
+  team: {
+    all: ["team"] as const,
+    list: () => [...queryKeys.team.all, "list"] as const,
+    member: (id: string) => [...queryKeys.team.all, "member", id] as const,
+    memberStats: (id: string) => [...queryKeys.team.all, "member", id, "stats"] as const,
+    memberClients: (id: string) => [...queryKeys.team.all, "member", id, "clients"] as const,
+    memberProperties: (id: string) => [...queryKeys.team.all, "member", id, "properties"] as const,
+    memberVisits: (id: string) => [...queryKeys.team.all, "member", id, "visits"] as const,
+    memberTasks: (id: string) => [...queryKeys.team.all, "member", id, "tasks"] as const,
+    memberAttendance: (id: string) => [...queryKeys.team.all, "member", id, "attendance"] as const,
+    memberWorkLogs: (id: string) => [...queryKeys.team.all, "member", id, "workLogs"] as const,
+    memberDeals: (id: string) => [...queryKeys.team.all, "member", id, "deals"] as const,
+  },
 };

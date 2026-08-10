@@ -17,6 +17,7 @@ import { prefetchDevices } from "@/hooks/queries/use-devices-query";
 import { prefetchEmployees } from "@/hooks/queries/use-employees-query";
 import { prefetchFinances } from "@/hooks/queries/use-finances-query";
 import { prefetchContracts } from "@/hooks/queries/use-contracts-query";
+import { prefetchTeamMembers } from "@/hooks/queries/use-team-query";
 
 const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => void> = {
   properties: prefetchUnits,
@@ -27,6 +28,7 @@ const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => voi
   users: prefetchEmployees,
   finances: (qc) => prefetchFinances(qc),
   contracts: (qc) => prefetchContracts(qc),
+  team: (qc) => prefetchTeamMembers(qc),
 };
 
 function SidebarContent({ role, logoUrl }: { role?: string; logoUrl: string | null }) {
@@ -193,6 +195,26 @@ function SidebarContent({ role, logoUrl }: { role?: string; logoUrl: string | nu
                 )}
               </div>
               <span>{t("users")}</span>
+            </Link>
+            <Link
+              href="/admin/team"
+              prefetch={true}
+              onMouseEnter={() => handlePrefetch("team")}
+              className={cn(
+                "group flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150",
+                pathname.startsWith("/admin/team")
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <UsersRound
+                className={cn(
+                  "h-[18px] w-[18px] shrink-0",
+                  pathname.startsWith("/admin/team") && "text-primary"
+                )}
+                strokeWidth={2}
+              />
+              <span>{t("team")}</span>
             </Link>
           </>
         )}

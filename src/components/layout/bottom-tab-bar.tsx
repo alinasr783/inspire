@@ -19,6 +19,7 @@ import {
   Banknote,
   FileText,
   X,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { prefetchUnits } from "@/hooks/queries/use-units-query";
@@ -29,6 +30,7 @@ import { prefetchDevices } from "@/hooks/queries/use-devices-query";
 import { prefetchEmployees } from "@/hooks/queries/use-employees-query";
 import { prefetchFinances } from "@/hooks/queries/use-finances-query";
 import { prefetchContracts } from "@/hooks/queries/use-contracts-query";
+import { prefetchTeamMembers } from "@/hooks/queries/use-team-query";
 
 const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => void> = {
   properties: prefetchUnits,
@@ -39,6 +41,7 @@ const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => voi
   users: prefetchEmployees,
   finances: (qc) => prefetchFinances(qc),
   contracts: (qc) => prefetchContracts(qc),
+  team: (qc) => prefetchTeamMembers(qc),
 };
 
 const TABS = [
@@ -51,6 +54,7 @@ const TABS = [
 
 const MORE_ITEMS = [
   { key: "unconfirmedData", href: "/unconfirmed-data", icon: FileSpreadsheet },
+  { key: "attendance", href: "/attendance", icon: UserCheck },
   { key: "visits", href: "/visits", icon: CalendarCheck },
   { key: "deals", href: "/deals", icon: Handshake },
   { key: "contracts", href: "/contracts", icon: FileText },
@@ -196,6 +200,23 @@ export function BottomTabBar({ role }: { role?: string }) {
                 >
                   <UsersRound className="h-5 w-5" />
                   {t("users")}
+                </Link>
+              )}
+              {role === "admin" && (
+                <Link
+                  href="/admin/team"
+                  prefetch={true}
+                  onMouseEnter={() => handlePrefetch("team")}
+                  onClick={() => setMoreOpen(false)}
+                  className={cn(
+                    "flex flex-col items-center gap-1.5 rounded-xl px-3 py-3 text-xs font-medium transition-colors",
+                    pathname.startsWith("/admin/team")
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <UsersRound className="h-5 w-5" />
+                  {t("team")}
                 </Link>
               )}
             </div>
