@@ -481,7 +481,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
 
   return (
     <TooltipProvider>
-      <div ref={containerRef}>
+      <div ref={containerRef} className="overflow-x-auto">
         <table className="border-collapse text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
             <col style={{ width: 60 }} />

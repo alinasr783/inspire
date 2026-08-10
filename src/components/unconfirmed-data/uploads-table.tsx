@@ -321,7 +321,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
           {selectedIds.length > 0 && <Button variant="destructive" size="sm" className="gap-1.5" onClick={delBulk} disabled={deleting}><Trash2 className="h-4 w-4" />{t("deleteSelected", { count: selectedIds.length })}</Button>}
         </div>
       )}
-      <div ref={containerRef}>
+      <div ref={containerRef} className="overflow-x-auto">
         <table className="border-collapse text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
             {selectable && <col style={{ width: CHECKBOX_WIDTH }} />}

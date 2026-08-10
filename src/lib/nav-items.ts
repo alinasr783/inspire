@@ -10,6 +10,8 @@ import {
   UserCircle,
   CalendarCheck,
   FileText,
+  UserCheck,
+  CalendarDays,
 } from "lucide-react";
 
 export const navItems = [
@@ -18,6 +20,8 @@ export const navItems = [
   { key: "unconfirmedData", href: "/unconfirmed-data", icon: FileSpreadsheet },
   { key: "clients", href: "/clients", icon: Users },
   { key: "visits", href: "/visits", icon: CalendarCheck },
+  { key: "attendance", href: "/attendance", icon: UserCheck },
+  { key: "calendar", href: "/calendar", icon: CalendarDays },
   { key: "deals", href: "/deals", icon: Handshake },
   { key: "tasks", href: "/tasks", icon: ListChecks },
   { key: "reports", href: "/reports", icon: BarChart3 },

@@ -58,5 +58,12 @@ export const queryKeys = {
     instances: () => [...queryKeys.contracts.all, "instances"] as const,
     instance: (id: string) => [...queryKeys.contracts.all, "instance", id] as const,
   },
+  dailyWorkLogs: {
+    all: ["dailyWorkLogs"] as const,
+    byMonth: (year: number, month: number, employeeFilter?: string) =>
+      [...queryKeys.dailyWorkLogs.all, "month", year, month, employeeFilter ?? ""] as const,
+    stats: (year: number, month: number) =>
+      [...queryKeys.dailyWorkLogs.all, "stats", year, month] as const,
+  },
   pendingCount: ["pendingCount"] as const,
 };
