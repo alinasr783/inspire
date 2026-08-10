@@ -35,6 +35,7 @@
     "welcomeBack": "مرحباً بعودتك، {name}",
     "addProperty": "إضافة عقار",
     "addClient": "إضافة عميل",
+    "addVisit": "إضافة زيارة",
     "generateDeals": "توليد صفقات",
     "totalProperties": "العقارات",
     "totalClients": "العملاء",

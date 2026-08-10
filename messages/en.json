@@ -35,6 +35,7 @@
     "welcomeBack": "Welcome back, {name}",
     "addProperty": "Add Property",
     "addClient": "Add Client",
+    "addVisit": "Add Visit",
     "generateDeals": "Generate Deals",
     "totalProperties": "Properties",
     "totalClients": "Clients",
