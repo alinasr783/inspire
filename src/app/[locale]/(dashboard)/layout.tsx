@@ -83,7 +83,7 @@ export default async function DashboardLayout({
           <Sidebar role={profile.role} logoUrl={logoUrl} />
           <div className="flex h-full min-w-0 flex-col md:ps-[232px]">
             <Topbar />
-            <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8" style={{ paddingBottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px))" }}>{children}</main>
+            <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>{children}</main>
           </div>
         </div>
         <BottomTabBar role={profile.role} />

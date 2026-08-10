@@ -317,9 +317,19 @@ export async function updateRecordField(recordId: string, field: string, value: 
 
   const updateValue = field === "assigned_employee" && value === "" ? null : value;
 
+  const updates: Record<string, unknown> = { [field]: updateValue, updated_by: user.id };
+
+  const shouldAutoAssign =
+    (field === "whatsapp_state" && value !== "") ||
+    (field === "last_feedback" && value.trim() !== "");
+
+  if (shouldAutoAssign) {
+    updates.assigned_employee = user.id;
+  }
+
   const { error } = await admin
     .from("unconfirmed_records")
-    .update({ [field]: updateValue, updated_by: user.id })
+    .update(updates)
     .eq("id", recordId);
 
   if (error) {
@@ -442,9 +452,22 @@ export async function getRecords(options?: { uploadId?: string; status?: string;
   const { data: records, error } = await query.order("row_number", { ascending: true }).limit(10000);
   if (error) throw new Error("fetch-failed");
 
+  const sorted = (list: UnconfirmedRecord[]) => [...list].sort((a, b) => {
+    const nameA = (a.owner_name || "").trim();
+    const nameB = (b.owner_name || "").trim();
+    if (!nameA && !nameB) return 0;
+    if (!nameA) return 1;
+    if (!nameB) return -1;
+    const aIsAr = /^[\u0600-\u06FF]/.test(nameA);
+    const bIsAr = /^[\u0600-\u06FF]/.test(nameB);
+    if (aIsAr && !bIsAr) return -1;
+    if (!aIsAr && bIsAr) return 1;
+    return nameA.localeCompare(nameB, "ar", { sensitivity: "base" });
+  });
+
   if (options?.q) {
     const searchTerm = options.q.toLowerCase();
-    return (records ?? []).filter((r) => {
+    const filtered = (records ?? []).filter((r) => {
       const searchable = [
         r.owner_name,
         r.unit_area,
@@ -458,7 +481,8 @@ export async function getRecords(options?: { uploadId?: string; status?: string;
       ].join(" ").toLowerCase();
       return searchable.includes(searchTerm);
     });
+    return sorted(filtered);
   }
 
-  return records ?? [];
+  return sorted(records ?? []);
 }

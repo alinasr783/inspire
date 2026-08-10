@@ -285,7 +285,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
     setDeleteOneDialog(null);
   }, [deleteOneDialog]);
   const cellEdit = useCallback((rid: string, key: string) => setEditing({ rid, key }), []);
-  const cellSave = useCallback((rid: string, key: string, val: string) => { setEditing(null); setRecords((p) => p.map((r) => (r.id === rid ? { ...r, [key]: val } : r))); notifyCellEdit({ table: "unconfirmed_records", rowId: rid, field: key, action: "update" }); updateRecordField(rid, key, val).catch(() => {}); }, [notifyCellEdit]);
+  const cellSave = useCallback((rid: string, key: string, val: string) => { setEditing(null); const shouldAutoAssign = (key === "whatsapp_state" && val !== "") || (key === "last_feedback" && val.trim() !== ""); setRecords((p) => p.map((r) => { if (r.id !== rid) return r; const updates: Record<string, unknown> = { [key]: val }; if (shouldAutoAssign) updates.assigned_employee = userId; return { ...r, ...updates }; })); notifyCellEdit({ table: "unconfirmed_records", rowId: rid, field: key, action: "update" }); updateRecordField(rid, key, val).catch(() => {}); }, [notifyCellEdit, userId]);
   const editCancel = useCallback(() => setEditing(null), []);
 
   useEffect(() => {

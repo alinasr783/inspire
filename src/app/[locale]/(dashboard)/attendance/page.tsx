@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AttendanceClient } from "@/components/attendance/attendance-client";
 import type { AttendanceWithEmployee } from "@/lib/attendance-actions";
+import { getEgyptToday } from "@/lib/utils";
 
 export default async function AttendancePage({
   params,
@@ -26,28 +27,31 @@ export default async function AttendancePage({
     .single();
   const isAdmin = currentProfile?.role === "admin";
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = getEgyptToday();
 
-  let query = admin
-    .from("attendance_records")
-    .select(`
-      *,
-      employee:profiles!attendance_records_employee_id_fkey(id, first_name, second_name, phone, position, avatar_url)
-    `)
-    .eq("check_in_date", today)
-    .order("check_in_time", { ascending: false });
-
-  if (!isAdmin) {
-    query = query.eq("employee_id", user.id);
-  }
-
-  const { data: records } = await query;
-
-  const attendanceRecords: AttendanceWithEmployee[] = (records ?? []) as unknown as AttendanceWithEmployee[];
-
+  let attendanceRecords: AttendanceWithEmployee[] = [];
   let alreadyCheckedIn = false;
-  if (!isAdmin) {
-    alreadyCheckedIn = attendanceRecords.length > 0;
+
+  if (isAdmin) {
+    const { data: records } = await admin
+      .from("attendance_records")
+      .select(`
+        *,
+        employee:profiles!attendance_records_employee_id_fkey(id, first_name, second_name, phone, position, avatar_url)
+      `)
+      .eq("check_in_date", today)
+      .order("check_in_time", { ascending: false });
+
+    attendanceRecords = (records ?? []) as unknown as AttendanceWithEmployee[];
+  } else {
+    const { data: todayRecord } = await admin
+      .from("attendance_records")
+      .select("id")
+      .eq("employee_id", user.id)
+      .eq("check_in_date", today)
+      .maybeSingle();
+
+    alreadyCheckedIn = !!todayRecord;
   }
 
   return (

@@ -155,15 +155,15 @@ export function EmployeePropertiesTab({ employeeId }: { employeeId: string }) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={Math.max(220, topCompounds.length * 40)}>
               <BarChart data={topCompounds} layout="vertical" margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" allowDecimals={false} />
-                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} />
+                <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Bar dataKey="count" name="Units" radius={[0, 4, 4, 0]} maxBarSize={32}>
+                <Bar dataKey="count" name="Units" radius={[0, 4, 4, 0]} maxBarSize={28}>
                   {topCompounds.map((_, i) => (
-                    <Cell key={i} fill={["#06c167","#276ef1","#8b5cf6","#f59e0b","#ef4444"][i % 5]} />
+                    <Cell key={i} fill={["#06c167","#276ef1","#8b5cf6","#f59e0b","#ef4444","#06b6d4","#ec4899","#84cc16","#f97316","#6366f1","#14b8a6","#a855f7","#eab308","#3b82f6","#78716c"][i % 15]} />
                   ))}
                 </Bar>
               </BarChart>

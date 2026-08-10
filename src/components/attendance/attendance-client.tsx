@@ -7,9 +7,9 @@ import { CheckInButton } from "@/components/attendance/check-in-button";
 import { AttendanceTable } from "@/components/attendance/attendance-table";
 import { AttendanceStats } from "@/components/attendance/attendance-stats";
 import { AdminCheckInDialog } from "@/components/attendance/admin-check-in-dialog";
-import { AttendanceCalendar } from "@/components/attendance/attendance-calendar";
 import type { AttendanceWithEmployee } from "@/lib/attendance-actions";
 import { getAttendanceByDate, getAttendanceStats, checkTodayStatus, type AttendanceStats as AttendanceStatsType } from "@/lib/attendance-actions";
+import { getEgyptToday } from "@/lib/utils";
 import { CalendarDays, Users, MapPin, Clock } from "lucide-react";
 
 interface AttendanceClientProps {
@@ -41,11 +41,8 @@ export function AttendanceClient({
     setLoading(true);
     const data = await getAttendanceByDate(date);
     setRecords(data);
-    if (!isAdmin) {
-      setCheckedIn(data.length > 0);
-    }
     setLoading(false);
-  }, [isAdmin]);
+  }, []);
 
   const loadStats = useCallback(async (year: number, month: number) => {
     setLoading(true);
@@ -55,24 +52,22 @@ export function AttendanceClient({
   }, []);
 
   useEffect(() => {
-    loadRecordsForDate(selectedDate);
-  }, [selectedDate, loadRecordsForDate]);
+    if (isAdmin) {
+      loadRecordsForDate(selectedDate);
+    }
+  }, [selectedDate, loadRecordsForDate, isAdmin]);
 
   useEffect(() => {
-    if (viewMode === "stats") {
+    if (isAdmin && viewMode === "stats") {
       const d = new Date(selectedDate);
       loadStats(d.getFullYear(), d.getMonth() + 1);
     }
-  }, [viewMode, selectedDate, loadStats]);
+  }, [viewMode, selectedDate, loadStats, isAdmin]);
 
-  const handleCheckInSuccess = useCallback(async () => {
+  const handleCheckInSuccess = useCallback(() => {
     setCheckedIn(true);
-    const status = await checkTodayStatus();
-    if (status.checkedIn) {
-      await loadRecordsForDate(selectedDate);
-    }
     toast.success(t("checkInSuccess"));
-  }, [selectedDate, loadRecordsForDate, t]);
+  }, [t]);
 
   const handleAdminCheckIn = useCallback(async () => {
     await loadRecordsForDate(selectedDate);
@@ -94,58 +89,74 @@ export function AttendanceClient({
     return { year: y, month: m, day: d };
   }, [selectedDate]);
 
-  return (
-    <div className="space-y-6">
-      {!isAdmin && (
+  useEffect(() => {
+    if (!isAdmin) {
+      const checkDayChange = async () => {
+        const today = getEgyptToday();
+        if (today !== initialDate) {
+          const status = await checkTodayStatus();
+          setCheckedIn(status.checkedIn);
+        }
+      };
+      const interval = setInterval(checkDayChange, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [isAdmin, initialDate]);
+
+  if (!isAdmin) {
+    return (
+      <div className="max-w-md mx-auto">
         <CheckInButton
           checkedIn={checkedIn}
           onSuccess={handleCheckInSuccess}
         />
-      )}
+      </div>
+    );
+  }
 
-      {isAdmin && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-xl border bg-card p-4 shadow-sm ring-1 ring-foreground/5">
-            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <Users className="h-3.5 w-3.5" />
-              {t("present")}
-            </div>
-            <div className="mt-2 text-2xl font-bold tracking-tight text-emerald-600">
-              {records.length}
-            </div>
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border bg-card p-4 shadow-sm ring-1 ring-foreground/5">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <Users className="h-3.5 w-3.5" />
+            {t("present")}
           </div>
-          <div className="rounded-xl border bg-card p-4 shadow-sm ring-1 ring-foreground/5">
-            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" />
-              {t("onTime")}
-            </div>
-            <div className="mt-2 text-2xl font-bold tracking-tight text-blue-600">
-              {records.filter((r) => {
-                const t = new Date(r.check_in_time);
-                return t.getHours() < 10;
-              }).length}
-            </div>
-          </div>
-          <div className="rounded-xl border bg-card p-4 shadow-sm ring-1 ring-foreground/5">
-            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <MapPin className="h-3.5 w-3.5" />
-              {t("withLocation")}
-            </div>
-            <div className="mt-2 text-2xl font-bold tracking-tight text-violet-600">
-              {records.filter((r) => r.latitude && r.longitude).length}
-            </div>
-          </div>
-          <div className="rounded-xl border bg-card p-4 shadow-sm ring-1 ring-foreground/5">
-            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <CalendarDays className="h-3.5 w-3.5" />
-              {t("date")}
-            </div>
-            <div className="mt-2 text-2xl font-bold tracking-tight">
-              {`${String(dateObj.day).padStart(2, "0")}/${String(dateObj.month).padStart(2, "0")}`}
-            </div>
+          <div className="mt-2 text-2xl font-bold tracking-tight text-emerald-600">
+            {records.length}
           </div>
         </div>
-      )}
+        <div className="rounded-xl border bg-card p-4 shadow-sm ring-1 ring-foreground/5">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <Clock className="h-3.5 w-3.5" />
+            {t("onTime")}
+          </div>
+          <div className="mt-2 text-2xl font-bold tracking-tight text-blue-600">
+            {records.filter((r) => {
+              const t = new Date(r.check_in_time);
+              return t.getHours() < 10;
+            }).length}
+          </div>
+        </div>
+        <div className="rounded-xl border bg-card p-4 shadow-sm ring-1 ring-foreground/5">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5" />
+            {t("withLocation")}
+          </div>
+          <div className="mt-2 text-2xl font-bold tracking-tight text-violet-600">
+            {records.filter((r) => r.latitude && r.longitude).length}
+          </div>
+        </div>
+        <div className="rounded-xl border bg-card p-4 shadow-sm ring-1 ring-foreground/5">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <CalendarDays className="h-3.5 w-3.5" />
+            {t("date")}
+          </div>
+          <div className="mt-2 text-2xl font-bold tracking-tight">
+            {`${String(dateObj.day).padStart(2, "0")}/${String(dateObj.month).padStart(2, "0")}`}
+          </div>
+        </div>
+      </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
@@ -153,43 +164,39 @@ export function AttendanceClient({
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            max={new Date().toISOString().split("T")[0]}
+            max={getEgyptToday()}
             className="h-9 rounded-lg border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
-          {isAdmin && (
-            <AdminCheckInDialog
-              selectedDate={selectedDate}
-              onSuccess={handleAdminCheckIn}
-              onUpdate={handleUpdate}
-              onDelete={handleDelete}
-              records={records}
-            />
-          )}
+          <AdminCheckInDialog
+            selectedDate={selectedDate}
+            onSuccess={handleAdminCheckIn}
+            onUpdate={handleUpdate}
+            onDelete={handleDelete}
+            records={records}
+          />
         </div>
-        {isAdmin && (
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => setViewMode("daily")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                viewMode === "daily"
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              {t("dailyView")}
-            </button>
-            <button
-              onClick={() => setViewMode("stats")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                viewMode === "stats"
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              {t("statsView")}
-            </button>
-          </div>
-        )}
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => setViewMode("daily")}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              viewMode === "daily"
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {t("dailyView")}
+          </button>
+          <button
+            onClick={() => setViewMode("stats")}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              viewMode === "stats"
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {t("statsView")}
+          </button>
+        </div>
       </div>
 
       {viewMode === "daily" && (
@@ -212,7 +219,7 @@ export function AttendanceClient({
         </>
       )}
 
-      {viewMode === "stats" && isAdmin && (
+      {viewMode === "stats" && (
         <>
           <div className="flex items-center gap-2">
             <input
@@ -234,10 +241,6 @@ export function AttendanceClient({
             <AttendanceStats stats={stats} />
           )}
         </>
-      )}
-
-      {!isAdmin && viewMode === "daily" && records.length > 0 && (
-        <AttendanceCalendar records={records} locale={locale} />
       )}
     </div>
   );

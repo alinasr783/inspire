@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getEgyptToday } from "@/lib/utils";
 
 export type ActionResult = { success: true; id?: string } | { success: false; error: string };
 
@@ -60,7 +61,7 @@ export async function checkIn(data: {
 
   const admin = createAdminClient();
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = getEgyptToday();
 
   const { data: existing } = await admin
     .from("attendance_records")
@@ -422,7 +423,7 @@ export async function checkTodayStatus(): Promise<{ checkedIn: boolean; recordId
   if (!user) return { checkedIn: false };
 
   const adminClient = createAdminClient();
-  const today = new Date().toISOString().split("T")[0];
+  const today = getEgyptToday();
 
   const { data } = await adminClient
     .from("attendance_records")

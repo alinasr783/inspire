@@ -819,6 +819,6 @@ export async function getEmployeeTopCompounds(
 
   return [...map.entries()]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
+    .slice(0, 15)
     .map(([name, count]) => ({ name, count }));
 }
