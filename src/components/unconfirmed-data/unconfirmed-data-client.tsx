@@ -10,6 +10,7 @@ import { Plus, Search, X } from "lucide-react";
 import { UploadsTable } from "@/components/unconfirmed-data/uploads-table";
 import { CampaignActions } from "@/components/unconfirmed-data/campaign-actions";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ShortcutsHelp } from "@/components/units/shortcuts-help";
 import { type UnconfirmedRecord } from "@/lib/unconfirmed-data-actions";
 import { getFolders, type Folder } from "@/lib/unconfirmed-folder-actions";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
@@ -98,7 +99,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
     <TooltipProvider>
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">{tNav("unconfirmedData")}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{tNav("unconfirmedData")} <ShortcutsHelp locale={locale} /></h1>
         <div className="flex items-center gap-2">
           <CampaignActions folderId={folderId} fileId={fileId} />
           <Link href="/unconfirmed-data/add">

@@ -186,7 +186,7 @@ const TableRowComponent = memo(function TableRowComponent({
 
   return (
     <tr
-      className={`border-b last:border-0 hover:bg-muted/30 ${stale ? "inspire-stale-contact" : ""} ${isSelected ? "bg-primary/10 dark:bg-muted/40" : ""}`}
+      className={`border-b last:border-0 hover:bg-muted/30 ${stale ? "inspire-stale-contact" : ""} ${isSelected ? "bg-primary/10 dark:bg-muted/40" : ""} scroll-mt-10`}
       data-row-id={client.id as string}
       data-seriousness={String(client.seriousness_rating ?? "")}
       onMouseEnter={() => onRowMouseEnter(client.id as string)}
@@ -481,7 +481,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
 
   return (
     <TooltipProvider>
-      <div ref={containerRef} className="rounded-lg border">
+      <div ref={containerRef}>
         <table className="border-collapse text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
             <col style={{ width: 60 }} />

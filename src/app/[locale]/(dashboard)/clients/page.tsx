@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Upload } from "lucide-react";
 import { ClientsClient } from "@/components/clients/clients-client";
 import { ColumnConfigModal } from "@/components/clients/column-config-modal";
+import { ShortcutsHelp } from "@/components/units/shortcuts-help";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export default async function ClientsPage({
@@ -62,7 +63,7 @@ export default async function ClientsPage({
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{tNav("clients")}</h1>
+        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{tNav("clients")} <ShortcutsHelp locale={locale} /></h1>
         <div className="-mx-3 flex gap-2 overflow-x-auto px-3 sm:mx-0 sm:px-0">
           {isAdmin && <span className="shrink-0"><ColumnConfigModal /></span>}
           {isAdmin && (<Link href="/clients/group-add" className="shrink-0"><Button variant="outline" size="sm"><Upload className="h-4 w-4" />{t("groupAddUnits")}</Button></Link>)}

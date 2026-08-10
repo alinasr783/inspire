@@ -102,7 +102,7 @@ interface RowProps {
 const Row = function Row({ record, columns, locale, selectable, isSelected, isActive, editingKey, onToggle, onDelete, onCellEdit, onCellSave, onEditCancel, onContextMenu, onRowMouseEnter, employees }: RowProps) {
   const t = useTranslations("UnconfirmedData");
   return (
-    <tr className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""} ${isActive ? "bg-primary/10 dark:bg-muted/40" : ""}`} data-row-id={record.id} onMouseEnter={() => onRowMouseEnter(record.id)}>
+    <tr className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""} ${isActive ? "bg-primary/10 dark:bg-muted/40" : ""} scroll-mt-10`} data-row-id={record.id} onMouseEnter={() => onRowMouseEnter(record.id)}>
       {selectable && (
         <td className="border-b border-r px-2 py-2 align-middle">
           <input type="checkbox" checked={isSelected} onChange={() => onToggle(record.id)} className="h-4 w-4 cursor-pointer" />
@@ -321,7 +321,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
           {selectedIds.length > 0 && <Button variant="destructive" size="sm" className="gap-1.5" onClick={delBulk} disabled={deleting}><Trash2 className="h-4 w-4" />{t("deleteSelected", { count: selectedIds.length })}</Button>}
         </div>
       )}
-      <div ref={containerRef} className="rounded-lg border">
+      <div ref={containerRef}>
         <table className="border-collapse text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
             {selectable && <col style={{ width: CHECKBOX_WIDTH }} />}
