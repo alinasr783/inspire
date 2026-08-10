@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { extractInputFieldNames, renderTiptapHtml } from "@/lib/generate-docx";
 import { generateDocx } from "@/lib/generate-docx";
 import { generatePdf } from "@/lib/generate-pdf";
-import { Loader2, Printer, FileText, FileImage, Download, Eye, EyeOff, Sparkles } from "lucide-react";
+import { Loader2, Printer, FileText, FileImage, Download, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 interface ContractFillFormProps {
@@ -37,93 +37,6 @@ export function ContractFillForm({
   const handleInputChange = useCallback((name: string, value: string) => {
     setFilledData((prev) => ({ ...prev, [name]: value }));
   }, []);
-
-  const handleFillDummy = useCallback(() => {
-    const dummyNames = [
-      "محمد أحمد محمود",
-      "عمر خالد العمري",
-      "فاطمة حسن السيد",
-      "سارة إبراهيم نور",
-      "علي عبد الرحمن",
-      "يوسف مصطفى كمال",
-    ];
-    const dummyPhones = [
-      "01001234567",
-      "01119876543",
-      "01225551234",
-      "01550001122",
-    ];
-    const dummyIds = [
-      "29501011234567",
-      "29005151234567",
-      "28510251234567",
-    ];
-    const dummyAddresses = [
-      "القاهرة - مدينة نصر - شارع عباس العقاد",
-      "الجيزة - المهندسين - شارع جامعة الدول العربية",
-      "الإسكندرية - سموحة - شارع 14 مايو",
-    ];
-    const dummyDates = [
-      "10/8/2026",
-      "15/9/2026",
-      "1/1/2027",
-    ];
-    const dummyNumbers = [
-      "500,000",
-      "1,250,000",
-      "750,000",
-      "2,000,000",
-    ];
-    const dummyDays = [
-      "الأحد",
-      "الاثنين",
-      "الثلاثاء",
-      "الأربعاء",
-      "الخميس",
-    ];
-
-    const getDummy = (name: string): string => {
-      const n = name.toLowerCase();
-      if (n.includes("اسم") || n.includes("طرف") || n.includes("سيد") || n.includes("السيد") || n.includes("البائع") || n.includes("المشتري") || n.includes("العميل") || n.includes("المالك")) {
-        return dummyNames[inputNames.length % dummyNames.length];
-      }
-      if (n.includes("تليفون") || n.includes("هاتف") || n.includes("جوال") || n.includes("رقم الهاتف") || n.includes("موبايل")) {
-        return dummyPhones[inputNames.length % dummyPhones.length];
-      }
-      if (n.includes("رقم") && (n.includes("قومي") || n.includes("بطاقة") || n.includes("هوية"))) {
-        return dummyIds[inputNames.length % dummyIds.length];
-      }
-      if (n.includes("عنوان") || n.includes("مقيم") || n.includes("سكن") || n.includes("محافظة")) {
-        return dummyAddresses[inputNames.length % dummyAddresses.length];
-      }
-      if (n.includes("تاريخ") || n.includes("موافق") || n.includes("يوم")) {
-        return dummyDates[inputNames.length % dummyDates.length];
-      }
-      if (n.includes("اليوم") && (n.includes("اسبوع") || n.includes("أسبوع"))) {
-        return dummyDays[inputNames.length % dummyDays.length];
-      }
-      if (n.includes("سعر") || n.includes("مبلغ") || n.includes("قيمة") || n.includes("مقدم") || n.includes("عربون")) {
-        return dummyNumbers[inputNames.length % dummyNumbers.length] + " جنيه";
-      }
-      if (n.includes("جنية") || n.includes("جنيه")) {
-        return dummyNumbers[inputNames.length % dummyNumbers.length] + " جنيه";
-      }
-      if (n.includes("جنسية") || n.includes("دولة")) {
-        return "مصر";
-      }
-      if (n.includes("مهنة") || n.includes("وظيفة")) {
-        return "مهندس";
-      }
-      return `[بيانات ${name}]`;
-    };
-
-    const dummy: Record<string, string> = {};
-    inputNames.forEach((name) => {
-      dummy[name] = getDummy(name);
-    });
-    setFilledData(dummy);
-    toast.success("تم ملء البيانات التجريبية بنجاح");
-  }, [inputNames]);
 
   const previewHtml = useMemo(() => {
     if (!templateContent) return "";
@@ -217,19 +130,8 @@ export function ContractFillForm({
 
       {!showPreview ? (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader>
             <CardTitle className="text-base font-semibold">البيانات المطلوبة</CardTitle>
-            {inputNames.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleFillDummy}
-                className="gap-2"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                بيانات تجريبية
-              </Button>
-            )}
           </CardHeader>
           <CardContent>
             {inputNames.length === 0 ? (
