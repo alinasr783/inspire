@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UnitForm } from "@/components/units/unit-form";
 import { getColumnConfig } from "@/lib/unit-config-actions";
@@ -31,7 +32,8 @@ export default async function EditUnitPage({
 
   const unitData = unit as UnitRow;
 
-  const { data: profile } = await supabase
+  const admin = createAdminClient();
+  const { data: profile } = await admin
     .from("profiles")
     .select("role")
     .eq("id", user.id)

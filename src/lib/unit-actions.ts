@@ -150,7 +150,8 @@ export async function updateUnit(id: string, formData: FormData) {
   }
 
   if (existing.created_by !== user.id) {
-    const { data: profile } = await supabase
+    const admin = createAdminClient();
+    const { data: profile } = await admin
       .from("profiles")
       .select("role")
       .eq("id", user.id)
@@ -194,7 +195,8 @@ export async function deleteUnit(id: string) {
   const isAssigned = existing.assigned_employee === user.id;
 
   if (!isOwner && !isAssigned) {
-    const { data: profile } = await supabase
+    const admin = createAdminClient();
+    const { data: profile } = await admin
       .from("profiles")
       .select("role")
       .eq("id", user.id)

@@ -157,7 +157,7 @@ export function UnitFilters({
             onChange={(e) => setFilter("assigned_employee", e.target.value)}
             className={selectClass}
           >
-            <option value="all">{t("filterAll")}</option>
+            <option value="all">{t("assignedEmployee")}</option>
             {(availableOptions?.["assigned_employee"]
               ? employeeOptions.filter((e) => availableOptions["assigned_employee"]!.includes(e.id))
               : employeeOptions
