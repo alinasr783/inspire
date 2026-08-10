@@ -16,7 +16,7 @@ import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
 import { useCellStyles } from "@/hooks/use-cell-styles";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { toast } from "sonner";
+import { showSuccess, showError } from "@/lib/toast-utils";
 
 type ClientRow = Record<string, unknown> & { id: string; custom_fields: Record<string, unknown> };
 
@@ -172,22 +172,24 @@ interface TableRowProps {
   onDelete: (cid: string) => void;
   clientsData: ClientRow[];
   locale: string;
+  isSelected: boolean;
+  onRowMouseEnter: (uid: string) => void;
 }
 
 const TableRowComponent = memo(function TableRowComponent({
   client, index, localCols, stale, editing,
   getCellRaw, getEditOptions, getEditType,
-  cellEdit, cellSave, editCancel, onContextMenu,
-  onDelete, clientsData, locale,
+  cellEdit, cellSave, editCancel, onContextMenu, onDelete,
+  clientsData, locale, isSelected, onRowMouseEnter,
 }: TableRowProps) {
   const ed = editing;
 
   return (
     <tr
-      className={`border-b last:border-0 hover:bg-muted/30 ${stale ? "inspire-stale-contact" : ""}`}
+      className={`border-b last:border-0 hover:bg-muted/30 ${stale ? "inspire-stale-contact" : ""} ${isSelected ? "bg-primary/10 dark:bg-muted/40" : ""}`}
       data-row-id={client.id as string}
       data-seriousness={String(client.seriousness_rating ?? "")}
-      data-stale={stale ? "true" : undefined}
+      onMouseEnter={() => onRowMouseEnter(client.id as string)}
     >
       <td className="border-b border-r px-2 py-2 text-center text-xs tabular-nums text-muted-foreground">{index + 1}</td>
       {localCols.map((col) => {
@@ -248,6 +250,49 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
   const [localClients, setLocalClients] = useState(clientsData);
   const { containerRef, ctrlD } = useTableCellKeyboard(localClients);
   const bgSaveRef = useRef<Set<string>>(new Set());
+  const localClientsRef = useRef(localClients); localClientsRef.current = localClients;
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const selectedRowRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (localClients.length > 0) {
+      const exists = selectedRowRef.current && localClients.find((c) => c.id === selectedRowRef.current);
+      if (!exists) {
+        const firstId = localClients[0].id as string;
+        selectedRowRef.current = firstId;
+        setSelectedRowId(firstId);
+      }
+    }
+  }, [localClients]);
+
+  const handleRowMouseEnter = useCallback((uid: string) => {
+    selectedRowRef.current = uid;
+    setSelectedRowId(uid);
+  }, []);
+
+  useEffect(() => {
+    function onArrow(e: KeyboardEvent) {
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      const rows = localClientsRef.current;
+      if (rows.length === 0) return;
+      e.preventDefault();
+      const current = selectedRowRef.current;
+      const idx = current ? rows.findIndex((c) => c.id === current) : -1;
+      const nextIdx = e.key === "ArrowUp"
+        ? Math.max(0, idx <= 0 ? 0 : idx - 1)
+        : Math.min(rows.length - 1, idx < 0 ? 0 : idx + 1);
+      const nextId = rows[nextIdx]?.id as string | undefined;
+      if (!nextId) return;
+      selectedRowRef.current = nextId;
+      setSelectedRowId(nextId);
+      const el = document.querySelector(`tr[data-row-id="${nextId}"]`);
+      if (el) el.scrollIntoView({ block: "nearest", behavior: "auto" });
+    }
+    document.addEventListener("keydown", onArrow);
+    return () => document.removeEventListener("keydown", onArrow);
+  }, []);
   const dragIdxRef = useRef<number | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [editingCol, setEditingCol] = useState<string | null>(null);
@@ -290,7 +335,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
     if (!deleteDialog) return;
     const cid = deleteDialog.cid;
     setDeleting(true);
-    try { await deleteClient(cid); setLocalClients((prev) => prev.filter((c) => c.id !== cid)); toast.success("Client deleted"); } catch (e: any) { toast.error(e?.message || "Delete failed"); }
+    try { await deleteClient(cid); setLocalClients((prev) => prev.filter((c) => c.id !== cid)); showSuccess("Client deleted"); } catch (e: any) { showError(e?.message || "Delete failed"); }
     setDeleting(false);
     setDeleteDialog(null);
   }, [deleteDialog]);
@@ -395,7 +440,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
           const val = prev[colKey]; return (val != null && val !== "") ? String(val) : null;
         });
       }
-      if (e.ctrlKey && e.key === "i") {
+      if (e.altKey && e.key === "n") {
         e.preventDefault();
         quickCreateClient(userId).then((newClient) => {
           setLocalClients((prev) => [newClient, ...prev]);
@@ -436,15 +481,15 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
 
   return (
     <TooltipProvider>
-      <div ref={containerRef} className="overflow-x-auto rounded-lg border">
+      <div ref={containerRef} className="rounded-lg border">
         <table className="border-collapse text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
             <col style={{ width: 60 }} />
             {localCols.map((col) => <col key={col.id} data-col-key={col.key} style={{ width: colWidths[col.key] ?? COL_WIDTHS[col.key] ?? DEFAULT_WIDTH }} />)}
             <col style={{ width: ACTIONS_WIDTH }} />
           </colgroup>
-          <thead>
-            <tr className="bg-muted/40">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-muted/95 backdrop-blur-sm">
               <th className="border-b border-r px-2 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">{t("id")}</th>
               {localCols.map((col, idx) => (
                 <th key={col.id} data-col-key={col.key} onDragOver={(e) => handleDragOver(e, idx)} onDrop={handleDrop} onDoubleClick={() => handleDoubleClick(col)}
@@ -479,6 +524,8 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
                   onDelete={openDelete}
                   clientsData={clientsData}
                   locale={locale}
+                  isSelected={selectedRowId === client.id}
+                  onRowMouseEnter={handleRowMouseEnter}
                 />
               ))
             )}

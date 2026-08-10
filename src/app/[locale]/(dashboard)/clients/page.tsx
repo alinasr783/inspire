@@ -69,14 +69,14 @@ export default async function ClientsPage({
           <Link href="/clients/new" className="shrink-0"><Button size="sm"><Plus className="h-4 w-4" />{t("createClient")}</Button></Link>
         </div>
       </div>
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="flex max-h-[calc(100vh-180px)] flex-col">
+        <CardHeader className="shrink-0 pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             {t("allClients")}
             <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">{clientsData.length}</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-h-0 flex-1 overflow-y-auto pt-0">
           <ClientsClient
             initialClients={clientsData}
             columns={allColumns}

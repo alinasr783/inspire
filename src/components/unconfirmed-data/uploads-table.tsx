@@ -15,7 +15,7 @@ import { TableCellContextMenu, type CellInfo } from "@/components/realtime/table
 import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
 import { useCellStyles } from "@/hooks/use-cell-styles";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { toast } from "sonner";
+import { showSuccess, showError } from "@/lib/toast-utils";
 
 interface Columns { key: string; label: string; type: string }
 
@@ -89,18 +89,20 @@ CellDisplay.displayName = "CellDisplay";
 interface RowProps {
   record: UnconfirmedRecord; columns: Columns[]; locale: string; selectable: boolean;
   isSelected: boolean; editingKey: string | null;
+  isActive: boolean;
   onToggle: (id: string) => void; onDelete: (id: string) => void;
   onCellEdit: (recordId: string, key: string) => void;
   onCellSave: (recordId: string, key: string, value: string) => void;
   onEditCancel: () => void;
   onContextMenu: (e: React.MouseEvent, info: CellInfo) => void;
+  onRowMouseEnter: (uid: string) => void;
   employees: { id: string; name: string }[];
 }
 
-const Row = function Row({ record, columns, locale, selectable, isSelected, editingKey, onToggle, onDelete, onCellEdit, onCellSave, onEditCancel, onContextMenu, employees }: RowProps) {
+const Row = function Row({ record, columns, locale, selectable, isSelected, isActive, editingKey, onToggle, onDelete, onCellEdit, onCellSave, onEditCancel, onContextMenu, onRowMouseEnter, employees }: RowProps) {
   const t = useTranslations("UnconfirmedData");
   return (
-    <tr className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`} data-row-id={record.id}>
+    <tr className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""} ${isActive ? "bg-primary/10 dark:bg-muted/40" : ""}`} data-row-id={record.id} onMouseEnter={() => onRowMouseEnter(record.id)}>
       {selectable && (
         <td className="border-b border-r px-2 py-2 align-middle">
           <input type="checkbox" checked={isSelected} onChange={() => onToggle(record.id)} className="h-4 w-4 cursor-pointer" />
@@ -165,6 +167,49 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
 
   const [deleteOneDialog, setDeleteOneDialog] = useState<{ rid: string; name: string } | null>(null);
   const srvRef = useRef(serverRecords); srvRef.current = serverRecords;
+  const recordsRef = useRef(records); recordsRef.current = records;
+  const [activeRowId, setActiveRowId] = useState<string | null>(null);
+  const activeRowRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (records.length > 0) {
+      const exists = activeRowRef.current && records.find((r) => r.id === activeRowRef.current);
+      if (!exists) {
+        const firstId = records[0].id;
+        activeRowRef.current = firstId;
+        setActiveRowId(firstId);
+      }
+    }
+  }, [records]);
+
+  const handleRowMouseEnter = useCallback((uid: string) => {
+    activeRowRef.current = uid;
+    setActiveRowId(uid);
+  }, []);
+
+  useEffect(() => {
+    function onArrow(e: KeyboardEvent) {
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      const rows = recordsRef.current;
+      if (rows.length === 0) return;
+      e.preventDefault();
+      const current = activeRowRef.current;
+      const idx = current ? rows.findIndex((r) => r.id === current) : -1;
+      const nextIdx = e.key === "ArrowUp"
+        ? Math.max(0, idx <= 0 ? 0 : idx - 1)
+        : Math.min(rows.length - 1, idx < 0 ? 0 : idx + 1);
+      const nextId = rows[nextIdx]?.id;
+      if (!nextId) return;
+      activeRowRef.current = nextId;
+      setActiveRowId(nextId);
+      const el = document.querySelector(`tr[data-row-id="${nextId}"]`);
+      if (el) el.scrollIntoView({ block: "nearest", behavior: "auto" });
+    }
+    document.addEventListener("keydown", onArrow);
+    return () => document.removeEventListener("keydown", onArrow);
+  }, []);
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     const init: Record<string, number> = {};
@@ -223,7 +268,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   const tgl = useCallback((id: string) => setSelectedIds((p) => p.includes(id) ? p.filter((i) => i !== id) : [...p, id]), []);
   const tglAll = useCallback(() => { if (records.length > 0 && selectedIds.length === records.length) setSelectedIds([]); else setSelectedIds(records.map((r) => r.id)); }, [records, selectedIds.length]);
   const selN = useCallback(() => { const n = parseInt(selTo, 10); if (!isNaN(n) && n >= 1) setSelectedIds(records.slice(0, Math.min(n, records.length)).map((r) => r.id)); }, [records, selTo]);
-  const delBulk = useCallback(async () => { if (selectedIds.length === 0) return; if (!window.confirm(`Delete ${selectedIds.length} selected records?`)) return; setDeleting(true); const ids = [...selectedIds]; setSelectedIds([]); setRecords((p) => p.filter((r) => !ids.includes(r.id))); try { await deleteRecords(ids); toast.success(`${ids.length} deleted`); } catch { setRecords(srvRef.current); toast.error("Bulk delete failed"); } setDeleting(false); }, [selectedIds]);
+  const delBulk = useCallback(async () => { if (selectedIds.length === 0) return; if (!window.confirm(`Delete ${selectedIds.length} selected records?`)) return; setDeleting(true); const ids = [...selectedIds]; setSelectedIds([]); setRecords((p) => p.filter((r) => !ids.includes(r.id))); try { await deleteRecords(ids); showSuccess(`${ids.length} deleted`); } catch { setRecords(srvRef.current); showError("Bulk delete failed"); } setDeleting(false); }, [selectedIds]);
   const delOne = useCallback((id: string) => {
     const rec = records.find(r => r.id === id);
     setDeleteOneDialog({ rid: id, name: rec?.owner_name || id.slice(0, 8) });
@@ -235,7 +280,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
     setDeleting(true);
     setRecords((p) => p.filter((r) => r.id !== id));
     setSelectedIds((p) => p.filter((i) => i !== id));
-    try { await deleteRecords([id]); toast.success("Deleted"); } catch { setRecords(srvRef.current); toast.error("Delete failed"); }
+    try { await deleteRecords([id]); showSuccess("Deleted"); } catch { setRecords(srvRef.current); showError("Delete failed"); }
     setDeleting(false);
     setDeleteOneDialog(null);
   }, [deleteOneDialog]);
@@ -254,7 +299,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
           return (val != null && val !== "") ? String(val) : null;
         });
       }
-      if (e.ctrlKey && e.key === "i") {
+      if (e.altKey && e.key === "n") {
         e.preventDefault();
         quickCreateRecord().then((newRecord) => {
           setRecords((prev) => [newRecord, ...prev]);
@@ -276,7 +321,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
           {selectedIds.length > 0 && <Button variant="destructive" size="sm" className="gap-1.5" onClick={delBulk} disabled={deleting}><Trash2 className="h-4 w-4" />{t("deleteSelected", { count: selectedIds.length })}</Button>}
         </div>
       )}
-      <div ref={containerRef} className="overflow-x-auto rounded-lg border">
+      <div ref={containerRef} className="rounded-lg border">
         <table className="border-collapse text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
             {selectable && <col style={{ width: CHECKBOX_WIDTH }} />}
@@ -285,8 +330,8 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
             ))}
             <col style={{ width: ACTIONS_WIDTH }} />
           </colgroup>
-          <thead>
-            <tr className="bg-muted/40">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-muted/95 backdrop-blur-sm">
               {selectable && <th className="border-b border-r px-2 py-2"><input type="checkbox" checked={records.length > 0 && selectedIds.length === records.length} onChange={tglAll} className="h-4 w-4 cursor-pointer" /></th>}
               {columns.map((col) => (
                 <th key={col.key} data-col-key={col.key} className="relative select-none border-b border-r px-2 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
@@ -305,7 +350,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
             {records.map((r) => (
               <Row key={r.id} record={r} columns={columns} locale={locale} selectable={!!selectable} isSelected={ss.has(r.id)}
                 editingKey={ed?.rid === r.id ? ed.key : null}
-                onToggle={tgl} onDelete={delOne} onCellEdit={cellEdit} onCellSave={cellSave} onEditCancel={editCancel} onContextMenu={handleContextMenu} employees={employees}
+                onToggle={tgl} onDelete={delOne} onCellEdit={cellEdit} onCellSave={cellSave} onEditCancel={editCancel} onContextMenu={handleContextMenu} onRowMouseEnter={handleRowMouseEnter} isActive={activeRowId === r.id} employees={employees}
               />
             ))}
           </tbody>
