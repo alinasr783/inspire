@@ -89,12 +89,14 @@ export default async function LocaleLayout({
           <QueryProvider>
             <NextIntlClientProvider>{children}</NextIntlClientProvider>
           </QueryProvider>
-          <Toaster
-            position={dir === "rtl" ? "bottom-left" : "bottom-right"}
-            dir={dir === "rtl" ? "rtl" : "ltr"}
-            richColors
-            closeButton
-          />
+            <Toaster
+              position={dir === "rtl" ? "bottom-left" : "bottom-right"}
+              dir={dir === "rtl" ? "rtl" : "ltr"}
+              richColors
+              closeButton
+              gap={8}
+              visibleToasts={5}
+            />
         </ThemeProvider>
       </body>
     </html>

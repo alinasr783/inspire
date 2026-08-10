@@ -11,10 +11,11 @@ function userInitials(name: string) {
 }
 
 export const PresenceTd = memo(function PresenceTd({
-  table, rowId, colKey, children, className, onContextMenu,
+  table, rowId, colKey, children, className, style: externalStyle, onContextMenu,
 }: {
   table: string; rowId: string; colKey: string;
   children: React.ReactNode; className?: string;
+  style?: React.CSSProperties;
   onContextMenu?: (e: React.MouseEvent, info: CellInfo) => void;
 }) {
   const { cellPresences, broadcastHover, broadcastLeave } = useCellPresence();
@@ -36,8 +37,8 @@ export const PresenceTd = memo(function PresenceTd({
       const e = editEvents[editEvents.length - 1];
       shadows.push(`inset 0 0 0 3px ${e.userColor}`);
     }
-    if (shadows.length === 0) return undefined;
-    return { boxShadow: shadows.join(", ") };
+    if (shadows.length === 0) return externalStyle;
+    return { ...externalStyle, boxShadow: shadows.join(", ") };
   })();
 
   const allUsers = users ?? [];

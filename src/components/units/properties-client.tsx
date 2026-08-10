@@ -66,6 +66,91 @@ function toDateOnly(dateStr: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+function applyFilters(
+  units: UnitRow[],
+  filters: Record<string, string>,
+  search: string,
+  customColumns: ColumnConfig[],
+  duplicatePhones: Set<string>,
+  skipKey?: string,
+): UnitRow[] {
+  let result = units;
+
+  if (search) {
+    result = result.filter((u) =>
+      [u.customer_name, u.phone, u.compound_name, u.additional_notes, u.feedback].some(
+        (v) => (v ?? "").toLowerCase().includes(search)
+      )
+    );
+  }
+
+  for (const key of BUILTIN_DROPDOWN_KEYS) {
+    if (key === skipKey) continue;
+    const val = filters[key];
+    if (val && val !== "all") {
+      result = result.filter((u) => u[key as keyof UnitRow] === val);
+    }
+  }
+
+  if (filters.cash_from && "cash_from" !== skipKey) {
+    const min = Number(filters.cash_from);
+    if (!isNaN(min)) result = result.filter((u) => (u.cash_required ?? 0) >= min);
+  }
+  if (filters.cash_to && "cash_to" !== skipKey) {
+    const max = Number(filters.cash_to);
+    if (!isNaN(max)) result = result.filter((u) => (u.cash_required ?? 0) <= max);
+  }
+  if (filters.remaining_from && "remaining_from" !== skipKey) {
+    const min = Number(filters.remaining_from);
+    if (!isNaN(min)) result = result.filter((u) => (u.remaining ?? 0) >= min);
+  }
+  if (filters.remaining_to && "remaining_to" !== skipKey) {
+    const max = Number(filters.remaining_to);
+    if (!isNaN(max)) result = result.filter((u) => (u.remaining ?? 0) <= max);
+  }
+
+  if (filters.assigned_employee && filters.assigned_employee !== "all" && "assigned_employee" !== skipKey) {
+    result = result.filter((u) => (u as any).assigned_employee === filters.assigned_employee);
+  }
+
+  if (filters.last_contact_from && "last_contact_from" !== skipKey) {
+    const from = toDateOnly(filters.last_contact_from);
+    if (from) {
+      result = result.filter((u) => {
+        if (!u.last_contact_date) return false;
+        return toDateOnly(u.last_contact_date) >= from;
+      });
+    }
+  }
+  if (filters.last_contact_to && "last_contact_to" !== skipKey) {
+    const to = toDateOnly(filters.last_contact_to);
+    if (to) {
+      result = result.filter((u) => {
+        if (!u.last_contact_date) return false;
+        return toDateOnly(u.last_contact_date) <= to;
+      });
+    }
+  }
+
+  for (const col of customColumns) {
+    if (col.key === skipKey) continue;
+    const val = filters[col.key];
+    if (val && val !== "all") {
+      const term = val.toLowerCase();
+      result = result.filter((u) => {
+        const cv = (u.custom_fields as Record<string, unknown>)?.[col.key];
+        return cv ? String(cv).toLowerCase().includes(term) : false;
+      });
+    }
+  }
+
+  if (filters.duplicate_phone === "1" && "duplicate_phone" !== skipKey) {
+    result = result.filter((u) => u.phone && duplicatePhones.has(u.phone));
+  }
+
+  return result;
+}
+
 export function PropertiesClient({
   initialUnits,
   columns,
@@ -122,90 +207,9 @@ export function PropertiesClient({
   }, [customColumns]);
 
   const filteredUnits = useMemo(() => {
-    let result = unitsData;
+    const result = applyFilters(unitsData, filters, deferredSearch, customColumns, duplicatePhones);
 
-    const searchTerm = deferredSearch?.toLowerCase();
-    if (searchTerm) {
-      result = result.filter((u) =>
-        [u.customer_name, u.phone, u.compound_name, u.additional_notes, u.feedback].some(
-          (v) => (v ?? "").toLowerCase().includes(searchTerm)
-        )
-      );
-    }
-
-    for (const key of BUILTIN_DROPDOWN_KEYS) {
-      const val = filters[key];
-      if (val && val !== "all") {
-        result = result.filter((u) => u[key as keyof UnitRow] === val);
-      }
-    }
-
-    if (filters.cash_from) {
-      const min = Number(filters.cash_from);
-      if (!isNaN(min)) result = result.filter((u) => (u.cash_required ?? 0) >= min);
-    }
-    if (filters.cash_to) {
-      const max = Number(filters.cash_to);
-      if (!isNaN(max)) result = result.filter((u) => (u.cash_required ?? 0) <= max);
-    }
-    if (filters.remaining_from) {
-      const min = Number(filters.remaining_from);
-      if (!isNaN(min)) result = result.filter((u) => (u.remaining ?? 0) >= min);
-    }
-    if (filters.remaining_to) {
-      const max = Number(filters.remaining_to);
-      if (!isNaN(max)) result = result.filter((u) => (u.remaining ?? 0) <= max);
-    }
-
-    if (filters.assigned_employee && filters.assigned_employee !== "all") {
-      result = result.filter((u) => (u as any).assigned_employee === filters.assigned_employee);
-    }
-
-    if (filters.last_contact_from) {
-      const from = toDateOnly(filters.last_contact_from);
-      if (from) {
-        result = result.filter((u) => {
-          if (!u.last_contact_date) return false;
-          return toDateOnly(u.last_contact_date) >= from;
-        });
-      }
-    }
-    if (filters.last_contact_to) {
-      const to = toDateOnly(filters.last_contact_to);
-      if (to) {
-        result = result.filter((u) => {
-          if (!u.last_contact_date) return false;
-          return toDateOnly(u.last_contact_date) <= to;
-        });
-      }
-    }
-
-    for (const col of customColumns) {
-      const val = filters[col.key];
-      if (val && val !== "all") {
-        const term = val.toLowerCase();
-        result = result.filter((u) => {
-          const cv = (u.custom_fields as Record<string, unknown>)?.[col.key];
-          return cv ? String(cv).toLowerCase().includes(term) : false;
-        });
-      }
-    }
-
-    if (filters.duplicate_phone === "1") {
-      result = result.filter((u) => u.phone && duplicatePhones.has(u.phone));
-    }
-
-    result = [...result].sort((a, b) => {
-      const nameA = String(a.customer_name ?? "");
-      const nameB = String(b.customer_name ?? "");
-      const isArA = /[\u0600-\u06FF]/.test(nameA);
-      const isArB = /[\u0600-\u06FF]/.test(nameB);
-      if (isArA && !isArB) return -1;
-      if (!isArA && isArB) return 1;
-      return nameA.localeCompare(nameB, isArA ? "ar" : "en", { sensitivity: "base" });
-    });
-
-    return result;
+    return [...result];
   }, [unitsData, filters, customColumns, deferredSearch, duplicatePhones]);
 
   const hasActiveFilters = useMemo(() => {
@@ -218,6 +222,30 @@ export function PropertiesClient({
     if (filters.last_contact_from || filters.last_contact_to) return true;
     return false;
   }, [filters, customColumns]);
+
+  const availableFilterOptions = useMemo(() => {
+    if (!hasActiveFilters) return undefined;
+
+    const options: Record<string, string[]> = {};
+    const allDropdownKeys = [...BUILTIN_DROPDOWN_KEYS, "assigned_employee", ...customColumns.filter((c) => c.type === "select").map((c) => c.key)];
+
+    for (const key of allDropdownKeys) {
+      const subset = applyFilters(unitsData, filters, deferredSearch, customColumns, duplicatePhones, key);
+      const vals = subset
+        .map((u) => {
+          if (key === "assigned_employee") return (u as any).assigned_employee;
+          if (BUILTIN_DROPDOWN_KEYS.includes(key)) return u[key as keyof UnitRow];
+          return (u.custom_fields as Record<string, unknown>)?.[key];
+        })
+        .filter((v): v is string => !!v);
+      const unique = [...new Set(vals)].sort();
+      if (unique.length > 0) {
+        options[key] = unique;
+      }
+    }
+
+    return Object.keys(options).length > 0 ? options : undefined;
+  }, [unitsData, filters, customColumns, deferredSearch, duplicatePhones, hasActiveFilters]);
 
   const visibleUnits = useMemo(
     () => filteredUnits.slice(0, showCount),
@@ -239,6 +267,7 @@ export function PropertiesClient({
         uniqueAreas={uniqueAreas}
         employeeOptions={employeeOptions}
         rangeLimits={rangeLimits}
+        availableOptions={availableFilterOptions}
       />
 
       <UnitTable

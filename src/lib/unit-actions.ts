@@ -30,6 +30,7 @@ export type UnitRow = {
   created_at: string;
   updated_at: string;
   share_text: string | null;
+  highlight: string | null;
 };
 
 const unitSchema = z.object({
@@ -182,7 +183,7 @@ export async function deleteUnit(id: string) {
 
   const { data: existing } = await supabase
     .from("units")
-    .select("created_by")
+    .select("created_by, assigned_employee")
     .eq("id", id)
     .single();
 
@@ -190,7 +191,10 @@ export async function deleteUnit(id: string) {
     redirect(`/${locale}/properties?error=not-found`);
   }
 
-  if (existing.created_by !== user.id) {
+  const isOwner = existing.created_by === user.id;
+  const isAssigned = existing.assigned_employee === user.id;
+
+  if (!isOwner && !isAssigned) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -223,6 +227,22 @@ export async function updateUnitField(unitId: string, field: string, value: stri
 
   const admin = createAdminClient();
 
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  const isAdmin = profile?.role === "admin";
+
+  if (!isAdmin) {
+    const { data: unit } = await admin.from("units").select("created_by, assigned_employee").eq("id", unitId).single();
+    const isOwner = unit?.created_by === user.id;
+    const isAssigned = unit?.assigned_employee === user.id;
+    if (!isOwner && !isAssigned) {
+      throw new Error("unauthorized");
+    }
+  }
+
   if (!allowedFields.includes(field)) {
     const { data: current } = await admin.from("units").select("custom_fields").eq("id", unitId).single();
     const customFields = (current?.custom_fields ?? {}) as Record<string, unknown>;
@@ -233,22 +253,6 @@ export async function updateUnitField(unitId: string, field: string, value: stri
       .eq("id", unitId);
     if (cfError) throw new Error("update-failed");
     return { success: true };
-  }
-
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  const isAdmin = profile?.role === "admin";
-
-  if (!isAdmin && field !== "feedback") {
-    const { data: unit } = await admin.from("units").select("created_by, assigned_employee").eq("id", unitId).single();
-    const isOwner = unit?.created_by === user.id;
-    const isAssigned = unit?.assigned_employee === user.id;
-    if (!isOwner && !isAssigned) {
-      throw new Error("unauthorized");
-    }
   }
 
   const numericFields = ["cash_required", "remaining"];
@@ -611,4 +615,42 @@ export async function confirmGroupUnits(rows: Array<{ mapped: Record<string, str
     skipped: skipped.length,
     skippedDetails: skipped.map((s) => `Row ${s.row}: ${s.issues}`),
   };
+}
+
+export async function highlightRow(unitId: string, color: "green" | "red" | null) {
+  const supabase = await createClient();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (!user || userError) throw new Error("unauthorized");
+
+  const admin = createAdminClient();
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  const isAdmin = profile?.role === "admin";
+
+  if (!isAdmin) {
+    const { data: unit } = await admin
+      .from("units")
+      .select("created_by, assigned_employee")
+      .eq("id", unitId)
+      .single();
+
+    const isOwner = unit?.created_by === user.id;
+    const isAssigned = unit?.assigned_employee === user.id;
+    if (!isOwner && !isAssigned) {
+      throw new Error("unauthorized");
+    }
+  }
+
+  const { error } = await admin
+    .from("units")
+    .update({ highlight: color, updated_at: new Date().toISOString() })
+    .eq("id", unitId);
+
+  if (error) throw new Error("update-failed");
+
+  return { success: true };
 }

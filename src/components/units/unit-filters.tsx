@@ -23,6 +23,7 @@ interface UnitFiltersProps {
     cash_required: { min: number; max: number } | null;
     remaining: { min: number; max: number } | null;
   };
+  availableOptions?: Record<string, string[]>;
 }
 
 const selectClass =
@@ -41,6 +42,7 @@ export function UnitFilters({
   uniqueAreas,
   employeeOptions,
   rangeLimits,
+  availableOptions,
 }: UnitFiltersProps) {
   const t = useTranslations("Properties");
   const [dateOpen, setDateOpen] = useState(false);
@@ -61,6 +63,13 @@ export function UnitFilters({
   }, [dateOpen]);
 
   const val = (key: string, fallback = "all") => filters[key] ?? fallback;
+
+  const getOptions = (key: string, fallbackOptions: string[]) => {
+    if (availableOptions?.[key] && availableOptions[key].length > 0) {
+      return availableOptions[key].filter((opt) => fallbackOptions.includes(opt));
+    }
+    return fallbackOptions;
+  };
 
   return (
     <div className="mb-4 space-y-3">
@@ -93,7 +102,7 @@ export function UnitFilters({
           className={selectClass}
         >
           <option value="all">{t("finishingStatus")}</option>
-          {uniqueFinishing.map((opt) => (
+          {getOptions("finishing_status", uniqueFinishing).map((opt) => (
             <option key={opt} value={opt}>{opt}</option>
           ))}
         </select>
@@ -104,7 +113,7 @@ export function UnitFilters({
           className={selectClass}
         >
           <option value="all">{t("rentSale")}</option>
-          {uniqueRentSale.map((opt) => (
+          {getOptions("rent_sale", uniqueRentSale).map((opt) => (
             <option key={opt} value={opt}>{opt}</option>
           ))}
         </select>
@@ -115,7 +124,7 @@ export function UnitFilters({
           className={selectClass}
         >
           <option value="all">{t("unitType")}</option>
-          {uniqueUnitType.map((opt) => (
+          {getOptions("unit_type", uniqueUnitType).map((opt) => (
             <option key={opt} value={opt}>{opt}</option>
           ))}
         </select>
@@ -126,7 +135,7 @@ export function UnitFilters({
           className={selectClass}
         >
           <option value="all">{t("compoundName")}</option>
-          {uniqueCompounds.map((name) => (
+          {getOptions("compound_name", uniqueCompounds).map((name) => (
             <option key={name} value={name}>{name}</option>
           ))}
         </select>
@@ -137,7 +146,7 @@ export function UnitFilters({
           className={selectClass}
         >
           <option value="all">{t("area")}</option>
-          {uniqueAreas.map((a) => (
+          {getOptions("area", uniqueAreas).map((a) => (
             <option key={a} value={a}>{a}</option>
           ))}
         </select>
@@ -148,8 +157,11 @@ export function UnitFilters({
             onChange={(e) => setFilter("assigned_employee", e.target.value)}
             className={selectClass}
           >
-            <option value="all">Assigned Employee</option>
-            {employeeOptions.map((e) => (
+            <option value="all">{t("filterAll")}</option>
+            {(availableOptions?.["assigned_employee"]
+              ? employeeOptions.filter((e) => availableOptions["assigned_employee"]!.includes(e.id))
+              : employeeOptions
+            ).map((e) => (
               <option key={e.id} value={e.id}>{e.name}</option>
             ))}
           </select>
@@ -271,7 +283,7 @@ export function UnitFilters({
               className={selectClass}
             >
               <option value="all">{col.label_en}</option>
-              {(col.options ?? []).map((opt) => (
+              {getOptions(col.key, col.options ?? []).map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
             </select>

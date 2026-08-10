@@ -289,7 +289,18 @@
       "updateFailed": "Could not update the property, please try again.",
       "deleteFailed": "Could not delete the property, please try again.",
       "notFound": "The requested property was not found.",
-      "unauthorized": "You are not authorized to edit this property."
+      "unauthorized": "You are not authorized to edit this property.",
+      "deletedSuccess": "Deleted successfully",
+      "deleteFailed": "Delete failed",
+      "unauthorizedTitle": "Unauthorized",
+      "unauthorizedDescription": "You do not have permission to perform this action. You can only edit or delete properties that you have created or that you have been assigned as the responsible employee.",
+      "ok": "OK",
+      "quickAddColumn": "Add New Column",
+      "quickAddColumnDesc": "Quickly add a new custom column to the properties table.",
+      "columnAdded": "Column added successfully",
+      "columnAddFailed": "Failed to add column",
+      "columnOptionsPlaceholder": "One option per line",
+      "saving": "Saving..."
     }
   },
   "Clients": {

@@ -6,15 +6,15 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { Building2, Trash2, Eye, Pencil, AlertTriangle } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { toast } from "sonner";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { updateColumnOrder, renameColumnConfig, type ColumnConfig } from "@/lib/unit-config-actions";
-import { updateUnitField, quickCreateUnit, deleteUnit, type UnitRow } from "@/lib/unit-actions";
+import { updateUnitField, quickCreateUnit, deleteUnit, highlightRow, type UnitRow } from "@/lib/unit-actions";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { PresenceTd } from "@/components/realtime/presence-td";
 import { TableCellContextMenu, type CellInfo } from "@/components/realtime/table-cell-context-menu";
 import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
 import { useCellStyles } from "@/hooks/use-cell-styles";
+import { showSuccess, showError, showWarning } from "@/lib/toast-utils";
 
 const STALE_DAYS = 30;
 
@@ -174,11 +174,13 @@ const TableRowComponent = memo(function TableRowComponent({
   const ed = editing;
   const isDuplicatePhone = !!(unit.phone && duplicatePhones.has(unit.phone));
 
+  const highlightBg = unit.highlight === "green" ? "#dcfce7" : unit.highlight === "red" ? "#fee2e2" : undefined;
+
   const handleDeleteClick = useCallback(() => onDelete(uid), [onDelete, uid]);
 
   return (
     <tr className={`border-b last:border-0 hover:bg-muted/30 ${stale ? "inspire-stale-contact" : ""}`} data-row-id={uid} data-stale={stale ? "true" : undefined}>
-      <td className="border-b border-r px-2.5 py-2 text-center text-xs tabular-nums text-muted-foreground">{index + 1}</td>
+      <td className="border-b border-r px-2.5 py-2 text-center text-xs tabular-nums text-muted-foreground" style={highlightBg ? { backgroundColor: highlightBg } : undefined}>{index + 1}</td>
       {columns.map((col) => {
         const key = col.key;
         const isEdit = ed?.uid === uid && ed?.colId === col.id;
@@ -187,6 +189,7 @@ const TableRowComponent = memo(function TableRowComponent({
         return (
           <PresenceTd key={col.id} table="properties" rowId={uid} colKey={key}
             className="overflow-hidden border-b border-r p-0 align-middle"
+            style={highlightBg ? { backgroundColor: highlightBg } : undefined}
             onContextMenu={onContextMenu}>
             {isEdit ? (
               <CellEditor
@@ -204,7 +207,13 @@ const TableRowComponent = memo(function TableRowComponent({
                   ltr={info.ltr}
                   right={info.right}
                   locale={locale}
-                  onEdit={() => info.canEdit && cellEdit(uid, col.id)}
+                  onEdit={() => {
+                    if (info.canEdit) {
+                      cellEdit(uid, col.id);
+                    } else {
+                      showError("ليس لديك صلاحية لتعديل هذا العقار. يمكنك فقط تعديل العقارات التي قمت بإنشائها أو التي تم تعيينك كموظف مسؤول عنها.");
+                    }
+                  }}
                 />
                 {key === "phone" && (!unit.phone || isDuplicatePhone) && (
                   <span className="absolute end-1 top-1/2 -translate-y-1/2 text-red-500" title={locale === "ar" ? "رقم مكرر" : "Duplicate number"}>
@@ -216,13 +225,13 @@ const TableRowComponent = memo(function TableRowComponent({
           </PresenceTd>
         );
       })}
-      <td className="whitespace-nowrap border-b px-2 py-1.5 align-middle">
+      <td className="whitespace-nowrap border-b px-2 py-1.5 align-middle" style={highlightBg ? { backgroundColor: highlightBg } : undefined}>
         <div className="flex items-center gap-0.5">
           <Link href={`/properties/${uid}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Eye className="h-4 w-4" /></Link>
           {(isAdmin || unit.created_by === userId || unit.assigned_employee === userId) && (
             <Link href={`/properties/${uid}/edit`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Pencil className="h-4 w-4" /></Link>
           )}
-          {(isAdmin || unit.created_by === userId) && (
+          {(isAdmin || unit.created_by === userId || unit.assigned_employee === userId) && (
             <button className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-red-50 text-red-500 hover:text-red-600" onClick={handleDeleteClick}>
               <Trash2 className="h-4 w-4" />
             </button>
@@ -293,7 +302,18 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
 
   const dragStateRef = useRef<{ key: string; width: number } | null>(null);
 
-  useEffect(() => { setLocalUnits(serverUnits); }, [serverUnits]);
+  useEffect(() => {
+    setLocalUnits((prev) => {
+      const serverIds = new Set(serverUnits.map((u) => u.id));
+      const prevIds = new Set(prev.map((u) => u.id));
+      const sameSize = serverIds.size === prevIds.size;
+      const allInServer = [...prevIds].every((id) => serverIds.has(id));
+      if (sameSize && allInServer) return prev;
+      const newUnits = serverUnits.filter((u) => !prevIds.has(u.id));
+      const filtered = prev.filter((u) => serverIds.has(u.id));
+      return [...newUnits, ...filtered];
+    });
+  }, [serverUnits]);
   useEffect(() => { setLocalCols(enabledColumns); }, [enabledColumns]);
   useEffect(() => {
     setColWidths((prev) => {
@@ -402,6 +422,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
 
   const cellSave = useCallback((uid: string, key: string, value: string) => {
     setEditing(null);
+    const prevUnits = srvRef.current;
     setLocalUnits((prev) => prev.map((u) => {
       if (u.id !== uid) return u;
       if (unitsBuiltin.current.has(key)) return { ...u, [key]: value } as UnitRow;
@@ -410,7 +431,19 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
     }));
     notifyCellEdit({ table: "units", rowId: uid, field: key, action: "update" });
     const tag = uid + key;
-    if (!bgSaveRef.current.has(tag)) { bgSaveRef.current.add(tag); updateUnitField(uid, key, value).finally(() => bgSaveRef.current.delete(tag)); }
+    if (!bgSaveRef.current.has(tag)) {
+      bgSaveRef.current.add(tag);
+      updateUnitField(uid, key, value)
+        .catch((e: Error) => {
+          setLocalUnits(prevUnits);
+          if (e.message === "unauthorized") {
+            showError("ليس لديك صلاحية لتعديل هذا العقار. يمكنك فقط تعديل العقارات التي قمت بإنشائها أو التي تم تعيينك كموظف مسؤول عنها.");
+          } else {
+            showError(e?.message || "Update failed");
+          }
+        })
+        .finally(() => bgSaveRef.current.delete(tag));
+    }
   }, [notifyCellEdit]);
 
   const handleDelete = useCallback(async (uid: string) => {
@@ -423,7 +456,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
     const uid = deleteDialog.uid;
     setDeleting(true);
     setLocalUnits((prev) => prev.filter((u) => u.id !== uid));
-    try { await deleteUnit(uid); toast.success("Deleted successfully"); } catch (e: any) { setLocalUnits(srvRef.current); toast.error(e?.message || "Delete failed"); }
+    try { await deleteUnit(uid); showSuccess(t("deletedSuccess")); } catch (e: any) { setLocalUnits(srvRef.current); showError(e?.message || t("deleteFailed")); }
     setDeleting(false);
     setDeleteDialog(null);
   }, [deleteDialog]);
@@ -439,11 +472,34 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
           return (val != null && val !== "") ? String(val) : null;
         });
       }
-      if (e.ctrlKey && e.key === "i") {
+      if (e.altKey && e.key === "n") {
         e.preventDefault();
         quickCreateUnit(userId).then((newUnit) => {
           setLocalUnits((prev) => [newUnit, ...prev]);
         }).catch(() => {});
+      }
+      if (e.altKey && (e.key === "g" || e.key === "h")) {
+        e.preventDefault();
+        const h = hoverRef.current;
+        if (h) {
+          const color = e.key === "g" ? "green" : "red";
+          const unit = localUnits.find((u) => u.id === h.rowId);
+          const currentHighlight = unit?.highlight;
+          const newColor = currentHighlight === color ? null : color;
+          setLocalUnits((prev) => prev.map((u) =>
+            u.id === h.rowId ? { ...u, highlight: newColor } as UnitRow : u
+          ));
+          highlightRow(h.rowId, newColor).catch((err: Error) => {
+            if (err.message === "unauthorized") {
+              showError("ليس لديك صلاحية لتمييز هذا العقار. يمكنك فقط تمييز العقارات التي قمت بإنشائها أو التي تم تعيينك كموظف مسؤول عنها.");
+            } else {
+              showError(err?.message || "Highlight failed");
+            }
+            setLocalUnits(srvRef.current);
+          });
+          const label = e.key === "g" ? "green" : "red";
+          showSuccess(`تم ${newColor ? "تمييز" : "إلغاء تمييز"} الصف باللون ${label === "green" ? "الأخضر" : "الأحمر"}`);
+        }
       }
     }
     document.addEventListener("keydown", onKey);
@@ -454,7 +510,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   const getCellInfo = useCallback((col: ColumnConfig, unit: UnitRow) => {
     const key = col.key;
     const isOwner = unit.created_by === userId || unit.assigned_employee === userId;
-    const canEdit = isAdmin || isOwner || key === "feedback";
+    const canEdit = isAdmin || isOwner;
     const rawVal = col.is_builtin ? String((unit as Record<string, unknown>)[key] ?? "") : String((unit.custom_fields as Record<string, unknown>)?.[key] ?? "");
     const raw = key === "assigned_employee" ? (employeeMap.get(rawVal) || "—") : rawVal;
     const editValue = key === "assigned_employee" ? rawVal : raw;
