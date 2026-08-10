@@ -691,8 +691,7 @@ export default async function DashboardPage({
                 {t("noUnitsFound")}
               </p>
             ) : (
-              <ul className="divide-y">
-                {cheapRent.map((unit) => (
+              <ul className="divide-y [&>li:last-child]:pb-3">\n                {cheapRent.map((unit) => (
                   <li key={unit.id}>
                     <Link
                       href={`/properties/${unit.id}`}
@@ -739,8 +738,7 @@ export default async function DashboardPage({
                 {t("noUnitsFound")}
               </p>
             ) : (
-              <ul className="divide-y">
-                {cheapSale.map((unit) => (
+              <ul className="divide-y [&>li:last-child]:pb-3">\n                {cheapSale.map((unit) => (
                   <li key={unit.id}>
                     <Link
                       href={`/properties/${unit.id}`}
@@ -809,7 +807,7 @@ export default async function DashboardPage({
               {t("noUnitsFound")}
             </p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 pb-3">
               {distinguished.map((unit, i) => (
                 <Link
                   key={unit.id}

@@ -10,6 +10,7 @@ import type { UnitRow } from "@/lib/unit-actions";
 import { getUnitGallery } from "@/lib/gallery-actions";
 import { GalleryManager } from "@/components/gallery/gallery-manager";
 import { MobileShareSection } from "@/components/properties/mobile-share-section";
+import { ShareQrCode } from "@/components/properties/share-qr-code";
 import { CopyButton } from "@/components/clients/copy-button";
 import { DeleteUnitButton } from "@/components/units/delete-unit-button";
 import { WhatsAppIcon, TelegramIcon } from "@/components/ui/brand-icons";
@@ -353,6 +354,8 @@ export default async function UnitDetailPage({
   ].filter(Boolean).join("\n");
   const mobileShareText = unitData.share_text || defaultMobileShareText;
 
+  const qrShareUrl = `https://wa.me/?text=${encodeURIComponent(mobileShareText)}`;
+
   return (
     <div className="space-y-6 pb-20 md:pb-0">
       <nav className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -686,8 +689,8 @@ export default async function UnitDetailPage({
                       </InfoRow>
                     );
                   })}
-                </div>
-              </CardContent>
+              </div>
+            </CardContent>
             </Card>
           )}
         </div>
@@ -753,6 +756,17 @@ export default async function UnitDetailPage({
                 }
                 ltr={!isAr}
               />
+            </CardContent>
+          </Card>
+
+          <Card className="hidden lg:block">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {t("scanToShare")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex justify-center pb-6 pt-0 px-2">
+              <ShareQrCode text={qrShareUrl} />
             </CardContent>
           </Card>
         </aside>

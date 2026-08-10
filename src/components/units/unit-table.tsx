@@ -456,7 +456,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
     const uid = deleteDialog.uid;
     setDeleting(true);
     setLocalUnits((prev) => prev.filter((u) => u.id !== uid));
-    try { await deleteUnit(uid); showSuccess(t("deletedSuccess")); } catch (e: any) { setLocalUnits(srvRef.current); showError(e?.message || t("deleteFailed")); }
+    try { await deleteUnit(uid); showSuccess(t("deletedSuccess")); } catch (e: any) { setLocalUnits(srvRef.current); if (e.message === "unauthorized") { showError("ليس لديك صلاحية لحذف هذا العقار. يمكنك فقط حذف العقارات التي قمت بإنشائها أو التي تم تعيينك كموظف مسؤول عنها."); } else if (e.message === "not-found") { showError("العقار غير موجود"); } else { showError(e?.message || t("deleteFailed")); } }
     setDeleting(false);
     setDeleteDialog(null);
   }, [deleteDialog]);

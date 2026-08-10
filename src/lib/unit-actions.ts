@@ -175,11 +175,10 @@ export async function updateUnit(id: string, formData: FormData) {
 }
 
 export async function deleteUnit(id: string) {
-  const locale = await getLocale();
   const supabase = await createClient();
 
   const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (!user || userError) redirect(`/${locale}/auth/login`);
+  if (!user || userError) throw new Error("unauthorized");
 
   const { data: existing } = await supabase
     .from("units")
@@ -188,7 +187,7 @@ export async function deleteUnit(id: string) {
     .single();
 
   if (!existing) {
-    redirect(`/${locale}/properties?error=not-found`);
+    throw new Error("not-found");
   }
 
   const isOwner = existing.created_by === user.id;
@@ -202,7 +201,7 @@ export async function deleteUnit(id: string) {
       .single();
 
     if (!profile || profile.role !== "admin") {
-      redirect(`/${locale}/properties?error=unauthorized`);
+      throw new Error("unauthorized");
     }
   }
 

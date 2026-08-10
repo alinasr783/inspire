@@ -34,7 +34,7 @@ function ConfirmDialog({
         />
         <AlertDialog.Popup
           className={cn(
-            "fixed start-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-card p-6 text-card-foreground shadow-lg transition duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0"
+            "fixed start-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-card p-4 sm:p-6 text-card-foreground shadow-lg transition duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 max-h-[85vh] overflow-y-auto"
           )}
         >
           <AlertDialog.Title className="text-lg font-semibold leading-none tracking-tight">
