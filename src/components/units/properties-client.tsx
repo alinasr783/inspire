@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useDeferredValue } from "react";
+import { useState, useMemo, useCallback, useEffect, useDeferredValue, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { UnitFilters } from "@/components/units/unit-filters";
@@ -185,9 +185,33 @@ export function PropertiesClient({
     return new Set([...count].filter(([, c]) => c > 1).map(([p]) => p));
   }, [unitsData]);
 
+  const STORAGE_KEY = "properties_filters";
+
   const [filters, setFilters] = useState<Record<string, string>>(() =>
     buildInitialFilters(customColumns)
   );
+
+  const filtersInitialized = useRef(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setFilters((prev) => {
+          const base = buildInitialFilters(customColumns);
+          return { ...base, ...parsed };
+        });
+      }
+    } catch { /* ignore */ }
+    filtersInitialized.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (filtersInitialized.current) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
+    }
+  }, [filters]);
   const deferredSearch = useDeferredValue(filters.q ?? "");
   const [showCount, setShowCount] = useState(50);
 
