@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, X } from "lucide-react";
 
 const groups = [
   {
@@ -59,63 +59,111 @@ export function ShortcutsHelp({ locale }: { locale: string }) {
   const [open, setOpen] = useState(false);
   const isAr = locale === "ar";
 
+  const content = (
+    <div className="space-y-4 max-h-[55vh] overflow-y-auto">
+      {groups.map((group) => (
+        <div key={group.title}>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+            {isAr ? group.titleAr : group.title}
+          </p>
+          <div className="space-y-1.5">
+            {group.items.map((item) => (
+              <div
+                key={item.keys.join("+")}
+                className="flex items-center justify-between gap-3 rounded-lg border border-transparent bg-muted/30 px-3 py-2 transition-colors hover:border-border hover:bg-muted/50"
+              >
+                <span className="text-xs font-medium text-foreground tabular-nums">
+                  {isAr ? item.descAr : item.desc}
+                </span>
+                <div className="flex items-center gap-1">
+                  {item.keys.map((k, i) => (
+                    <span key={i} className="flex items-center gap-1">
+                      <Kbd>{k === " " ? "Space" : k}</Kbd>
+                      {i < item.keys.length - 1 && (
+                        <span className="text-[10px] text-muted-foreground/50 font-medium">+</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <>
       <button
         onClick={() => setOpen(true)}
         className="ml-1.5 inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border bg-muted/40 text-muted-foreground transition-all hover:bg-muted hover:text-foreground hover:border-muted-foreground/30 hover:shadow-sm"
       >
         <HelpCircle className="h-3.5 w-3.5" />
       </button>
-      <DialogContent className="sm:max-w-[420px] gap-0 p-0 overflow-hidden">
-        <DialogHeader className="px-5 pt-5 pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-              <HelpCircle className="h-4.5 w-4.5 text-primary" />
-            </div>
-            <div>
-              <DialogTitle className="text-sm font-semibold">
-                {isAr ? "اختصارات لوحة المفاتيح" : "Keyboard Shortcuts"}
-              </DialogTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {isAr ? "خصائص" : "Properties"} — {isAr ? "صفحة العقارات" : "Page"}
-              </p>
-            </div>
-          </div>
-        </DialogHeader>
 
-        <div className="px-5 pb-5 space-y-4 max-h-[55vh] overflow-y-auto">
-          {groups.map((group) => (
-            <div key={group.title}>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                {isAr ? group.titleAr : group.title}
-              </p>
-              <div className="space-y-1.5">
-                {group.items.map((item) => (
-                  <div
-                    key={item.keys.join("+")}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-transparent bg-muted/30 px-3 py-2 transition-colors hover:border-border hover:bg-muted/50"
-                  >
-                    <span className="text-xs font-medium text-foreground tabular-nums">
-                      {isAr ? item.descAr : item.desc}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      {item.keys.map((k, i) => (
-                        <span key={i} className="flex items-center gap-1">
-                          <Kbd>{k === " " ? "Space" : k}</Kbd>
-                          {i < item.keys.length - 1 && (
-                            <span className="text-[10px] text-muted-foreground/50 font-medium">+</span>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+      {/* Desktop: Dialog */}
+      <div className="hidden sm:block">
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent className="sm:max-w-[420px] gap-0 p-0 overflow-hidden">
+            <DialogHeader className="px-5 pt-5 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                  <HelpCircle className="h-4.5 w-4.5 text-primary" />
+                </div>
+                <div>
+                  <DialogTitle className="text-sm font-semibold">
+                    {isAr ? "اختصارات لوحة المفاتيح" : "Keyboard Shortcuts"}
+                  </DialogTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {isAr ? "خصائص" : "Properties"} — {isAr ? "صفحة العقارات" : "Page"}
+                  </p>
+                </div>
               </div>
+            </DialogHeader>
+            <div className="px-5 pb-5">
+              {content}
             </div>
-          ))}
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Mobile: Bottom sheet */}
+      {open && (
+        <div className="sm:hidden">
+          <div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            className="fixed inset-x-0 bottom-0 z-50 animate-in slide-in-from-bottom rounded-t-2xl border-t border-border bg-card px-4 pb-8 pt-4"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 2rem)" }}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                  <HelpCircle className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold">
+                    {isAr ? "اختصارات لوحة المفاتيح" : "Keyboard Shortcuts"}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    {isAr ? "خصائص" : "Properties"} — {isAr ? "صفحة العقارات" : "Page"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setOpen(false)}
+                className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            {content}
+          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      )}
+    </>
   );
 }

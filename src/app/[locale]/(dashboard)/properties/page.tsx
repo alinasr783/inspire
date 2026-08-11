@@ -87,18 +87,11 @@ export default async function PropertiesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{tNav("properties")} <ShortcutsHelp locale={locale} /></h1>
-        <div className="-mx-3 flex gap-2 overflow-x-auto px-3 sm:mx-0 sm:px-0">
-          {isAdmin && <span className="shrink-0"><ColumnConfigModal /></span>}
-          {isAdmin && (
-          <Link href="/properties/group-add" className="shrink-0">
-            <Button variant="outline" size="sm">
-              <Upload className="h-4 w-4" />
-              {t("groupAddUnits")}
-            </Button>
-          </Link>
-          )}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="flex items-center text-xl font-bold tracking-tight sm:text-2xl">
+            {tNav("properties")} <ShortcutsHelp locale={locale} />
+          </h1>
           <Link href="/properties/new" className="shrink-0">
             <Button size="sm">
               <Plus className="h-4 w-4" />
@@ -106,6 +99,17 @@ export default async function PropertiesPage({
             </Button>
           </Link>
         </div>
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            <span className="shrink-0"><ColumnConfigModal /></span>
+            <Link href="/properties/group-add" className="shrink-0">
+              <Button variant="outline" size="sm">
+                <Upload className="h-4 w-4" />
+                {t("groupAddUnits")}
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
 
       <Card className="flex max-h-[calc(100vh-180px)] flex-col">

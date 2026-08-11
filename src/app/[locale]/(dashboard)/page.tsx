@@ -17,7 +17,6 @@ import {
   ListChecks,
   Plus,
   CheckCircle2,
-  CalendarDays,
   ChevronRight,
   Home,
   Trophy,
@@ -473,12 +472,6 @@ export default async function DashboardPage({
     "visits"
   );
 
-  // ── today ──
-  const today = new Date().toLocaleDateString(
-    locale === "ar" ? "ar-EG" : "en-US",
-    { weekday: "long", year: "numeric", month: "long", day: "numeric" }
-  );
-
   const userInitials = userName
     .split(" ")
     .map((n) => n[0])
@@ -510,9 +503,6 @@ export default async function DashboardPage({
                 )}
               </div>
               <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-                <CalendarDays className="me-1 inline size-3 sm:size-3.5" />
-                {today}
-                {" · "}
                 {t("userClientsCount", { count: userClientsCount })}
                 {" · "}
                 {t("userPropertiesCount", { count: userUnitsCount })}
