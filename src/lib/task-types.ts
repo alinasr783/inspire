@@ -1,5 +1,7 @@
 export type TaskStatus = "todo" | "in_progress" | "done";
 
+export type TaskType = "confirmation" | null;
+
 export type TaskRow = {
   id: string;
   title: string;
@@ -12,6 +14,10 @@ export type TaskRow = {
   created_by: string;
   created_at: string;
   updated_at: string;
+  task_type: TaskType;
+  folder_id: string | null;
+  file_id: string | null;
+  records_target: number | null;
 };
 
 export type EmployeeRow = {

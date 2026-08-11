@@ -7,6 +7,7 @@ import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { TaskKanban } from "@/components/tasks/task-kanban";
 import { EmployeeCards } from "@/components/tasks/employee-cards";
 import { AdTrackingSection } from "@/components/tasks/ad-tracking-section";
+import { TaskConfirmationTracker } from "@/components/tasks/task-confirmation-tracker";
 import { AddTaskDialog } from "@/components/tasks/add-task-dialog";
 import { TaskDetailSheet } from "@/components/tasks/task-detail-sheet";
 import { combineEmployeesWithTasks, calculateOverviewStats } from "@/lib/task-types";
@@ -122,6 +123,7 @@ export function TasksClient({
         <EmployeeCards employees={employees} onAddTask={handleAddTask} />
       ) : (
         <>
+          <TaskConfirmationTracker tasks={myTasks} />
           <AdTrackingSection employeeId={userId} />
           <TaskKanban
             key={refreshKey}

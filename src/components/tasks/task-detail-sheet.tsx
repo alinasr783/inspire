@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import {
   Sheet,
@@ -21,12 +21,23 @@ import {
   Circle,
   Play,
   CalendarDays,
-  Target,
   Trash2,
   Pencil,
+  RefreshCw,
+  Megaphone,
+  FileSearch,
+  ClipboardCheck,
+  TrendingUp,
 } from "lucide-react";
-import { fetchTask, updateTask, deleteTask } from "@/lib/task-actions";
+import {
+  fetchTask,
+  updateTask,
+  deleteTask,
+  syncTaskConfirmationProgress,
+} from "@/lib/task-actions";
 import type { TaskRow, TaskStatus } from "@/lib/task-types";
+import { useTaskConfirmationListener } from "@/hooks/use-task-confirmation-listener";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 
 const statusMeta: Record<TaskStatus, { labelKey: string; icon: React.ComponentType<{ className?: string }>; color: string; bgClass: string }> = {
@@ -52,12 +63,13 @@ export function TaskDetailSheet({
 }) {
   const t = useTranslations("Tasks");
   const locale = useLocale();
+  const isMobile = useMediaQuery("(max-width: 767px)");
   const [task, setTask] = useState<TaskRow | null>(null);
   const [editing, setEditing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const loading = !task;
 
-  // Edit form state
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
   const [editTarget, setEditTarget] = useState("");
@@ -81,6 +93,22 @@ export function TaskDetailSheet({
     });
     return () => { active = false; };
   }, [taskId, open]);
+
+  useTaskConfirmationListener(task);
+
+  const handleSyncProgress = useCallback(async () => {
+    if (!task) return;
+    setSyncing(true);
+    try {
+      const result = await syncTaskConfirmationProgress(task.id);
+      setTask((prev) => prev ? { ...prev, progress: result.progress, target: result.progress >= 100 ? prev.target : prev.target, status: result.done ? "done" : prev.status === "done" ? prev.status : result.progress > 0 ? "in_progress" : prev.status } : prev);
+      toast.success(t("progressUpdated"));
+    } catch {
+      toast.error(t("adSaveFailed"));
+    } finally {
+      setSyncing(false);
+    }
+  }, [task, t]);
 
   if (!taskId) return null;
 
@@ -127,24 +155,29 @@ export function TaskDetailSheet({
   const isOverdue = task && task.status !== "done" && due.getTime() < now.getTime();
   const daysLeft = Math.ceil((due.getTime() - now.getTime()) / 86400000);
 
+  const isConfirmation = task?.task_type === "confirmation";
+  const confirmedCount = task && task.target ? Math.round((task.progress / 100) * task.target) : 0;
+
+  const sheetSide = isMobile ? "bottom" : locale === "ar" ? "left" : "right";
+
   return (
     <Sheet key={taskId} open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={locale === "ar" ? "left" : "right"} className="w-[90vw] max-w-md p-0">
+      <SheetContent side={sheetSide} className={cn(isMobile ? "max-h-[90vh] rounded-t-2xl px-0" : "w-[90vw] max-w-md p-0")}>
         {loading ? (
-          <div className="flex h-full items-center justify-center">
+          <div className={cn("flex items-center justify-center", isMobile ? "h-40" : "h-full")}>
             <Loader2 className="size-6 animate-spin text-muted-foreground" />
           </div>
         ) : !task ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+          <div className={cn("flex flex-col items-center justify-center gap-2 text-muted-foreground", isMobile ? "h-40" : "h-full")}>
             <p className="text-sm">{t("taskNotFound")}</p>
           </div>
         ) : (
-          <div className="flex h-full flex-col">
-            <SheetHeader className="flex flex-row items-center justify-between border-b px-5 py-4">
+          <div className={cn("flex flex-col", !isMobile && "h-full")}>
+            <SheetHeader className={cn("flex flex-row items-center justify-between border-b px-5 py-4 shrink-0")}>
               <SheetTitle className="text-base">{editing ? t("editTask") : t("taskDetails")}</SheetTitle>
             </SheetHeader>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+            <div className={cn("overflow-y-auto px-5 py-4 space-y-5", isMobile && "max-h-[60vh]")}>
               {editing ? (
                 <>
                   <div className="space-y-1.5">
@@ -180,14 +213,26 @@ export function TaskDetailSheet({
                 </>
               ) : (
                 <>
-                  <div className="flex items-start justify-between gap-4">
-                    <h2 className="text-lg font-bold">{task.title}</h2>
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="text-lg font-bold leading-tight">{task.title}</h2>
                     {isAdmin && (
-                      <button onClick={() => setEditing(true)} className="shrink-0 text-muted-foreground hover:text-foreground">
+                      <button onClick={() => setEditing(true)} className="shrink-0 mt-0.5 text-muted-foreground hover:text-foreground">
                         <Pencil className="size-4" />
                       </button>
                     )}
                   </div>
+
+                  {isConfirmation && (
+                    <div className="rounded-xl border bg-muted/30 p-3 space-y-2">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <FileSearch className="size-4 text-chart-4" />
+                        {t("taskTypeConfirmation")}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {t("confirmedRecords", { confirmed: confirmedCount, total: task.target ?? 0 })}
+                      </p>
+                    </div>
+                  )}
 
                   {task.description && (
                     <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
@@ -204,6 +249,12 @@ export function TaskDetailSheet({
                       <Badge className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/40 dark:text-red-300">
                         <AlertTriangle className="mr-1 inline size-3" />
                         {t("overdue")}
+                      </Badge>
+                    )}
+                    {isConfirmation && (
+                      <Badge className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+                        <Megaphone className="mr-1 inline size-3" />
+                        {t("taskTypeConfirmation")}
                       </Badge>
                     )}
                   </div>
@@ -225,27 +276,18 @@ export function TaskDetailSheet({
                       )}
                     </div>
 
-                    {task.target != null && task.target > 0 && (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-3 text-sm">
-                          <Target className="size-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">{t("target")}:</span>
-                          <span className="font-medium">
-                            {Math.round((task.progress / 100) * task.target)} / {task.target}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">{t("progress")}</span>
-                        <span className="font-semibold">{task.progress}%</span>
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="size-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">{t("progress")}</span>
+                        </div>
+                        <span className="font-bold text-lg tabular-nums">{task.progress}%</span>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="h-3 overflow-hidden rounded-full bg-muted">
                         <div
                           className={cn(
-                            "h-full rounded-full transition-all",
+                            "h-full rounded-full transition-all duration-500",
                             task.progress >= 100 ? "bg-emerald-500" : "bg-primary"
                           )}
                           style={{ width: `${Math.min(task.progress, 100)}%` }}
@@ -254,27 +296,37 @@ export function TaskDetailSheet({
                     </div>
 
                     {task.target != null && task.target > 0 && (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">{t("targetProgress")}</span>
-                          <span className="font-semibold">
-                            {Math.round((task.progress / 100) * task.target)}/{task.target}
-                          </span>
-                        </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full rounded-full bg-blue-500 transition-all"
-                            style={{ width: `${Math.min(task.progress, 100)}%` }}
-                          />
-                        </div>
+                      <div className="flex items-center gap-3 text-sm">
+                        <ClipboardCheck className="size-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">{t("target")}:</span>
+                        <span className="font-semibold tabular-nums">
+                          {confirmedCount} / {task.target}
+                        </span>
                       </div>
                     )}
                   </div>
+
+                  {isConfirmation && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-2"
+                      onClick={handleSyncProgress}
+                      disabled={syncing}
+                    >
+                      {syncing ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="size-4" />
+                      )}
+                      {t("refreshProgress")}
+                    </Button>
+                  )}
                 </>
               )}
             </div>
 
-            <div className="border-t px-5 py-4">
+            <div className={cn("border-t px-5 py-4 shrink-0", isMobile && "pb-8")}>
               {editing ? (
                 <div className="flex gap-2">
                   <Button variant="outline" className="flex-1" onClick={() => setEditing(false)}>

@@ -466,7 +466,19 @@
     "totalThisWeek": "المجموع",
     "invalidAdCount": "يرجى إدخال رقم صحيح",
     "adSaved": "تم حفظ عدد الإعلانات بنجاح",
-    "adSaveFailed": "فشل حفظ عدد الإعلانات"
+    "adSaveFailed": "فشل حفظ عدد الإعلانات",
+    "taskType": "نوع المهمة",
+    "taskTypeDefault": "مهمة عادية",
+    "taskTypeConfirmation": "تأكيد بيانات",
+    "selectFolder": "اختيار المجلد",
+    "selectFolderPlaceholder": "اختر مجلد...",
+    "selectFile": "اختيار الملف",
+    "selectFilePlaceholder": "اختر ملف...",
+    "recordsTarget": "عدد السجلات المطلوب تأكيدها",
+    "loading": "جاري التحميل...",
+    "refreshProgress": "تحديث التقدم",
+    "progressUpdated": "تم تحديث التقدم بنجاح",
+    "confirmedRecords": "تم تأكيد: {confirmed} / {total} سجل"
   },
   "UnconfirmedData": {
     "title": "البيانات غير المؤكدة",

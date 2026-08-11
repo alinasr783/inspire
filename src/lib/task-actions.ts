@@ -109,14 +109,19 @@ export async function createTask(data: {
   status?: TaskStatus;
   due_date: string;
   assigned_to: string;
-}): Promise<ActionResult> {
+  task_type?: string | null;
+  folder_id?: string | null;
+  file_id?: string | null;
+  records_target?: number | null;
+}): Promise<ActionResult & { taskId?: string }> {
   if (!(await isAdmin())) return { success: false, error: "unauthorized" };
 
   const user = await getCurrentUser();
   if (!user) return { success: false, error: "unauthorized" };
 
   const admin = createAdminClient();
-  const { error } = await admin.from("tasks").insert({
+
+  const insertData: Record<string, unknown> = {
     title: data.title,
     description: data.description ?? null,
     progress: data.progress ?? 0,
@@ -125,11 +130,18 @@ export async function createTask(data: {
     due_date: data.due_date,
     assigned_to: data.assigned_to,
     created_by: user.id,
-  });
+    task_type: data.task_type ?? null,
+    folder_id: data.folder_id ?? null,
+    file_id: data.file_id ?? null,
+    records_target: data.records_target ?? null,
+  };
 
-  if (error) return { success: false, error: "create-failed" };
+  const { data: newTask, error } = await admin.from("tasks").insert(insertData).select("id").single();
+
+  if (error || !newTask) return { success: false, error: "create-failed" };
+
   revalidatePath("/", "layout");
-  return { success: true };
+  return { success: true, taskId: newTask.id };
 }
 
 // ── update task status (employee drags to new column, or admin changes) ──
@@ -296,4 +308,66 @@ export async function updateTaskProgressLegacy(taskId: string, progress: number)
 // ── legacy employee fetch (keeping for compat with existing page) ──
 export async function fetchEmployeeWithTasks(employeeId: string) {
   return fetchEmployeeTasks(employeeId);
+}
+
+export async function getTaskConfirmationProgress(taskId: string): Promise<{ confirmed: number; target: number }> {
+  const admin = createAdminClient();
+
+  const { data: task } = await admin
+    .from("tasks")
+    .select("records_target, file_id, assigned_to")
+    .eq("id", taskId)
+    .single();
+
+  const target = task?.records_target ?? 0;
+  if (!task?.file_id || target === 0) return { confirmed: 0, target: 0 };
+
+  const { count } = await admin
+    .from("unconfirmed_records")
+    .select("*", { count: "exact", head: true })
+    .eq("file_id", task.file_id)
+    .eq("assigned_employee", task.assigned_to);
+
+  return { confirmed: count ?? 0, target };
+}
+
+export async function syncTaskConfirmationProgress(taskId: string): Promise<{ progress: number; done: boolean }> {
+  const admin = createAdminClient();
+
+  const { data: task } = await admin
+    .from("tasks")
+    .select("records_target, task_type, status, file_id, assigned_to, target")
+    .eq("id", taskId)
+    .single();
+
+  if (!task || task.task_type !== "confirmation") return { progress: 0, done: false };
+  if (task.status === "done") return { progress: 100, done: true };
+
+  const target = task.records_target ?? 0;
+  if (!task.file_id || target === 0) return { progress: 0, done: false };
+
+  const { count } = await admin
+    .from("unconfirmed_records")
+    .select("*", { count: "exact", head: true })
+    .eq("file_id", task.file_id)
+    .eq("assigned_employee", task.assigned_to);
+
+  const confirmed = count ?? 0;
+  const progress = Math.min(100, Math.round((confirmed / target) * 100));
+  const done = progress >= 100;
+
+  await admin.from("tasks").update({
+    progress,
+    target,
+    status: done ? "done" : statusForProgress(task.status as string, progress),
+    updated_at: new Date().toISOString(),
+  }).eq("id", taskId);
+
+  return { progress, done };
+}
+
+function statusForProgress(current: string, progress: number): string {
+  if (progress >= 100) return "done";
+  if (progress > 0) return "in_progress";
+  return current === "done" ? "in_progress" : current;
 }

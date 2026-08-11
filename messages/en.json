@@ -466,7 +466,19 @@
     "totalThisWeek": "Total",
     "invalidAdCount": "Please enter a valid number",
     "adSaved": "Ad count saved successfully",
-    "adSaveFailed": "Failed to save ad count"
+    "adSaveFailed": "Failed to save ad count",
+    "taskType": "Task Type",
+    "taskTypeDefault": "Regular Task",
+    "taskTypeConfirmation": "Data Confirmation",
+    "selectFolder": "Select Folder",
+    "selectFolderPlaceholder": "Choose a folder...",
+    "selectFile": "Select File",
+    "selectFilePlaceholder": "Choose a file...",
+    "recordsTarget": "Records to Confirm",
+    "loading": "Loading...",
+    "refreshProgress": "Refresh Progress",
+    "progressUpdated": "Progress updated successfully",
+    "confirmedRecords": "Confirmed: {confirmed} / {total} records"
   },
   "UnconfirmedData": {
     "title": "Unconfirmed Data",

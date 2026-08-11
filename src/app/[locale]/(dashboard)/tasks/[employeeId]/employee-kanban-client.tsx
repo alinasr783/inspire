@@ -7,6 +7,7 @@ import { TaskKanban } from "@/components/tasks/task-kanban";
 import { AddTaskDialog } from "@/components/tasks/add-task-dialog";
 import { TaskDetailSheet } from "@/components/tasks/task-detail-sheet";
 import { AdTrackingSection } from "@/components/tasks/ad-tracking-section";
+import { TaskConfirmationTracker } from "@/components/tasks/task-confirmation-tracker";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import type { TaskRow } from "@/lib/task-types";
 import { Plus } from "lucide-react";
@@ -40,6 +41,8 @@ export function EmployeeKanbanClient({
 
   return (
     <div className="space-y-4">
+      <TaskConfirmationTracker tasks={employeeTasks} />
+
       <AdTrackingSection employeeId={employeeId} />
 
       <div className="flex items-center justify-between">

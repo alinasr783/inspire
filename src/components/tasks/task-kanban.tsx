@@ -28,6 +28,8 @@ import {
   Trash2,
   Minus,
   Plus,
+  Info,
+  FileSearch,
 } from "lucide-react";
 import { updateTaskStatus, updateTaskProgress } from "@/lib/task-actions";
 import type { TaskRow, TaskStatus } from "@/lib/task-types";
@@ -101,25 +103,29 @@ function TaskCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group rounded-xl border bg-card p-3 shadow-sm ring-1 ring-foreground/5 transition-shadow hover:shadow",
-        isDragging && "shadow-lg ring-2 ring-primary/30"
+        "group relative rounded-xl border bg-card p-3 shadow-sm ring-1 ring-foreground/5 transition-shadow hover:shadow cursor-pointer",
+        isDragging && "shadow-lg ring-2 ring-primary/30",
+        task.task_type === "confirmation" && "ring-violet-300/40 dark:ring-violet-700/30"
       )}
+      onClick={() => onOpenDetail(task.id)}
     >
+      {task.task_type === "confirmation" && (
+        <div className="absolute -top-0.5 -right-0.5 rounded-bl-lg rounded-tr-lg bg-violet-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
+          <FileSearch className="size-2.5 inline-block -mt-0.5" />
+        </div>
+      )}
+
       <div className="flex items-start gap-2">
         <div
           {...attributes}
           {...listeners}
+          onClick={(e) => e.stopPropagation()}
           className="mt-0.5 cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing"
         >
           <GripVertical className="size-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <button
-            onClick={() => onOpenDetail(task.id)}
-            className="w-full text-left"
-          >
-            <p className="text-sm font-medium leading-snug">{task.title}</p>
-          </button>
+          <p className="text-sm font-medium leading-snug">{task.title}</p>
 
           {task.target != null && task.target > 0 ? (
             <div className="mt-2 space-y-1.5">
@@ -182,17 +188,22 @@ function TaskCard({
               )}
               {dateDisplay}
             </span>
-            {isAdmin && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(task.id);
-                }}
-                className="invisible text-muted-foreground hover:text-destructive group-hover:visible"
-              >
-                <Trash2 className="size-3.5" />
-              </button>
-            )}
+            <div className="flex items-center gap-1">
+              <span className="hidden group-hover:inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                <Info className="size-3" />
+              </span>
+              {isAdmin && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(task.id);
+                  }}
+                  className="invisible text-muted-foreground hover:text-destructive group-hover:visible"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
