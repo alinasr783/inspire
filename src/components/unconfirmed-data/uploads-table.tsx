@@ -36,6 +36,7 @@ const DEFAULT_WIDTH = 150;
 const MIN_WIDTH = 50;
 const CHECKBOX_WIDTH = 40;
 const ACTIONS_WIDTH = 120;
+const ID_WIDTH = 44;
 
 /* -- Cell Editor -- */
 const CellEditor = memo(({ defaultValue, type, onSave, onCancel }: { defaultValue: string; type: string; onSave: (v: string) => void; onCancel: () => void }) => {
@@ -88,6 +89,7 @@ CellDisplay.displayName = "CellDisplay";
 /* -- Row -- */
 interface RowProps {
   record: UnconfirmedRecord; columns: Columns[]; locale: string; selectable: boolean;
+  rowIndex: number;
   isSelected: boolean; editingKey: string | null;
   isActive: boolean;
   onToggle: (id: string) => void; onDelete: (id: string) => void;
@@ -99,7 +101,7 @@ interface RowProps {
   employees: { id: string; name: string }[];
 }
 
-const Row = function Row({ record, columns, locale, selectable, isSelected, isActive, editingKey, onToggle, onDelete, onCellEdit, onCellSave, onEditCancel, onContextMenu, onRowMouseEnter, employees }: RowProps) {
+const Row = function Row({ record, columns, locale, selectable, rowIndex, isSelected, isActive, editingKey, onToggle, onDelete, onCellEdit, onCellSave, onEditCancel, onContextMenu, onRowMouseEnter, employees }: RowProps) {
   const t = useTranslations("UnconfirmedData");
   return (
     <tr className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""} ${isActive ? "bg-primary/10 dark:bg-muted/40" : ""} scroll-mt-10`} data-row-id={record.id} onMouseEnter={() => onRowMouseEnter(record.id)}>
@@ -108,6 +110,9 @@ const Row = function Row({ record, columns, locale, selectable, isSelected, isAc
           <input type="checkbox" checked={isSelected} onChange={() => onToggle(record.id)} className="h-4 w-4 cursor-pointer" />
         </td>
       )}
+      <td className="border-b border-r px-2 py-2 align-middle text-xs text-center text-muted-foreground tabular-nums">
+        {rowIndex}
+      </td>
       {columns.map((col) => {
         const isEdit = editingKey === col.key;
         return (
@@ -325,6 +330,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
         <table className="border-collapse text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
             {selectable && <col style={{ width: CHECKBOX_WIDTH }} />}
+            <col style={{ width: ID_WIDTH }} />
             {columns.map((col) => (
               <col key={col.key} data-col-key={col.key} style={{ width: colWidths[col.key] ?? COL_WIDTHS[col.key] ?? DEFAULT_WIDTH }} />
             ))}
@@ -333,6 +339,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
           <thead className="sticky top-0 z-10">
             <tr className="bg-muted/95 backdrop-blur-sm">
               {selectable && <th className="border-b border-r px-2 py-2"><input type="checkbox" checked={records.length > 0 && selectedIds.length === records.length} onChange={tglAll} className="h-4 w-4 cursor-pointer" /></th>}
+              <th className="border-b border-r px-2 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">#</th>
               {columns.map((col) => (
                 <th key={col.key} data-col-key={col.key} className="relative select-none border-b border-r px-2 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
                   <span>{col.label}</span>
@@ -347,8 +354,8 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
             </tr>
           </thead>
           <tbody>
-            {records.map((r) => (
-              <Row key={r.id} record={r} columns={columns} locale={locale} selectable={!!selectable} isSelected={ss.has(r.id)}
+            {records.map((r, idx) => (
+              <Row key={r.id} record={r} columns={columns} locale={locale} selectable={!!selectable} rowIndex={idx + 1} isSelected={ss.has(r.id)}
                 editingKey={ed?.rid === r.id ? ed.key : null}
                 onToggle={tgl} onDelete={delOne} onCellEdit={cellEdit} onCellSave={cellSave} onEditCancel={editCancel} onContextMenu={handleContextMenu} onRowMouseEnter={handleRowMouseEnter} isActive={activeRowId === r.id} employees={employees}
               />
