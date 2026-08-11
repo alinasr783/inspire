@@ -5,7 +5,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { LocaleSwitcher } from "@/components/layout/locale-switcher";
 import { OnlineAvatars } from "@/components/realtime/online-avatars";
 import { useRealtime } from "@/components/providers/realtime-provider";
-import { usePathname } from "@/i18n/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { navItems } from "@/lib/nav-items";
 import { Wifi, WifiOff, Loader2 } from "lucide-react";
@@ -65,12 +65,14 @@ export function Topbar() {
 
         <LocaleSwitcher />
         <ThemeToggle />
-        <Avatar className="h-7 w-7 shrink-0">
-          <AvatarImage src={currentUser?.avatarUrl ?? undefined} />
-          <AvatarFallback className="text-[10px]">
-            {currentUser?.initials ?? "IN"}
-          </AvatarFallback>
-        </Avatar>
+        <Link href="/profile">
+          <Avatar className="h-7 w-7 shrink-0">
+            <AvatarImage src={currentUser?.avatarUrl ?? undefined} />
+            <AvatarFallback className="text-[10px]">
+              {currentUser?.initials ?? "IN"}
+            </AvatarFallback>
+          </Avatar>
+        </Link>
       </div>
     </header>
   );

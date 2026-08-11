@@ -3,11 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Link } from "@/i18n/navigation";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { MonthlyTrendChart, type MonthlyPoint } from "@/components/dashboard/dashboard-charts";
+import { DistinguishedInfo } from "@/components/dashboard/distinguished-info";
+import { HeroAvatar } from "@/components/dashboard/hero-avatar";
+import { LogoutButton } from "@/components/dashboard/logout-button";
 import { cn } from "@/lib/utils";
 import {
   Building2,
@@ -15,14 +16,11 @@ import {
   Handshake,
   ListChecks,
   Plus,
-  TrendingUp,
   CheckCircle2,
-  Banknote,
   CalendarDays,
   ChevronRight,
   Home,
   Trophy,
-  Info,
   CalendarCheck,
 } from "lucide-react";
 
@@ -481,6 +479,13 @@ export default async function DashboardPage({
     { weekday: "long", year: "numeric", month: "long", day: "numeric" }
   );
 
+  const userInitials = userName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "IN";
+
   // ── render ──
   return (
     <div className="space-y-6">
@@ -488,18 +493,12 @@ export default async function DashboardPage({
       <Card className="border-0 bg-gradient-to-br from-card via-card to-muted/40 shadow-sm">
         <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3 sm:gap-4">
-            <Avatar className="size-12 shrink-0 rounded-2xl shadow-sm sm:size-14">
-              <AvatarImage src={profile?.avatar_url ?? undefined} />
-              <AvatarFallback className="rounded-2xl bg-primary text-base font-semibold text-primary-foreground sm:text-lg">
-                {userName
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase() || "IN"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
+            <HeroAvatar
+              avatarUrl={profile?.avatar_url ?? null}
+              initials={userInitials}
+              className="size-12 shrink-0 rounded-2xl shadow-sm sm:size-14"
+            />
+            <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">
                   {t("welcomeBack", { name: userName })}
@@ -519,6 +518,7 @@ export default async function DashboardPage({
                 {t("userPropertiesCount", { count: userUnitsCount })}
               </p>
             </div>
+            <LogoutButton />
           </div>
           <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
             <Link href="/properties/new" className="sm:w-auto">
@@ -727,7 +727,7 @@ export default async function DashboardPage({
                           {t("price")}
                         </p>
                       </div>
-                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground rtl:scale-x-[-1]" />
                     </Link>
                   </li>
                 ))}
@@ -775,7 +775,7 @@ export default async function DashboardPage({
                           {t("price")}
                         </p>
                       </div>
-                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground rtl:scale-x-[-1]" />
                     </Link>
                   </li>
                 ))}
@@ -791,27 +791,7 @@ export default async function DashboardPage({
           <CardTitle className="flex items-center gap-2 text-base">
             <Trophy className="size-4 text-amber-500" />
             {t("mostDistinguishedSale")}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <button
-                      type="button"
-                      className="inline-flex cursor-help text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <Info className="size-3.5" />
-                    </button>
-                  }
-                />
-                <TooltipContent
-                  side="top"
-                  align="center"
-                  className="max-w-[280px] whitespace-pre-line p-3 text-[12px] leading-relaxed"
-                >
-                  {t("distinctionExplain")}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <DistinguishedInfo text={t("distinctionExplain")} />
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -885,7 +865,7 @@ export default async function DashboardPage({
                       {unit.score}%
                     </span>
                   </div>
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground rtl:scale-x-[-1]" />
                 </Link>
               ))}
             </div>
@@ -914,7 +894,7 @@ export default async function DashboardPage({
               <p className="text-xs text-muted-foreground">{t("viewAll")}</p>
             </div>
           </div>
-          <ChevronRight className="size-4 text-muted-foreground" />
+          <ChevronRight className="size-4 text-muted-foreground rtl:scale-x-[-1]" />
         </Link>
         <Link
           href="/clients"
@@ -932,7 +912,7 @@ export default async function DashboardPage({
               <p className="text-xs text-muted-foreground">{t("viewAll")}</p>
             </div>
           </div>
-          <ChevronRight className="size-4 text-muted-foreground" />
+          <ChevronRight className="size-4 text-muted-foreground rtl:scale-x-[-1]" />
         </Link>
         <Link
           href="/deals"
@@ -950,7 +930,7 @@ export default async function DashboardPage({
               <p className="text-xs text-muted-foreground">{t("viewAll")}</p>
             </div>
           </div>
-          <ChevronRight className="size-4 text-muted-foreground" />
+          <ChevronRight className="size-4 text-muted-foreground rtl:scale-x-[-1]" />
         </Link>
         <Link
           href="/tasks"
@@ -968,7 +948,7 @@ export default async function DashboardPage({
               <p className="text-xs text-muted-foreground">{t("viewAll")}</p>
             </div>
           </div>
-          <ChevronRight className="size-4 text-muted-foreground" />
+          <ChevronRight className="size-4 text-muted-foreground rtl:scale-x-[-1]" />
         </Link>
       </div>
     </div>
