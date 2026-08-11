@@ -593,7 +593,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
 
   return (
     <TooltipProvider>
-      <div ref={containerRef} className="overflow-x-auto" style={{ overflowY: "clip" }}>
+      <div ref={containerRef}>
         <table className="border-separate border-spacing-0 text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
             <col style={{ width: 60 }} />

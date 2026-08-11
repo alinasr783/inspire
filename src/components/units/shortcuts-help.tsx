@@ -1,12 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { HelpCircle, X } from "lucide-react";
 
 const groups = [
@@ -60,7 +54,7 @@ export function ShortcutsHelp({ locale }: { locale: string }) {
   const isAr = locale === "ar";
 
   const content = (
-    <div className="space-y-4 max-h-[55vh] overflow-y-auto">
+    <div className="space-y-4 max-h-[50vh] overflow-y-auto">
       {groups.map((group) => (
         <div key={group.title}>
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
@@ -75,7 +69,7 @@ export function ShortcutsHelp({ locale }: { locale: string }) {
                 <span className="text-xs font-medium text-foreground tabular-nums">
                   {isAr ? item.descAr : item.desc}
                 </span>
-                <div className="flex items-center gap-1">
+                <div className="flex shrink-0 items-center gap-1">
                   {item.keys.map((k, i) => (
                     <span key={i} className="flex items-center gap-1">
                       <Kbd>{k === " " ? "Space" : k}</Kbd>
@@ -93,6 +87,22 @@ export function ShortcutsHelp({ locale }: { locale: string }) {
     </div>
   );
 
+  const header = (
+    <div className="flex items-center gap-2.5">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+        <HelpCircle className="h-4 w-4 text-primary" />
+      </div>
+      <div>
+        <h2 className="text-sm font-semibold">
+          {isAr ? "اختصارات لوحة المفاتيح" : "Keyboard Shortcuts"}
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          {isAr ? "خصائص" : "Properties"} — {isAr ? "صفحة العقارات" : "Page"}
+        </p>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <button
@@ -102,67 +112,45 @@ export function ShortcutsHelp({ locale }: { locale: string }) {
         <HelpCircle className="h-3.5 w-3.5" />
       </button>
 
-      {/* Desktop: Dialog */}
-      <div className="hidden sm:block">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="sm:max-w-[420px] gap-0 p-0 overflow-hidden">
-            <DialogHeader className="px-5 pt-5 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                  <HelpCircle className="h-4.5 w-4.5 text-primary" />
-                </div>
-                <div>
-                  <DialogTitle className="text-sm font-semibold">
-                    {isAr ? "اختصارات لوحة المفاتيح" : "Keyboard Shortcuts"}
-                  </DialogTitle>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {isAr ? "خصائص" : "Properties"} — {isAr ? "صفحة العقارات" : "Page"}
-                  </p>
-                </div>
+      {open && (
+        <>
+          {/* Desktop: centered modal */}
+          <div className="hidden sm:block">
+            <div
+              className="fixed inset-0 z-50 bg-black/20 backdrop-blur-[2px]"
+              onClick={() => setOpen(false)}
+            />
+            <div className="fixed start-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-card p-5 shadow-lg">
+              {header}
+              <div className="mt-4">
+                {content}
               </div>
-            </DialogHeader>
-            <div className="px-5 pb-5">
+            </div>
+          </div>
+
+          {/* Mobile: bottom sheet */}
+          <div className="sm:hidden">
+            <div
+              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+              onClick={() => setOpen(false)}
+            />
+            <div
+              className="fixed inset-x-0 bottom-0 z-50 animate-in slide-in-from-bottom rounded-t-2xl border-t border-border bg-card px-4 pb-8 pt-4"
+              style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 2rem)" }}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                {header}
+                <button
+                  onClick={() => setOpen(false)}
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
               {content}
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Mobile: Bottom sheet */}
-      {open && (
-        <div className="sm:hidden">
-          <div
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
-            onClick={() => setOpen(false)}
-          />
-          <div
-            className="fixed inset-x-0 bottom-0 z-50 animate-in slide-in-from-bottom rounded-t-2xl border-t border-border bg-card px-4 pb-8 pt-4"
-            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 2rem)" }}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                  <HelpCircle className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold">
-                    {isAr ? "اختصارات لوحة المفاتيح" : "Keyboard Shortcuts"}
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    {isAr ? "خصائص" : "Properties"} — {isAr ? "صفحة العقارات" : "Page"}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setOpen(false)}
-                className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-            {content}
           </div>
-        </div>
+        </>
       )}
     </>
   );

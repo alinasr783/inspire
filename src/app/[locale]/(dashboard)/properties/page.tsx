@@ -119,7 +119,7 @@ export default async function PropertiesPage({
             <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">{unitsData.length}</span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="min-h-0 flex-1 overflow-y-auto pt-0">
+        <CardContent className="min-h-0 flex-1 overflow-auto pt-0">
           <PropertiesClient
             initialUnits={unitsData}
             columns={allColumns}
