@@ -91,17 +91,18 @@ interface RowProps {
   record: UnconfirmedRecord; columns: Columns[]; locale: string; selectable: boolean;
   rowIndex: number;
   isSelected: boolean; editingKey: string | null;
-  isActive: boolean;
+  isActive: boolean; activeColKey: string | null;
   onToggle: (id: string) => void; onDelete: (id: string) => void;
   onCellEdit: (recordId: string, key: string) => void;
   onCellSave: (recordId: string, key: string, value: string) => void;
   onEditCancel: () => void;
   onContextMenu: (e: React.MouseEvent, info: CellInfo) => void;
   onRowMouseEnter: (uid: string) => void;
+  onCellMouseEnter: (uid: string, colKey: string) => void;
   employees: { id: string; name: string }[];
 }
 
-const Row = function Row({ record, columns, locale, selectable, rowIndex, isSelected, isActive, editingKey, onToggle, onDelete, onCellEdit, onCellSave, onEditCancel, onContextMenu, onRowMouseEnter, employees }: RowProps) {
+const Row = function Row({ record, columns, locale, selectable, rowIndex, isSelected, isActive, activeColKey, editingKey, onToggle, onDelete, onCellEdit, onCellSave, onEditCancel, onContextMenu, onRowMouseEnter, onCellMouseEnter, employees }: RowProps) {
   const t = useTranslations("UnconfirmedData");
   return (
     <tr className={`hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""} ${isActive ? "bg-primary/10 dark:bg-muted/40" : ""} scroll-mt-10`} data-row-id={record.id} onMouseEnter={() => onRowMouseEnter(record.id)}>
@@ -115,13 +116,16 @@ const Row = function Row({ record, columns, locale, selectable, rowIndex, isSele
       </td>
       {columns.map((col) => {
         const isEdit = editingKey === col.key;
+        const isActiveCell = isActive && activeColKey === col.key;
         return (
-            <PresenceTd key={col.key} table="unconfirmed" rowId={record.id} colKey={col.key} className="overflow-hidden border-b border-r align-middle" onContextMenu={onContextMenu}>
+            <PresenceTd key={col.key} table="unconfirmed" rowId={record.id} colKey={col.key} className={`overflow-hidden border-b border-r align-middle ${isActiveCell ? "bg-primary/15" : ""}`} onContextMenu={onContextMenu}>
+            <div className="h-full w-full" onMouseEnter={() => onCellMouseEnter(record.id, col.key)}>
             {isEdit ? (
               <CellEditor defaultValue={col.key === "last_contact_date" ? (record.last_contact_date || "") : String((record as any)[col.key] ?? "")} type={col.type} onSave={(v) => onCellSave(record.id, col.key, v)} onCancel={onEditCancel} />
             ) : (
               <CellDisplay col={col} record={record} locale={locale} onEdit={() => onCellEdit(record.id, col.key)} onSave={(v) => onCellSave(record.id, col.key, v)} employees={employees} />
             )}
+            </div>
             </PresenceTd>
         );
       })}
@@ -175,6 +179,9 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   const recordsRef = useRef(records); recordsRef.current = records;
   const [activeRowId, setActiveRowId] = useState<string | null>(null);
   const activeRowRef = useRef<string | null>(null);
+  const [activeColKey, setActiveColKey] = useState<string | null>(null);
+  const activeColRef = useRef<string | null>(null);
+  const columnsRef = useRef(columns); columnsRef.current = columns;
 
   useEffect(() => {
     if (records.length > 0) {
@@ -185,6 +192,12 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
         setActiveRowId(firstId);
       }
     }
+    const cols = columnsRef.current;
+    if (!activeColRef.current || !cols.some((c) => c.key === activeColRef.current)) {
+      const firstCol = cols[0]?.key ?? null;
+      activeColRef.current = firstCol;
+      setActiveColKey(firstCol);
+    }
   }, [records]);
 
   const handleRowMouseEnter = useCallback((uid: string) => {
@@ -192,25 +205,54 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
     setActiveRowId(uid);
   }, []);
 
+  const handleCellMouseEnter = useCallback((uid: string, colKey: string) => {
+    activeRowRef.current = uid;
+    setActiveRowId(uid);
+    activeColRef.current = colKey;
+    setActiveColKey(colKey);
+  }, []);
+
   useEffect(() => {
     function onArrow(e: KeyboardEvent) {
-      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      const isNav = e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight";
+      if (!isNav) return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       const rows = recordsRef.current;
       if (rows.length === 0) return;
       e.preventDefault();
-      const current = activeRowRef.current;
-      const idx = current ? rows.findIndex((r) => r.id === current) : -1;
-      const nextIdx = e.key === "ArrowUp"
-        ? Math.max(0, idx <= 0 ? 0 : idx - 1)
-        : Math.min(rows.length - 1, idx < 0 ? 0 : idx + 1);
-      const nextId = rows[nextIdx]?.id;
-      if (!nextId) return;
-      activeRowRef.current = nextId;
-      setActiveRowId(nextId);
-      const el = document.querySelector(`tr[data-row-id="${nextId}"]`);
-      if (el) el.scrollIntoView({ block: "nearest", behavior: "auto" });
+
+      const cols = columnsRef.current;
+      const currentRow = activeRowRef.current;
+      const currentCol = activeColRef.current;
+      const rowIdx = currentRow ? rows.findIndex((r) => r.id === currentRow) : -1;
+      const colIdx = currentCol ? cols.findIndex((c) => c.key === currentCol) : -1;
+
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        const nextRowIdx = e.key === "ArrowUp"
+          ? Math.max(0, rowIdx <= 0 ? 0 : rowIdx - 1)
+          : Math.min(rows.length - 1, rowIdx < 0 ? 0 : rowIdx + 1);
+        const nextId = rows[nextRowIdx]?.id;
+        if (nextId && nextId !== currentRow) {
+          activeRowRef.current = nextId;
+          setActiveRowId(nextId);
+          const el = document.querySelector(`tr[data-row-id="${nextId}"]`);
+          if (el) el.scrollIntoView({ block: "nearest", behavior: "auto" });
+        }
+      } else {
+        if (colIdx < 0) return;
+        const nextColIdx = e.key === "ArrowLeft"
+          ? Math.max(0, colIdx - 1)
+          : Math.min(cols.length - 1, colIdx + 1);
+        const nextCol = cols[nextColIdx]?.key;
+        if (nextCol && nextCol !== currentCol) {
+          activeColRef.current = nextCol;
+          setActiveColKey(nextCol);
+          const rowEl = document.querySelector(`tr[data-row-id="${currentRow}"]`);
+          const cellEl = rowEl?.querySelector(`td[data-col-key="${nextCol}"]`);
+          if (cellEl) cellEl.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
+        }
+      }
     }
     document.addEventListener("keydown", onArrow);
     return () => document.removeEventListener("keydown", onArrow);
@@ -326,8 +368,8 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
           {selectedIds.length > 0 && <Button variant="destructive" size="sm" className="gap-1.5" onClick={delBulk} disabled={deleting}><Trash2 className="h-4 w-4" />{t("deleteSelected", { count: selectedIds.length })}</Button>}
         </div>
       )}
-      <div ref={containerRef} className="overflow-x-auto">
-        <table className="border-collapse text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
+      <div ref={containerRef}>
+        <table className="border-separate border-spacing-0 text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
             {selectable && <col style={{ width: CHECKBOX_WIDTH }} />}
             <col style={{ width: ID_WIDTH }} />
@@ -357,7 +399,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
             {records.map((r, idx) => (
               <Row key={r.id} record={r} columns={columns} locale={locale} selectable={!!selectable} rowIndex={idx + 1} isSelected={ss.has(r.id)}
                 editingKey={ed?.rid === r.id ? ed.key : null}
-                onToggle={tgl} onDelete={delOne} onCellEdit={cellEdit} onCellSave={cellSave} onEditCancel={editCancel} onContextMenu={handleContextMenu} onRowMouseEnter={handleRowMouseEnter} isActive={activeRowId === r.id} employees={employees}
+                onToggle={tgl} onDelete={delOne} onCellEdit={cellEdit} onCellSave={cellSave} onEditCancel={editCancel} onContextMenu={handleContextMenu} onRowMouseEnter={handleRowMouseEnter} onCellMouseEnter={handleCellMouseEnter} isActive={activeRowId === r.id} activeColKey={activeColKey} employees={employees}
               />
             ))}
           </tbody>
