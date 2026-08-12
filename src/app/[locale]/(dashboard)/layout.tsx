@@ -8,6 +8,7 @@ import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { DashboardClientShell } from "@/components/providers/dashboard-client-shell";
 import { ThemeColorProvider } from "@/components/providers/theme-color-provider";
 import { getCrmLogoUrl } from "@/lib/crm-actions";
+import { getActiveBan } from "@/lib/ban-actions";
 
 export default async function DashboardLayout({
   children,
@@ -54,6 +55,11 @@ export default async function DashboardLayout({
 
   if (!profile || profile.approval_status !== "approved") {
     redirect(`/${locale}/auth/pending`);
+  }
+
+  const banInfo = await getActiveBan(user.id);
+  if (banInfo.is_banned) {
+    redirect(`/${locale}/auth/banned`);
   }
 
   const shellUser = {

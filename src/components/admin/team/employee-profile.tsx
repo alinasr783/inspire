@@ -8,7 +8,11 @@ import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import {
   LayoutDashboard,
@@ -26,6 +30,10 @@ import {
   UserX,
   UserCheck,
   Trash2,
+  Ban,
+  ShieldOff,
+  Infinity,
+  Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -34,6 +42,7 @@ import {
   deleteEmployee,
   type TeamMemberProfile,
 } from "@/lib/team-actions";
+import { banEmployee, unbanEmployee } from "@/lib/ban-actions";
 import { queryKeys } from "@/hooks/queries/query-keys";
 import { EmployeeOverviewTab } from "@/components/admin/team/tabs/employee-overview-tab";
 import { EmployeeInfoTab } from "@/components/admin/team/tabs/employee-info-tab";
@@ -57,7 +66,9 @@ const TABS: { key: Tab; labelKey: string; icon: React.ComponentType<{ className?
   { key: "deals", labelKey: "dealsTab", icon: Banknote },
 ];
 
-type DialogAction = { type: "disable" } | { type: "enable" } | { type: "delete" } | null;
+type SimpleDialog = { type: "disable" } | { type: "enable" } | { type: "delete" } | { type: "unban" } | null;
+
+type BanConfirmDialog = { type: "ban"; banType: "temporary" | "permanent"; duration: number; reason: string } | null;
 
 export function EmployeeProfile({ profile }: { profile: TeamMemberProfile }) {
   const t = useTranslations("Team");
@@ -65,23 +76,31 @@ export function EmployeeProfile({ profile }: { profile: TeamMemberProfile }) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("overview");
   const [isPending, startTransition] = useTransition();
-  const [dialog, setDialog] = useState<DialogAction>(null);
+  const [simpleDialog, setSimpleDialog] = useState<SimpleDialog>(null);
+  const [banDialog, setBanDialog] = useState<BanConfirmDialog>(null);
+  const [showBanForm, setShowBanForm] = useState(false);
+  const [banType, setBanType] = useState<"temporary" | "permanent">("temporary");
+  const [banDuration, setBanDuration] = useState(7);
+  const [banReason, setBanReason] = useState("");
 
   const fullName = [profile.first_name, profile.second_name].filter(Boolean).join(" ") || profile.email;
   const initials = `${profile.first_name?.[0] ?? ""}${profile.second_name?.[0] ?? ""}`.toUpperCase() || "?";
   const isDisabled = profile.approval_status === "rejected";
 
-  const handleAction = () => {
-    if (!dialog) return;
+  const handleSimpleAction = () => {
+    if (!simpleDialog) return;
 
     startTransition(async () => {
       let result: { success: boolean };
-      if (dialog.type === "disable") {
+      if (simpleDialog.type === "disable") {
         result = await disableEmployee(profile.id);
         if (result.success) toast.success(t("employeeDisabled", { name: fullName }));
-      } else if (dialog.type === "enable") {
+      } else if (simpleDialog.type === "enable") {
         result = await enableEmployee(profile.id);
         if (result.success) toast.success(t("employeeEnabled", { name: fullName }));
+      } else if (simpleDialog.type === "unban") {
+        result = await unbanEmployee(profile.id);
+        if (result.success) toast.success(t("employeeUnbanned", { name: fullName }));
       } else {
         result = await deleteEmployee(profile.id);
         if (result.success) {
@@ -98,10 +117,45 @@ export function EmployeeProfile({ profile }: { profile: TeamMemberProfile }) {
       }
     });
 
-    setDialog(null);
+    setSimpleDialog(null);
   };
 
-  const isSelf = false;
+  const handleBanExec = () => {
+    startTransition(async () => {
+      const result = await banEmployee(
+        profile.id,
+        banType,
+        banType === "temporary" ? banDuration : null,
+        banReason.trim() || null
+      );
+
+      if (result.success) {
+        toast.success(t("employeeBanned", { name: fullName }));
+        queryClient.invalidateQueries({ queryKey: queryKeys.team.all });
+        router.refresh();
+        setShowBanForm(false);
+        setBanReason("");
+      } else if (result.error === "already_banned") {
+        toast.error(t("alreadyBanned"));
+      }
+    });
+  };
+
+  const getSimpleDialogTitle = () => {
+    if (!simpleDialog) return "";
+    if (simpleDialog.type === "disable") return t("disableConfirmTitle", { name: fullName });
+    if (simpleDialog.type === "enable") return t("enableEmployee");
+    if (simpleDialog.type === "unban") return t("unbanConfirmTitle", { name: fullName });
+    return t("deleteConfirmTitle", { name: fullName });
+  };
+
+  const getSimpleDialogDesc = () => {
+    if (!simpleDialog) return undefined;
+    if (simpleDialog.type === "disable") return t("disableConfirmDesc");
+    if (simpleDialog.type === "unban") return t("unbanConfirmDesc");
+    if (simpleDialog.type === "delete") return `${t("deleteConfirmDesc")}\n\n${t("deletePermanent")}`;
+    return undefined;
+  };
 
   return (
     <div className="space-y-6">
@@ -152,7 +206,7 @@ export function EmployeeProfile({ profile }: { profile: TeamMemberProfile }) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setDialog({ type: "enable" })}
+                onClick={() => setSimpleDialog({ type: "enable" })}
                 disabled={isPending}
               >
                 {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
@@ -162,17 +216,39 @@ export function EmployeeProfile({ profile }: { profile: TeamMemberProfile }) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setDialog({ type: "disable" })}
+                onClick={() => setSimpleDialog({ type: "disable" })}
                 disabled={isPending}
               >
                 {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserX className="h-4 w-4" />}
                 <span className="ms-1.5">{t("disable")}</span>
               </Button>
             )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-destructive/30 text-destructive hover:bg-destructive/10"
+              onClick={() => setShowBanForm(true)}
+              disabled={isPending}
+            >
+              <Ban className="h-4 w-4" />
+              <span className="ms-1.5">{t("banEmployee")}</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSimpleDialog({ type: "unban" })}
+              disabled={isPending}
+            >
+              <ShieldOff className="h-4 w-4" />
+              <span className="ms-1.5">{t("unbanEmployee")}</span>
+            </Button>
+
             <Button
               variant="destructive"
               size="sm"
-              onClick={() => setDialog({ type: "delete" })}
+              onClick={() => setSimpleDialog({ type: "delete" })}
               disabled={isPending}
             >
               {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
@@ -214,28 +290,102 @@ export function EmployeeProfile({ profile }: { profile: TeamMemberProfile }) {
       </div>
 
       <ConfirmDialog
-        open={dialog !== null}
-        onOpenChange={(open) => { if (!open) setDialog(null); }}
-        title={
-          dialog?.type === "disable"
-            ? t("disableConfirmTitle", { name: fullName })
-            : dialog?.type === "enable"
-              ? t("enableEmployee")
-              : t("deleteConfirmTitle", { name: fullName })
-        }
-        description={
-          dialog?.type === "disable"
-            ? t("disableConfirmDesc")
-            : dialog?.type === "delete"
-              ? `${t("deleteConfirmDesc")}\n\n${t("deletePermanent")}`
-              : undefined
-        }
-        confirmLabel={t(dialog?.type === "disable" ? "disable" : dialog?.type === "enable" ? "enable" : "delete")}
+        open={simpleDialog !== null}
+        onOpenChange={(open) => { if (!open) setSimpleDialog(null); }}
+        title={getSimpleDialogTitle()}
+        description={getSimpleDialogDesc()}
+        confirmLabel={t(simpleDialog?.type === "disable" ? "disable" : simpleDialog?.type === "enable" ? "enable" : simpleDialog?.type === "unban" ? "unban" : "delete")}
         cancelLabel={t("cancel")}
-        variant={dialog?.type === "delete" ? "destructive" : "default"}
+        variant={simpleDialog?.type === "delete" ? "destructive" : "default"}
         loading={isPending}
-        onConfirm={handleAction}
+        onConfirm={handleSimpleAction}
       />
+
+      <Dialog open={showBanForm} onOpenChange={(open) => { if (!open) { setShowBanForm(false); setBanReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ban className="h-5 w-5 text-destructive" />
+              {t("banEmployee")}: {fullName}
+            </DialogTitle>
+            <DialogDescription>
+              {t("banDescription")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setBanType("temporary")}
+                className={cn(
+                  "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all",
+                  banType === "temporary"
+                    ? "border-primary bg-primary/5 text-primary"
+                    : "border-border hover:border-muted-foreground/30"
+                )}
+              >
+                <Timer className="h-6 w-6" />
+                <span className="text-sm font-medium">{t("banTemporary")}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBanType("permanent")}
+                className={cn(
+                  "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all",
+                  banType === "permanent"
+                    ? "border-destructive bg-destructive/5 text-destructive"
+                    : "border-border hover:border-muted-foreground/30"
+                )}
+              >
+                <Infinity className="h-6 w-6" />
+                <span className="text-sm font-medium">{t("banPermanent")}</span>
+              </button>
+            </div>
+
+            {banType === "temporary" && (
+              <div className="space-y-2">
+                <Label>{t("banDuration")}</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={banDuration}
+                    onChange={(e) => setBanDuration(Number(e.target.value) || 1)}
+                    className="w-24"
+                  />
+                  <span className="text-sm text-muted-foreground">{t("banDays")}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>{t("banReason")} ({t("optional")})</Label>
+              <Textarea
+                value={banReason}
+                onChange={(e) => setBanReason(e.target.value)}
+                placeholder={t("banReasonPlaceholder")}
+                rows={3}
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setShowBanForm(false); setBanReason(""); }}>
+                {t("cancel")}
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={isPending}
+                onClick={handleBanExec}
+              >
+                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+                <span className="ms-2">{t("confirmBan")}</span>
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

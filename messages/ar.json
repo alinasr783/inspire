@@ -1143,6 +1143,32 @@
     "noDeals": "لا توجد صفقات",
     "monthlyProductivity": "الإنتاجية الشهرية",
     "thisMonth": "هذا الشهر",
-    "viewAll": "عرض الكل"
+    "viewAll": "عرض الكل",
+    "banEmployee": "حظر",
+    "unbanEmployee": "رفع الحظر",
+    "banTemporary": "حظر مؤقت",
+    "banPermanent": "حظر دائم",
+    "banDuration": "مدة الحظر",
+    "banDays": "يوم",
+    "banReason": "سبب الحظر",
+    "banReasonPlaceholder": "سبب الحظر (اختياري)...",
+    "banDescription": "سيتم منع الموظف من تسجيل الدخول إلى المنصة بالكامل.",
+    "confirmBan": "تأكيد الحظر",
+    "alreadyBanned": "هذا الموظف محظور بالفعل",
+    "employeeBanned": "تم حظر {name}",
+    "employeeUnbanned": "تم رفع الحظر عن {name}",
+    "unbanConfirmTitle": "رفع الحظر عن {name}",
+    "unbanConfirmDesc": "هل أنت متأكد من رفع الحظر عن هذا الموظف؟ سيتمكن من تسجيل الدخول مرة أخرى.",
+    "optional": "اختياري"
+  },
+  "Banned": {
+    "title": "تم حظر الحساب",
+    "description": "تم حظر حسابك من قبل المشرف. لا يمكنك الوصول إلى المنصة حالياً.",
+    "reason": "سبب الحظر",
+    "permanent": "حظر دائم",
+    "temporary": "حظر مؤقت",
+    "until": "حتى",
+    "bannedSince": "تم الحظر منذ",
+    "signOut": "تسجيل الخروج"
   }
 }

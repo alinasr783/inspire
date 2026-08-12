@@ -1142,6 +1142,32 @@
     "noDeals": "No deals found",
     "monthlyProductivity": "Monthly Productivity",
     "thisMonth": "This Month",
-    "viewAll": "View All"
+    "viewAll": "View All",
+    "banEmployee": "Ban",
+    "unbanEmployee": "Unban",
+    "banTemporary": "Temporary Ban",
+    "banPermanent": "Permanent Ban",
+    "banDuration": "Ban Duration",
+    "banDays": "days",
+    "banReason": "Ban Reason",
+    "banReasonPlaceholder": "Reason for ban (optional)...",
+    "banDescription": "The employee will be completely blocked from signing in to the platform.",
+    "confirmBan": "Confirm Ban",
+    "alreadyBanned": "This employee is already banned",
+    "employeeBanned": "{name} has been banned",
+    "employeeUnbanned": "{name} has been unbanned",
+    "unbanConfirmTitle": "Unban {name}",
+    "unbanConfirmDesc": "Are you sure you want to unban this employee? They will be able to sign in again.",
+    "optional": "optional"
+  },
+  "Banned": {
+    "title": "Account Banned",
+    "description": "Your account has been banned by an administrator. You cannot access the platform at this time.",
+    "reason": "Ban Reason",
+    "permanent": "Permanent Ban",
+    "temporary": "Temporary Ban",
+    "until": "Until",
+    "bannedSince": "Banned since",
+    "signOut": "Sign Out"
   }
 }
