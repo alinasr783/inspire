@@ -117,15 +117,22 @@ export function TaskDetailSheet({
     setSaving(true);
     const result = await updateTask(task.id, {
       title: editTitle.trim() || undefined,
-      description: editDesc.trim() || undefined,
-      target: editTarget ? Number(editTarget) : undefined,
+      description: editDesc.trim() || null,
+      target: editTarget !== "" ? Number(editTarget) : null,
       due_date: editDueDate || undefined,
       status: editStatus,
     });
     setSaving(false);
     if (result.success) {
       toast(t("updateSuccess"));
-      setTask({ ...task, title: editTitle, description: editDesc || null, target: editTarget ? Number(editTarget) : null, due_date: editDueDate, status: editStatus });
+      setTask({
+        ...task,
+        title: editTitle,
+        description: editDesc || null,
+        target: editTarget !== "" ? Number(editTarget) : null,
+        due_date: editDueDate,
+        status: editStatus,
+      });
       setEditing(false);
       onUpdated?.();
     } else {

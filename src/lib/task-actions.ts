@@ -188,26 +188,25 @@ export async function updateTaskStatus(
 export async function updateTask(
   taskId: string,
   data: {
-    title?: string;
-    description?: string;
-    progress?: number;
-    target?: number;
+    title?: string | null;
+    description?: string | null;
+    progress?: number | null;
+    target?: number | null;
     status?: TaskStatus;
-    due_date?: string;
-    assigned_to?: string;
+    due_date?: string | null;
+    assigned_to?: string | null;
   }
 ): Promise<ActionResult> {
   if (!(await isAdmin())) return { success: false, error: "unauthorized" };
 
   const admin = createAdminClient();
   const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (data.title !== undefined) updateData.title = data.title;
-  if (data.description !== undefined) updateData.description = data.description;
-  if (data.progress !== undefined) updateData.progress = data.progress;
-  if (data.target !== undefined) updateData.target = data.target;
-  if (data.status !== undefined) updateData.status = data.status;
-  if (data.due_date !== undefined) updateData.due_date = data.due_date;
-  if (data.assigned_to !== undefined) updateData.assigned_to = data.assigned_to;
+
+  for (const key of Object.keys(data) as (keyof typeof data)[]) {
+    if (data[key] !== undefined) {
+      updateData[key] = data[key];
+    }
+  }
 
   const { error } = await admin.from("tasks").update(updateData).eq("id", taskId);
   if (error) return { success: false, error: "update-failed" };
