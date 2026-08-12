@@ -215,7 +215,8 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   useEffect(() => {
     function onArrow(e: KeyboardEvent) {
       const isNav = e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight";
-      if (!isNav) return;
+      const isEnter = e.key === "Enter";
+      if (!isNav && !isEnter) return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       const rows = recordsRef.current;
@@ -227,6 +228,18 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
       const currentCol = activeColRef.current;
       const rowIdx = currentRow ? rows.findIndex((r) => r.id === currentRow) : -1;
       const colIdx = currentCol ? cols.findIndex((c) => c.key === currentCol) : -1;
+
+      if (isEnter) {
+        if (currentRow && currentCol && colIdx >= 0) {
+          const col = cols[colIdx];
+          if (col && col.key !== "whatsapp_state" && col.key !== "assigned_employee") {
+            setEditing({ rid: currentRow, key: currentCol });
+          }
+        }
+        return;
+      }
+
+      const isRtl = document.documentElement.dir === "rtl";
 
       if (e.key === "ArrowUp" || e.key === "ArrowDown") {
         const nextRowIdx = e.key === "ArrowUp"
@@ -241,7 +254,8 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
         }
       } else {
         if (colIdx < 0) return;
-        const nextColIdx = e.key === "ArrowLeft"
+        const isPrev = isRtl ? e.key === "ArrowRight" : e.key === "ArrowLeft";
+        const nextColIdx = isPrev
           ? Math.max(0, colIdx - 1)
           : Math.min(cols.length - 1, colIdx + 1);
         const nextCol = cols[nextColIdx]?.key;
