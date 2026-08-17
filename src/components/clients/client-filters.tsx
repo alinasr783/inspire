@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams, usePathname } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Search, X, SlidersHorizontal } from "lucide-react";
 import type { ColumnConfig } from "@/lib/client-config-actions";
 import { DynamicSelect } from "./dynamic-select";
@@ -65,8 +66,6 @@ function RangeFilterModal({
     }
   }, [open, currentFrom, currentTo, min, max]);
 
-  const overlayRef = useRef<HTMLDivElement>(null);
-
   const pct = (v: number) => ((v - min) / (max - min)) * 100;
   const barLeft = pct(localMin);
   const barRight = pct(localMax);
@@ -97,72 +96,62 @@ function RangeFilterModal({
     onClose();
   };
 
-  if (!open) return null;
-
   return (
-    <div
-      ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={(e) => {
-        if (e.target === overlayRef.current) onClose();
-      }}
-    >
-      <div className="w-80 rounded-xl border bg-card p-5 shadow-lg">
-        <h3 className="mb-1 text-sm font-semibold">{label}</h3>
+    <ResponsiveDialog open={open} onOpenChange={onClose} contentClassName="sm:w-80">
+      <h3 className="mb-1 text-sm font-semibold">{label}</h3>
 
-        <div className="mb-4 flex items-center justify-between text-xs text-muted-foreground">
-          <span>{min.toLocaleString()}</span>
-          <span>{max.toLocaleString()}</span>
-        </div>
-
-        <div className="relative mb-6 h-2 rounded-full bg-muted">
-          <div
-            className="absolute h-full rounded-full bg-primary"
-            style={{ left: `${barLeft}%`, right: `${100 - barRight}%` }}
-          />
-          <input
-            type="range"
-            min={min}
-            max={max}
-            value={localMin}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              setLocalMin(Math.min(v, localMax));
-            }}
-            className="pointer-events-none absolute inset-0 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary [&::-webkit-slider-thumb]:bg-background [&::-webkit-slider-thumb]:shadow"
-          />
-          <input
-            type="range"
-            min={min}
-            max={max}
-            value={localMax}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              setLocalMax(Math.max(v, localMin));
-            }}
-            className="pointer-events-none absolute inset-0 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary [&::-webkit-slider-thumb]:bg-background [&::-webkit-slider-thumb]:shadow"
-          />
-        </div>
-
-        <div className="mb-4 text-center text-sm font-medium">
-          <span dir="ltr">{localMin.toLocaleString()}</span>
-          <span className="mx-2 text-muted-foreground">:</span>
-          <span dir="ltr">{localMax.toLocaleString()}</span>
-        </div>
-
-        <div className="flex gap-2">
-          <Button size="sm" className="flex-1" onClick={apply}>
-            Apply
-          </Button>
-          <Button size="sm" variant="outline" className="flex-1" onClick={clear}>
-            Clear
-          </Button>
-          <Button size="sm" variant="ghost" className="flex-1" onClick={onClose}>
-            Cancel
-          </Button>
-        </div>
+      <div className="mb-4 flex items-center justify-between text-xs text-muted-foreground">
+        <span>{min.toLocaleString()}</span>
+        <span>{max.toLocaleString()}</span>
       </div>
-    </div>
+
+      <div className="relative mb-6 h-2 rounded-full bg-muted">
+        <div
+          className="absolute h-full rounded-full bg-primary"
+          style={{ left: `${barLeft}%`, right: `${100 - barRight}%` }}
+        />
+        <input
+          type="range"
+          min={min}
+          max={max}
+          value={localMin}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            setLocalMin(Math.min(v, localMax));
+          }}
+          className="pointer-events-none absolute inset-0 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary [&::-webkit-slider-thumb]:bg-background [&::-webkit-slider-thumb]:shadow"
+        />
+        <input
+          type="range"
+          min={min}
+          max={max}
+          value={localMax}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            setLocalMax(Math.max(v, localMin));
+          }}
+          className="pointer-events-none absolute inset-0 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary [&::-webkit-slider-thumb]:bg-background [&::-webkit-slider-thumb]:shadow"
+        />
+      </div>
+
+      <div className="mb-4 text-center text-sm font-medium">
+        <span dir="ltr">{localMin.toLocaleString()}</span>
+        <span className="mx-2 text-muted-foreground">:</span>
+        <span dir="ltr">{localMax.toLocaleString()}</span>
+      </div>
+
+      <div className="flex gap-2">
+        <Button size="sm" className="flex-1" onClick={apply}>
+          Apply
+        </Button>
+        <Button size="sm" variant="outline" className="flex-1" onClick={clear}>
+          Clear
+        </Button>
+        <Button size="sm" variant="ghost" className="flex-1" onClick={onClose}>
+          Cancel
+        </Button>
+      </div>
+    </ResponsiveDialog>
   );
 }
 

@@ -19,3 +19,7 @@ export function useMediaQuery(query: string): boolean {
     () => false
   );
 }
+
+export function useIsMobile(): boolean {
+  return useMediaQuery("(max-width: 767px)");
+}

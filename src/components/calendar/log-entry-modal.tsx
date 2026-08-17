@@ -18,6 +18,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   addDailyLog,
@@ -302,12 +306,13 @@ export function LogEntryModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto pt-[15vh] sm:pt-[10vh]">
-      <div
-        className="fixed inset-0 bg-background/80 backdrop-blur-sm"
-        onClick={handleBackToView}
-      />
-      <div className="relative z-50 mx-4 w-full max-w-lg rounded-xl border bg-card shadow-lg ring-1 ring-foreground/5 animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-200">
+    <Dialog
+      open={isOpen}
+      onOpenChange={(next) => {
+        if (!next) handleBackToView();
+      }}
+    >
+      <DialogContent className="sm:max-w-lg sm:p-0">
         <div className="flex items-center justify-between border-b px-5 py-4">
           <div className="flex items-center gap-3">
             <h2 className="text-base font-bold">
@@ -640,7 +645,7 @@ export function LogEntryModal({
             </form>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

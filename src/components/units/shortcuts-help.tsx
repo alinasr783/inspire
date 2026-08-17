@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { HelpCircle, X } from "lucide-react";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 
 const groups = [
   {
@@ -112,46 +113,18 @@ export function ShortcutsHelp({ locale }: { locale: string }) {
         <HelpCircle className="h-3.5 w-3.5" />
       </button>
 
-      {open && (
-        <>
-          {/* Desktop: centered modal */}
-          <div className="hidden sm:block">
-            <div
-              className="fixed inset-0 z-50 bg-black/20 backdrop-blur-[2px]"
-              onClick={() => setOpen(false)}
-            />
-            <div className="fixed start-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-card p-5 shadow-lg">
-              {header}
-              <div className="mt-4">
-                {content}
-              </div>
-            </div>
-          </div>
-
-          {/* Mobile: bottom sheet */}
-          <div className="sm:hidden">
-            <div
-              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
-              onClick={() => setOpen(false)}
-            />
-            <div
-              className="fixed inset-x-0 bottom-0 z-50 animate-in slide-in-from-bottom rounded-t-2xl border-t border-border bg-card px-4 pb-8 pt-4"
-              style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 2rem)" }}
-            >
-              <div className="mb-4 flex items-center justify-between">
-                {header}
-                <button
-                  onClick={() => setOpen(false)}
-                  className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
-                >
-                  <X className="size-4" />
-                </button>
-              </div>
-              {content}
-            </div>
-          </div>
-        </>
-      )}
+      <ResponsiveDialog open={open} onOpenChange={setOpen} contentClassName="sm:max-w-[420px]">
+        <div className="mb-4 flex items-center justify-between">
+          {header}
+          <button
+            onClick={() => setOpen(false)}
+            className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        {content}
+      </ResponsiveDialog>
     </>
   );
 }

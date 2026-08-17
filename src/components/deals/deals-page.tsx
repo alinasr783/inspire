@@ -22,9 +22,16 @@ import {
   Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { runAIMatching, saveSelectedMatches, type AIMatchResult } from "@/lib/ai-matching";
 import { updateDealStatus, deleteDeal, type DealRow } from "@/lib/deal-actions";
@@ -228,47 +235,44 @@ export function DealsPage({ initialDeals, userId, clients }: DealsPageProps) {
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowModal(false)} />
-          <Card className="relative z-10 mx-4 w-full max-w-lg max-h-[80vh] overflow-hidden">
-            <CardHeader className="border-b px-6 py-5">
-              <CardTitle className="text-base">{t("selectClients")}</CardTitle>
-              <p className="text-sm text-muted-foreground">{t("selectClientsDesc")}</p>
-            </CardHeader>
-            <div className="p-4 border-b">
-              <div className="relative">
-                <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} placeholder={t("searchClients")} className="h-9 ps-9" />
-              </div>
+      <Dialog open={showModal} onOpenChange={(o) => { if (!o) { setShowModal(false); setClientSearch(""); } }}>
+        <DialogContent className="sm:max-w-lg p-0 sm:p-0 max-h-[92dvh]">
+          <DialogHeader className="border-b px-6 py-5">
+            <DialogTitle className="text-base">{t("selectClients")}</DialogTitle>
+            <DialogDescription>{t("selectClientsDesc")}</DialogDescription>
+          </DialogHeader>
+          <div className="p-4 border-b">
+            <div className="relative">
+              <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} placeholder={t("searchClients")} className="h-9 ps-9" />
             </div>
-            <CardContent className="p-4 max-h-[40vh] overflow-y-auto space-y-1">
-              {filteredClients.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-8">{t("noClients")}</p>
-              )}
-              {filteredClients.map((c) => (
-                <label key={c.id} className={cn("flex items-center gap-3 rounded-lg px-3 py-2.5 cursor-pointer transition-colors hover:bg-muted/50", selectedClients.has(c.id) && "bg-primary/5 ring-1 ring-primary/20")}>
-                  <input type="checkbox" checked={selectedClients.has(c.id)} onChange={() => handleToggleClient(c.id)} disabled={!selectedClients.has(c.id) && selectedClients.size >= 3} className="h-4 w-4 rounded accent-primary shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{c.name}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{c.phone}{c.type ? ` · ${c.type}` : ""}{c.area ? ` · ${c.area}` : ""}</p>
-                  </div>
-                  {selectedClients.has(c.id) && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
-                </label>
-              ))}
-            </CardContent>
-            <div className="border-t px-6 py-4 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">{t("selectedCount", { count: selectedClients.size })}</span>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => { setShowModal(false); setClientSearch(""); }}>{t("cancel")}</Button>
-                <Button size="sm" onClick={handleStartGeneration} disabled={selectedClients.size === 0 || isGenerating}>
-                  {isGenerating ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />{t("analyzing")}</> : <><Sparkles className="mr-1.5 h-3.5 w-3.5" />{t("generateFor")}</>}
-                </Button>
-              </div>
+          </div>
+          <div className="p-4 max-h-[40vh] overflow-y-auto space-y-1">
+            {filteredClients.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-8">{t("noClients")}</p>
+            )}
+            {filteredClients.map((c) => (
+              <label key={c.id} className={cn("flex items-center gap-3 rounded-lg px-3 py-2.5 cursor-pointer transition-colors hover:bg-muted/50", selectedClients.has(c.id) && "bg-primary/5 ring-1 ring-primary/20")}>
+                <input type="checkbox" checked={selectedClients.has(c.id)} onChange={() => handleToggleClient(c.id)} disabled={!selectedClients.has(c.id) && selectedClients.size >= 3} className="h-4 w-4 rounded accent-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{c.name}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{c.phone}{c.type ? ` · ${c.type}` : ""}{c.area ? ` · ${c.area}` : ""}</p>
+                </div>
+                {selectedClients.has(c.id) && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
+              </label>
+            ))}
+          </div>
+          <div className="border-t px-6 py-4 flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">{t("selectedCount", { count: selectedClients.size })}</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => { setShowModal(false); setClientSearch(""); }}>{t("cancel")}</Button>
+              <Button size="sm" onClick={handleStartGeneration} disabled={selectedClients.size === 0 || isGenerating}>
+                {isGenerating ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />{t("analyzing")}</> : <><Sparkles className="mr-1.5 h-3.5 w-3.5" />{t("generateFor")}</>}
+              </Button>
             </div>
-          </Card>
-        </div>
-      )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {deals.length > 0 && showSavedDeals && (
         <>

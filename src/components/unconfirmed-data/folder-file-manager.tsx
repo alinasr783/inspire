@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Loader2, FolderPlus, FilePlus, Folder as FolderIcon, FileText, Trash2, Pencil, X } from "lucide-react";
 import { getFolders, createFolder, createFile, deleteFolder, deleteFile, renameFolder, renameFile, type Folder } from "@/lib/unconfirmed-folder-actions";
 
@@ -106,20 +107,17 @@ export function FolderFileManager({ open, onClose, onSelectFile, selectedFileId 
     }
   }
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="w-full max-w-2xl rounded-xl border bg-background p-6 shadow-lg max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">{t("foldersAndFiles")}</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+    <ResponsiveDialog open={open} onOpenChange={onClose} className="max-h-[92dvh]">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold">{t("foldersAndFiles")}</h2>
+        <Button variant="ghost" size="icon" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
 
-        <div className="flex-1 overflow-y-auto space-y-4">
-          {error && (
+      <div className="space-y-4">
+        {error && (
             <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
               {error}
             </div>
@@ -297,7 +295,6 @@ export function FolderFileManager({ open, onClose, onSelectFile, selectedFileId 
             </Button>
           </div>
         )}
-      </div>
-    </div>
+    </ResponsiveDialog>
   );
 }

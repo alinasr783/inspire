@@ -3,6 +3,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { BarChart3, Eye, X } from "lucide-react";
 
 function pct(v: number | null | undefined) {
@@ -19,13 +25,15 @@ function AnalysisModal({ deal, locale, onClose }: { deal: any; locale: string; o
   const ai = deal.aiAnalysis || deal.ai_analysis || {};
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="relative max-h-[90vh] w-[640px] overflow-y-auto rounded-xl border bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold">{u?.compound_name || deal.propertyId || "Analysis"}</h3>
-          <Button variant="ghost" size="icon-xs" onClick={onClose}><X className="h-4 w-4" /></Button>
-        </div>
-        <div className="space-y-5">
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-2xl p-0 sm:p-0 max-h-[92dvh]">
+        <DialogHeader className="border-b px-6 py-5">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-lg font-bold">{u?.compound_name || deal.propertyId || "Analysis"}</DialogTitle>
+            <Button variant="ghost" size="icon-xs" onClick={onClose}><X className="h-4 w-4" /></Button>
+          </div>
+        </DialogHeader>
+        <div className="space-y-5 p-6">
           <div>
             <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">Hard Filters</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
@@ -93,8 +101,8 @@ function AnalysisModal({ deal, locale, onClose }: { deal: any; locale: string; o
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

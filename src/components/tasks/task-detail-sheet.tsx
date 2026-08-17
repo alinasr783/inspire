@@ -37,7 +37,7 @@ import {
 } from "@/lib/task-actions";
 import type { TaskRow, TaskStatus } from "@/lib/task-types";
 import { useTaskConfirmationListener } from "@/hooks/use-task-confirmation-listener";
-import { useMediaQuery } from "@/hooks/use-media-query";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
 const statusMeta: Record<TaskStatus, { labelKey: string; icon: React.ComponentType<{ className?: string }>; color: string; bgClass: string }> = {
@@ -63,10 +63,11 @@ export function TaskDetailSheet({
 }) {
   const t = useTranslations("Tasks");
   const locale = useLocale();
-  const isMobile = useMediaQuery("(max-width: 767px)");
   const [task, setTask] = useState<TaskRow | null>(null);
   const [editing, setEditing] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const loading = !task;
 
@@ -140,9 +141,12 @@ export function TaskDetailSheet({
     }
   };
 
-  const handleDelete = async () => {
-    if (!task || !confirm(t("deleteConfirm"))) return;
+  const handleConfirmDelete = async () => {
+    if (!task) return;
+    setDeleting(true);
     const result = await deleteTask(task.id);
+    setDeleting(false);
+    setConfirmDelete(false);
     if (result.success) {
       toast(t("deleteSuccess"));
       onOpenChange(false);
@@ -165,26 +169,26 @@ export function TaskDetailSheet({
   const isConfirmation = task?.task_type === "confirmation";
   const confirmedCount = task && task.target ? Math.round((task.progress / 100) * task.target) : 0;
 
-  const sheetSide = isMobile ? "bottom" : locale === "ar" ? "left" : "right";
+  const sheetSide = locale === "ar" ? "left" : "right";
 
   return (
     <Sheet key={taskId} open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={sheetSide} className={cn(isMobile ? "max-h-[90vh] rounded-t-2xl px-0" : "w-[90vw] max-w-md p-0")}>
+      <SheetContent side={sheetSide} className="w-[90vw] max-w-md p-0">
         {loading ? (
-          <div className={cn("flex items-center justify-center", isMobile ? "h-40" : "h-full")}>
+          <div className="flex h-full items-center justify-center">
             <Loader2 className="size-6 animate-spin text-muted-foreground" />
           </div>
         ) : !task ? (
-          <div className={cn("flex flex-col items-center justify-center gap-2 text-muted-foreground", isMobile ? "h-40" : "h-full")}>
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
             <p className="text-sm">{t("taskNotFound")}</p>
           </div>
         ) : (
-          <div className={cn("flex flex-col", !isMobile && "h-full")}>
+          <div className="flex h-full flex-col">
             <SheetHeader className={cn("flex flex-row items-center justify-between border-b px-5 py-4 shrink-0")}>
               <SheetTitle className="text-base">{editing ? t("editTask") : t("taskDetails")}</SheetTitle>
             </SheetHeader>
 
-            <div className={cn("overflow-y-auto px-5 py-4 space-y-5", isMobile && "max-h-[60vh]")}>
+            <div className="overflow-y-auto px-5 py-4 space-y-5">
               {editing ? (
                 <>
                   <div className="space-y-1.5">
@@ -333,7 +337,7 @@ export function TaskDetailSheet({
               )}
             </div>
 
-            <div className={cn("border-t px-5 py-4 shrink-0", isMobile && "pb-8")}>
+            <div className="border-t px-5 py-4 shrink-0">
               {editing ? (
                 <div className="flex gap-2">
                   <Button variant="outline" className="flex-1" onClick={() => setEditing(false)}>
@@ -349,7 +353,7 @@ export function TaskDetailSheet({
                   <Button
                     variant="destructive"
                     className="w-full"
-                    onClick={handleDelete}
+                    onClick={() => setConfirmDelete(true)}
                   >
                     <Trash2 className="me-2 size-4" />
                     {t("deleteTask")}
@@ -360,6 +364,18 @@ export function TaskDetailSheet({
           </div>
         )}
       </SheetContent>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title={t("deleteTask")}
+        description={t("deleteConfirm")}
+        confirmLabel={t("deleteTask")}
+        cancelLabel={t("cancel")}
+        variant="destructive"
+        loading={deleting}
+        onConfirm={handleConfirmDelete}
+      />
     </Sheet>
   );
 }

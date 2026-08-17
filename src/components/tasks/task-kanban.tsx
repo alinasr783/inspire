@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { updateTaskStatus, updateTaskProgress } from "@/lib/task-actions";
 import type { TaskRow, TaskStatus } from "@/lib/task-types";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 
 const COLUMNS: { status: TaskStatus; labelKey: string; icon: React.ComponentType<{ className?: string }>; color: string }[] = [
@@ -294,6 +295,8 @@ export function TaskKanban({
   const t = useTranslations("Tasks");
   const [localTasks, setLocalTasks] = useState<TaskRow[]>(tasks);
   const pendingRef = useRef<Set<string>>(new Set());
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Sync from server only for tasks we didn't recently mutate
   useEffect(() => {
@@ -383,38 +386,59 @@ export function TaskKanban({
   );
 
   const handleDelete = useCallback(
-    async (taskId: string) => {
-      if (!confirm(t("deleteConfirm"))) return;
-      const { deleteTask } = await import("@/lib/task-actions");
-      // Optimistic removal
-      setLocalTasks((prev) => prev.filter((t) => t.id !== taskId));
-      const result = await deleteTask(taskId);
-      if (!result.success) {
-        toast.error(t("deleteFailed"));
-      }
+    (taskId: string) => {
+      setDeleteId(taskId);
     },
-    [t]
+    []
   );
 
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    const { deleteTask } = await import("@/lib/task-actions");
+    // Optimistic removal
+    setLocalTasks((prev) => prev.filter((t) => t.id !== deleteId));
+    const result = await deleteTask(deleteId);
+    setDeleting(false);
+    setDeleteId(null);
+    if (!result.success) {
+      toast.error(t("deleteFailed"));
+    }
+  }, [deleteId, t]);
+
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {COLUMNS.map((col) => (
-          <KanbanColumn
-            key={col.status}
-            column={col}
-            tasks={grouped[col.status]}
-            count={grouped[col.status].length}
-            isAdmin={isAdmin}
-            onOpenDetail={onOpenDetail}
-            onDelete={handleDelete}
-          />
-        ))}
-      </div>
-    </DndContext>
+    <>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {COLUMNS.map((col) => (
+            <KanbanColumn
+              key={col.status}
+              column={col}
+              tasks={grouped[col.status]}
+              count={grouped[col.status].length}
+              isAdmin={isAdmin}
+              onOpenDetail={onOpenDetail}
+              onDelete={handleDelete}
+            />
+          ))}
+        </div>
+      </DndContext>
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        onOpenChange={(o) => { if (!o) setDeleteId(null); }}
+        title={t("deleteTask")}
+        description={t("deleteConfirm")}
+        confirmLabel={t("deleteTask")}
+        cancelLabel={t("cancel")}
+        variant="destructive"
+        loading={deleting}
+        onConfirm={handleConfirmDelete}
+      />
+    </>
   );
 }

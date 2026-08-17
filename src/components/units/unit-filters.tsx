@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Search, X, Calendar, AlertTriangle, Filter } from "lucide-react";
 import type { ColumnConfig } from "@/lib/unit-config-actions";
 
@@ -330,24 +331,21 @@ export function UnitFilters({
         )}
       </div>
 
-      {/* Mobile: More Filters Bottom Sheet */}
-      {moreOpen && (
-        <div className="sm:hidden">
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" onClick={() => setMoreOpen(false)} />
-          <div
-            className="fixed inset-x-0 bottom-0 z-50 animate-in slide-in-from-bottom rounded-t-2xl border-t border-border bg-card px-4 pb-8 pt-4 max-h-[80vh] overflow-y-auto"
-            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 2rem)" }}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold">{t("displayMoreFilters") ?? "More Filters"}</h2>
-              <button onClick={() => setMoreOpen(false)} className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted">
-                <X className="size-4" />
-              </button>
-            </div>
-            {moreSections}
-          </div>
+      {/* Mobile: More Filters */}
+      <ResponsiveDialog
+        open={moreOpen}
+        onOpenChange={setMoreOpen}
+        className="max-h-[80vh]"
+        contentClassName="sm:max-w-lg"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-semibold">{t("displayMoreFilters") ?? "More Filters"}</h2>
+          <button onClick={() => setMoreOpen(false)} className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted">
+            <X className="size-4" />
+          </button>
         </div>
-      )}
+        {moreSections}
+      </ResponsiveDialog>
     </div>
   );
 }

@@ -176,6 +176,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   }, [ctxMenu]);
 
   const [deleteOneDialog, setDeleteOneDialog] = useState<{ rid: string; name: string } | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const srvRef = useRef(serverRecords); srvRef.current = serverRecords;
 
   const onEditCell = useCallback((rowId: string, colKey: string) => {
@@ -242,7 +243,8 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   const tgl = useCallback((id: string) => setSelectedIds((p) => p.includes(id) ? p.filter((i) => i !== id) : [...p, id]), []);
   const tglAll = useCallback(() => { if (records.length > 0 && selectedIds.length === records.length) setSelectedIds([]); else setSelectedIds(records.map((r) => r.id)); }, [records, selectedIds.length]);
   const selN = useCallback(() => { const n = parseInt(selTo, 10); if (!isNaN(n) && n >= 1) setSelectedIds(records.slice(0, Math.min(n, records.length)).map((r) => r.id)); }, [records, selTo]);
-  const delBulk = useCallback(async () => { if (selectedIds.length === 0) return; if (!window.confirm(`Delete ${selectedIds.length} selected records?`)) return; setDeleting(true); const ids = [...selectedIds]; setSelectedIds([]); setRecords((p) => p.filter((r) => !ids.includes(r.id))); try { await deleteRecords(ids); showSuccess(`${ids.length} deleted`); } catch { setRecords(srvRef.current); showError("Bulk delete failed"); } setDeleting(false); }, [selectedIds]);
+  const delBulk = useCallback(() => { if (selectedIds.length === 0) return; setBulkDeleteOpen(true); }, [selectedIds.length]);
+  const confirmDeleteBulk = useCallback(async () => { if (selectedIds.length === 0) return; setDeleting(true); const ids = [...selectedIds]; setSelectedIds([]); setRecords((p) => p.filter((r) => !ids.includes(r.id))); try { await deleteRecords(ids); showSuccess(`${ids.length} deleted`); } catch { setRecords(srvRef.current); showError("Bulk delete failed"); } setDeleting(false); setBulkDeleteOpen(false); }, [selectedIds]);
   const delOne = useCallback((id: string) => {
     const rec = records.find(r => r.id === id);
     setDeleteOneDialog({ rid: id, name: rec?.owner_name || id.slice(0, 8) });
@@ -334,6 +336,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
       </div>
       <TableCellContextMenu info={ctxMenu?.info ?? null} position={ctxMenu?.pos ?? null} shortcut={ctxMenu?.shortcut ?? null} onClose={() => setCtxMenu(null)} />
       <ConfirmDialog open={!!deleteOneDialog} onOpenChange={(o) => { if (!o) setDeleteOneDialog(null); }} title="Confirm Delete" description={`Delete "${deleteOneDialog?.name}"? This cannot be undone.`} confirmLabel={deleting ? "Deleting..." : "Delete"} cancelLabel="Cancel" variant="destructive" loading={deleting} onConfirm={confirmDeleteOne} />
+      <ConfirmDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen} title="Delete Selected Records" description={`Delete ${selectedIds.length} selected records? This cannot be undone.`} confirmLabel={deleting ? "Deleting..." : "Delete"} cancelLabel="Cancel" variant="destructive" loading={deleting} onConfirm={confirmDeleteBulk} />
     </div>
   );
 }

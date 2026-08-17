@@ -160,7 +160,7 @@ function clearUserStyles(root: Element) {
 
 function GlassBackdrop({ onClick, children }: { onClick?: () => void; children?: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/20 backdrop-blur-[2px] animate-in fade-in duration-75"
+    <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/20 backdrop-blur-[2px] animate-in fade-in duration-75 sm:items-center"
       onClick={(e) => { if (e.target === e.currentTarget) onClick?.(); }}>
       {children}
     </div>
@@ -170,7 +170,7 @@ function GlassBackdrop({ onClick, children }: { onClick?: () => void; children?:
 function GlassPanel({ children, className = "", onClick }: { children: React.ReactNode; className?: string; onClick?: (e: React.MouseEvent) => void }) {
   return (
     <div onClick={onClick}
-      className={`rounded-3xl border border-white/20 bg-white/75 dark:bg-zinc-900/75 backdrop-blur-2xl shadow-[0_8px_40px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.05)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4)] overflow-hidden ${className}`}>
+      className={`w-full rounded-t-2xl border-t border-white/20 bg-white/75 dark:bg-zinc-900/75 backdrop-blur-2xl shadow-[0_8px_40px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.05)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4)] overflow-hidden pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:w-auto sm:rounded-3xl sm:border sm:pb-0 ${className}`}>
       {children}
     </div>
   );
@@ -809,9 +809,9 @@ export function TableCellContextMenu({ info, position, onClose, shortcut }: { in
 
   return (
     <GlassBackdrop onClick={onClose}>
-      <div ref={ref} className="absolute" style={{ left: panelLeft, top: panelTop }}>
+      <div ref={ref} className="w-full sm:absolute sm:w-auto" style={{ left: panelLeft, top: panelTop }}>
         <GlassPanel>
-          <div key={nav.join("/")} className="animate-in slide-in-from-right-3 fade-in duration-150">
+          <div key={nav.join("/")} className="animate-in slide-in-from-bottom fade-in duration-150 sm:slide-in-from-right-3">
             {renderPanel()}
           </div>
         </GlassPanel>
