@@ -10,6 +10,10 @@ CREATE TABLE IF NOT EXISTS public.attendance_records (
   latitude numeric,
   longitude numeric,
   location_name text DEFAULT ''::text,
+  check_out_time timestamptz,
+  check_out_latitude numeric,
+  check_out_longitude numeric,
+  check_out_location_name text DEFAULT ''::text,
   notes text DEFAULT ''::text,
   created_by uuid NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -19,6 +23,12 @@ CREATE TABLE IF NOT EXISTS public.attendance_records (
   CONSTRAINT attendance_records_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
   CONSTRAINT attendance_records_employee_date_unique UNIQUE (employee_id, check_in_date)
 );
+
+-- Add check-out columns to existing table (for databases created before check-out feature)
+ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_out_time timestamptz;
+ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_out_latitude numeric;
+ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_out_longitude numeric;
+ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_out_location_name text DEFAULT ''::text;
 
 -- Index for date-based queries
 CREATE INDEX IF NOT EXISTS idx_attendance_check_in_date ON public.attendance_records (check_in_date);
@@ -30,6 +40,7 @@ ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
 -- RLS Policies
 
 -- Users can read their own records
+DROP POLICY IF EXISTS "Users can view own attendance" ON public.attendance_records;
 CREATE POLICY "Users can view own attendance" ON public.attendance_records
   FOR SELECT
   TO authenticated
@@ -43,6 +54,7 @@ CREATE POLICY "Users can view own attendance" ON public.attendance_records
   );
 
 -- Users can insert their own attendance record (once per day)
+DROP POLICY IF EXISTS "Users can insert own attendance" ON public.attendance_records;
 CREATE POLICY "Users can insert own attendance" ON public.attendance_records
   FOR INSERT
   TO authenticated
@@ -56,6 +68,7 @@ CREATE POLICY "Users can insert own attendance" ON public.attendance_records
   );
 
 -- Users can update their own records; admins can update any
+DROP POLICY IF EXISTS "Users can update own attendance or admin" ON public.attendance_records;
 CREATE POLICY "Users can update own attendance or admin" ON public.attendance_records
   FOR UPDATE
   TO authenticated
@@ -69,6 +82,7 @@ CREATE POLICY "Users can update own attendance or admin" ON public.attendance_re
   );
 
 -- Users can delete their own records; admins can delete any
+DROP POLICY IF EXISTS "Users can delete own attendance or admin" ON public.attendance_records;
 CREATE POLICY "Users can delete own attendance or admin" ON public.attendance_records
   FOR DELETE
   TO authenticated

@@ -15,7 +15,7 @@ import { createDeal, updateDeal } from "@/lib/finance-actions";
 import {
   ArrowLeft, Plus, Trash2, Save, Banknote, Users,
   Building2, Percent, ChevronRight, ChevronLeft,
-  Eye,
+  Eye, Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -26,6 +26,7 @@ import {
   calcEmployeePool, calcEmployeeProfit,
 } from "@/lib/finance-types";
 import type { DealWithRelations } from "@/lib/finance-types";
+import type { AdCampaignOption } from "@/lib/ad-campaign-types";
 
 const rtlFlip = "rtl:scale-x-[-1]";
 
@@ -47,20 +48,41 @@ const STEPS = [
   { key: "amounts", label: "partiesAndAmounts" },
   { key: "split", label: "splitControl" },
   { key: "employees", label: "employeeAllocations" },
+  { key: "partners", label: "partnerSplit" },
 ] as const;
 
 type Props = {
   mode: "create" | "edit";
   existingDeal?: DealWithRelations | null;
   employees: EmployeeOption[];
+  partners: PartnerOption[];
+  currentUserId: string;
+  campaignOptions?: AdCampaignOption[];
   onSuccess: () => void;
 };
 
-export function DealForm({ mode, existingDeal, employees, onSuccess }: Props) {
+type PartnerOption = {
+  id: string;
+  first_name: string | null;
+  second_name: string | null;
+  position: string | null;
+  avatar_url: string | null;
+  is_current_user: boolean;
+};
+
+type PartnerAllocation = {
+  key: string;
+  partner_id: string;
+  percentage: number;
+};
+
+export function DealForm({ mode, existingDeal, employees, partners, currentUserId, campaignOptions, onSuccess }: Props) {
   const t = useTranslations("Finances");
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+
+  const [adCampaignId, setAdCampaignId] = useState(existingDeal?.ad_campaign_id ?? "");
 
   const [contactType, setContactType] = useState<ContactType>((existingDeal?.contact_type as ContactType) || "both");
   const [buyerName, setBuyerName] = useState(existingDeal?.buyer_name || "");
@@ -85,6 +107,27 @@ export function DealForm({ mode, existingDeal, employees, onSuccess }: Props) {
     }
     if (!existingDeal) return [{ key: crypto.randomUUID(), employee_id: "", side: "both", percentage: 100 }];
     return [];
+  });
+
+  // Partner allocations: keyed by partner_id
+  const [partnerPercentages, setPartnerPercentages] = useState<Record<string, number>>(() => {
+    if (existingDeal?.partners && existingDeal.partners.length > 0) {
+      const map: Record<string, number> = {};
+      for (const p of existingDeal.partners) map[p.partner_id] = Number(p.percentage);
+      return map;
+    }
+    if (!existingDeal && partners.length > 0) {
+      // Default: equal split among ALL candidates (admin can exclude anyone)
+      const share = Math.round((100 / partners.length) * 100) / 100;
+      const map: Record<string, number> = {};
+      let total = 0;
+      partners.forEach((p, i) => {
+        if (i === partners.length - 1) map[p.id] = Math.round((100 - total) * 100) / 100;
+        else { map[p.id] = share; total += share; }
+      });
+      return map;
+    }
+    return {};
   });
 
   const manualComm = calcManualCommission(contactType, buyerCommission ? Number(buyerCommission) : null, sellerCommission ? Number(sellerCommission) : null);
@@ -124,6 +167,12 @@ export function DealForm({ mode, existingDeal, employees, onSuccess }: Props) {
         if (!empPctValid) return false;
         return !employeeAllocations.some((a) => !a.employee_id);
       }
+      case 4: {
+        const entries = Object.entries(partnerPercentages).filter(([, pct]) => pct > 0);
+        if (entries.length === 0) return false;
+        const total = entries.reduce((s, [, pct]) => s + pct, 0);
+        return Math.abs(total - 100) < 0.01;
+      }
       default: return true;
     }
   };
@@ -138,8 +187,11 @@ export function DealForm({ mode, existingDeal, employees, onSuccess }: Props) {
   const removeEmp = (key: string) => setEmployeeAllocations((p) => p.filter((a) => a.key !== key));
   const updateEmp = (key: string, f: Partial<EmployeeAllocation>) => setEmployeeAllocations((p) => p.map((a) => (a.key === key ? { ...a, ...f } : a)));
 
+  const partnerEntries = Object.entries(partnerPercentages).filter(([, pct]) => pct > 0);
+
   const buildInput = () => ({
     contact_type: contactType,
+    ad_campaign_id: adCampaignId || null,
     buyer_name: hasBuyer(contactType) ? buyerName : "",
     seller_name: hasSeller(contactType) ? sellerName : "",
     buyer_amount: hasBuyer(contactType) ? (buyerAmount ? Number(buyerAmount) : null) : null,
@@ -154,6 +206,7 @@ export function DealForm({ mode, existingDeal, employees, onSuccess }: Props) {
     company_percentage: Number(companyPercentage),
     employee_percentage: Number(employeePercentage),
     employees: activeEmployees ? employeeAllocations.map((a) => ({ employee_id: a.employee_id, side: a.side, percentage: a.percentage })) : undefined,
+    partners: partnerEntries.length > 0 ? partnerEntries.map(([partner_id, percentage]) => ({ partner_id, percentage })) : undefined,
   });
 
   const handleSubmit = async () => {
@@ -229,6 +282,26 @@ export function DealForm({ mode, existingDeal, employees, onSuccess }: Props) {
         ) : (
           <div className="flex justify-between text-xs"><span className="text-muted-foreground">{t("companyNetProfit")}</span><span className="font-bold text-emerald-600">{companyNet.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
         )}
+        <Separator />
+        {(() => {
+          const entries = Object.entries(partnerPercentages).filter(([, pct]) => pct > 0);
+          if (entries.length === 0) return <div className="flex justify-between text-xs"><span className="text-muted-foreground">{t("partners")}</span><span className="text-muted-foreground">—</span></div>;
+          return (
+            <>
+              <div className="text-[11px] font-semibold text-muted-foreground">{t("partnerSplit")}</div>
+              {entries.map(([pid, pct]) => {
+                const p = partners.find((x) => x.id === pid);
+                const profit = companyNet * (pct / 100);
+                return (
+                  <div key={pid} className="flex justify-between text-[11px]">
+                    <span className="text-muted-foreground">{p ? getEmployeeName(p) : "—"} ({Math.round(pct * 100) / 100}%)</span>
+                    <span className="font-medium text-emerald-600">{profit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  </div>
+                );
+              })}
+            </>
+          );
+        })()}
       </CardContent>
     </Card>
   );
@@ -340,6 +413,23 @@ export function DealForm({ mode, existingDeal, employees, onSuccess }: Props) {
                   </div>
                 </div>
 
+                {campaignOptions && (
+                  <div className="rounded-xl border bg-muted/20 p-4 space-y-2">
+                    <Label className="text-sm font-bold flex items-center gap-2"><Megaphone className="size-4 text-cyan-600" /> {t("adCampaign")}</Label>
+                    <select
+                      value={adCampaignId}
+                      onChange={(e) => setAdCampaignId(e.target.value)}
+                      className="w-full rounded-md border bg-card px-2 py-1.5 text-xs"
+                    >
+                      <option value="">{t("noCampaign")}</option>
+                      {campaignOptions.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-muted-foreground">{t("adCampaignHint")}</p>
+                  </div>
+                )}
+
                 <div className="rounded-xl border bg-muted/30 p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">{t("commissionSum")}</span>
@@ -442,6 +532,125 @@ export function DealForm({ mode, existingDeal, employees, onSuccess }: Props) {
                       })}
                     </div>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Step 4: Partner Split */}
+          {step === 4 && (
+            <Card>
+              <CardContent className="p-6 space-y-6">
+                <h3 className="text-lg font-semibold flex items-center gap-2"><Users className="size-5 text-purple-600" /> {t("partnerSplit")}</h3>
+
+                <div className="rounded-xl border bg-muted/30 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">{t("companyNetProfit")}</span>
+                    <span className="text-xl font-bold text-emerald-600">{companyNet.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{t("partnerSplitHint")}</p>
+                </div>
+
+                {partners.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t("noPartnersYet")}</p>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">{t("partners")}</Label>
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={() => {
+                          const share = Math.round((100 / partners.length) * 100) / 100;
+                          const map: Record<string, number> = {};
+                          let total = 0;
+                          partners.forEach((p, i) => {
+                            if (i === partners.length - 1) map[p.id] = Math.round((100 - total) * 100) / 100;
+                            else { map[p.id] = share; total += share; }
+                          });
+                          setPartnerPercentages(map);
+                        }}>{t("equalSplit")}</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setPartnerPercentages({})}>{t("excludeAll")}</Button>
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const entries = Object.entries(partnerPercentages).filter(([, pct]) => pct > 0);
+                      const total = entries.reduce((s, [, pct]) => s + pct, 0);
+                      const valid = Math.abs(total - 100) < 0.01;
+                      return (
+                        <p className={cn("text-xs font-medium", valid ? "text-emerald-600" : "text-destructive")}>
+                          {t("totalPercentage")}: {Math.round(total * 100) / 100}% {!valid && t("mustBe100")}
+                        </p>
+                      );
+                    })()}
+
+                    <div className="space-y-2">
+                      {partners.map((p) => {
+                        const pct = partnerPercentages[p.id] ?? 0;
+                        const included = pct > 0;
+                        const profit = companyNet * (pct / 100);
+                        return (
+                          <div key={p.id} className={cn("flex items-center gap-3 rounded-xl border p-3 transition-opacity", !included && "opacity-50")}>
+                            <input
+                              type="checkbox"
+                              checked={included}
+                              onChange={(e) => {
+                                setPartnerPercentages((prev) => {
+                                  const next = { ...prev };
+                                  if (e.target.checked) {
+                                    // add and equalize
+                                    const ids = [...Object.keys(prev).filter((id) => (prev[id] ?? 0) > 0), p.id];
+                                    const share = Math.round((100 / ids.length) * 100) / 100;
+                                    const map: Record<string, number> = {};
+                                    let total = 0;
+                                    ids.forEach((id, i) => {
+                                      if (i === ids.length - 1) map[id] = Math.round((100 - total) * 100) / 100;
+                                      else { map[id] = share; total += share; }
+                                    });
+                                    return map;
+                                  } else {
+                                    delete next[p.id];
+                                    // equalize remaining
+                                    const ids = Object.keys(next).filter((id) => (next[id] ?? 0) > 0);
+                                    if (ids.length > 0) {
+                                      const share = Math.round((100 / ids.length) * 100) / 100;
+                                      const map: Record<string, number> = {};
+                                      let total = 0;
+                                      ids.forEach((id, i) => {
+                                        if (i === ids.length - 1) map[id] = Math.round((100 - total) * 100) / 100;
+                                        else { map[id] = share; total += share; }
+                                      });
+                                      return map;
+                                    }
+                                    return {};
+                                  }
+                                });
+                              }}
+                              className="size-4 accent-primary"
+                            />
+                            <Avatar className="size-9 rounded-lg shrink-0">
+                              <AvatarImage src={p.avatar_url ?? undefined} />
+                              <AvatarFallback className="rounded-lg bg-primary/10 text-[10px]">
+                                {getEmployeeName(p).split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                {getEmployeeName(p)}
+                                {p.is_current_user && <span className="ms-1 text-[10px] text-primary">({t("you")})</span>}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">{t("partnerEstimatedProfit")}: {profit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                            </div>
+                            {included && (
+                              <div className="relative w-24 shrink-0">
+                                <Input type="number" value={pct || ""} onChange={(e) => setPartnerPercentages((prev) => ({ ...prev, [p.id]: Number(e.target.value) || 0 }))} className="h-7 text-xs pe-6" dir="ltr" />
+                                <span className="absolute end-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">%</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>

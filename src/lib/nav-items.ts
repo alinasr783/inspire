@@ -12,6 +12,7 @@ import {
   FileText,
   UserCheck,
   CalendarDays,
+  Briefcase,
 } from "lucide-react";
 
 export const navItems = [
@@ -19,6 +20,7 @@ export const navItems = [
   { key: "properties", href: "/properties", icon: Building2 },
   { key: "unconfirmedData", href: "/unconfirmed-data", icon: FileSpreadsheet },
   { key: "clients", href: "/clients", icon: Users },
+  { key: "companyClients", href: "/company-clients", icon: Briefcase },
   { key: "visits", href: "/visits", icon: CalendarCheck },
   { key: "attendance", href: "/attendance", icon: UserCheck },
   { key: "calendar", href: "/calendar", icon: CalendarDays },

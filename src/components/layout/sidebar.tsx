@@ -6,11 +6,12 @@ import { Link, usePathname } from "@/i18n/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { navItems } from "@/lib/nav-items";
 import { cn } from "@/lib/utils";
-import { UsersRound, Banknote, Pencil, Plus, Trash2, FileText } from "lucide-react";
+import { UsersRound, Banknote, Pencil, Plus, Trash2, FileText, Megaphone } from "lucide-react";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { usePendingCount } from "@/components/providers/pending-count-provider";
 import { prefetchUnits } from "@/hooks/queries/use-units-query";
 import { prefetchClients } from "@/hooks/queries/use-clients-query";
+import { prefetchCompanyClients } from "@/hooks/queries/use-company-clients-query";
 import { prefetchDeals } from "@/hooks/queries/use-deals-query";
 import { prefetchTasks } from "@/hooks/queries/use-tasks-query";
 import { prefetchDevices } from "@/hooks/queries/use-devices-query";
@@ -18,10 +19,12 @@ import { prefetchEmployees } from "@/hooks/queries/use-employees-query";
 import { prefetchFinances } from "@/hooks/queries/use-finances-query";
 import { prefetchContracts } from "@/hooks/queries/use-contracts-query";
 import { prefetchTeamMembers } from "@/hooks/queries/use-team-query";
+import { prefetchAdCampaigns } from "@/hooks/queries/use-ad-campaigns-query";
 
 const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => void> = {
   properties: prefetchUnits,
   clients: prefetchClients,
+  companyClients: prefetchCompanyClients,
   deals: prefetchDeals,
   tasks: prefetchTasks,
   devices: prefetchDevices,
@@ -29,6 +32,7 @@ const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => voi
   finances: (qc) => prefetchFinances(qc),
   contracts: (qc) => prefetchContracts(qc),
   team: (qc) => prefetchTeamMembers(qc),
+  adCampaigns: (qc) => prefetchAdCampaigns(qc),
 };
 
 function SidebarContent({ role, logoUrl }: { role?: string; logoUrl: string | null }) {
@@ -168,6 +172,26 @@ function SidebarContent({ role, logoUrl }: { role?: string; logoUrl: string | nu
                 strokeWidth={2}
               />
               <span>{t("finances")}</span>
+            </Link>
+            <Link
+              href="/ad-campaigns"
+              prefetch={true}
+              onMouseEnter={() => handlePrefetch("adCampaigns")}
+              className={cn(
+                "group flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150",
+                pathname.startsWith("/ad-campaigns")
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <Megaphone
+                className={cn(
+                  "h-[18px] w-[18px] shrink-0",
+                  pathname.startsWith("/ad-campaigns") && "text-primary"
+                )}
+                strokeWidth={2}
+              />
+              <span>{t("adCampaigns")}</span>
             </Link>
             <Link
               href="/admin/users"

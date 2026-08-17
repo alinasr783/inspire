@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Search, X, Calendar, SlidersHorizontal } from "lucide-react";
 import { ClientTable } from "@/components/clients/client-table";
 import type { ColumnConfig } from "@/lib/client-config-actions";
+import type { AdCampaignOption } from "@/lib/ad-campaign-types";
 
 type ClientRow = Record<string, unknown> & { id: string; custom_fields: Record<string, unknown> };
 type Option = { id: string; name: string };
@@ -29,6 +30,11 @@ interface ClientsClientProps {
   budgetRange: { min: number; max: number } | null;
   creatorOptions: Option[];
   employeeOptions: Option[];
+  campaignOptions?: AdCampaignOption[];
+  companyMode?: boolean;
+  basePath?: string;
+  canDelete?: boolean;
+  canEditNamePhone?: boolean;
 }
 
 const selectClass = "flex h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground [&>option]:text-foreground [&>option]:bg-background";
@@ -39,7 +45,7 @@ function toDateOnly(d: string) { if (!d) return ""; const dt = new Date(d); retu
 export function ClientsClient({
   initialClients, columns, customColumns, locale, isAdmin, userId, creatorMap, employeeMap,
   uniquePaymentMethods, uniqueUnitTypes, uniqueSources, uniqueAreas, uniqueDevelopers, uniqueBedrooms,
-  budgetRange, creatorOptions, employeeOptions,
+  budgetRange, creatorOptions, employeeOptions, campaignOptions, companyMode = false, basePath = "/clients", canDelete = true, canEditNamePhone = true,
 }: ClientsClientProps) {
   const t = useTranslations("Clients");
   const [search, setSearch] = useState("");
@@ -239,7 +245,7 @@ export function ClientsClient({
         </div>
       </div>
 
-      <ClientTable columns={columns} clients={visible} locale={locale} creatorMap={creatorMap} employeeMap={employeeMap} userId={userId} />
+      <ClientTable columns={columns} clients={visible} locale={locale} creatorMap={creatorMap} employeeMap={employeeMap} userId={userId} companyMode={companyMode} basePath={basePath} canDelete={canDelete} canEditNamePhone={canEditNamePhone} campaignOptions={campaignOptions} />
 
       {showCount < filtered.length && (
         <div className="flex justify-center pt-4"><Button variant="outline" onClick={() => setShowCount((c) => c + 50)}>Show More ({filtered.length - showCount} remaining)</Button></div>

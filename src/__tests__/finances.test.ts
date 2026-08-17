@@ -45,8 +45,16 @@ let profileListResult: { data: unknown[]; error: unknown } = { data: [], error: 
 let clientListResult: { data: unknown[]; error: unknown } = { data: [], error: null };
 let unitListResult: { data: unknown[]; error: unknown } = { data: [], error: null };
 let employeeDealSelectResult: { data: unknown[]; error: unknown } = { data: [], error: null };
+let partnerConfigListResult: { data: unknown[]; error: unknown } = { data: [], error: null };
+let partnerInsertResult: { data: unknown; error: unknown } = { data: null, error: null };
+let partnerDeleteResult = { error: null };
+let dealPartnerInsertResult: { data: unknown; error: unknown } = { data: null, error: null };
+let partnerTargetResult: { data: { role: string; approval_status: string } | null; error: unknown } = {
+  data: { role: "admin", approval_status: "approved" },
+  error: null,
+};
 
-function makeSupabaseQuery(methods: Record<string, () => unknown>) {
+function makeSupabaseQuery(methods: Record<string, (...args: unknown[]) => unknown>) {
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(_target, prop: string) {
       if (prop === "then") return undefined;
@@ -74,9 +82,11 @@ vi.mock("@/lib/supabase/admin", () => ({
     from: (table: string) => {
       if (table === "profiles") {
         return makeSupabaseQuery({
-          select: () => makeSupabaseQuery({
+          select: (cols: unknown) => makeSupabaseQuery({
             eq: () => makeSupabaseQuery({
-              single: () => Promise.resolve(profileRoleResult),
+              single: () => Promise.resolve(
+                typeof cols === "string" && cols.includes("approval_status") ? partnerTargetResult : profileRoleResult
+              ),
             }),
             order: () => Promise.resolve(profileListResult),
           }),
@@ -134,6 +144,28 @@ vi.mock("@/lib/supabase/admin", () => ({
           }),
         });
       }
+      if (table === "partners") {
+        return makeSupabaseQuery({
+          select: () => makeSupabaseQuery({
+            order: () => Promise.resolve(partnerConfigListResult),
+          }),
+          insert: () => Promise.resolve(partnerInsertResult),
+          delete: () => makeSupabaseQuery({
+            eq: () => Promise.resolve(partnerDeleteResult),
+          }),
+        });
+      }
+      if (table === "deal_partners") {
+        return makeSupabaseQuery({
+          insert: () => Promise.resolve(dealPartnerInsertResult),
+          delete: () => makeSupabaseQuery({
+            eq: () => Promise.resolve({ error: null }),
+          }),
+          select: () => makeSupabaseQuery({
+            eq: () => Promise.resolve(employeeDealSelectResult),
+          }),
+        });
+      }
       return makeSupabaseQuery({});
     },
   }),
@@ -146,13 +178,14 @@ import {
   getDeal, getFullDealDetail, getEmployeeFinanceDetail,
   queryFinances, queryFinancesSimple,
   queryClientsSelect, queryUnitsSelect, queryEmployeesForSelect,
+  getPartnersConfig, addPartner, removePartner, getPartnerFinanceDetail,
 } from "@/lib/finance-actions";
 
 // ── Import pure functions ──
 
 import {
   calcManualCommission, calcCompanyNetProfit, calcEmployeePool, calcEmployeeProfit,
-  calcNathryat,
+  calcNathryat, calcPartnerProfit, splitPartnersEqually,
   hasBuyer, hasSeller, getTimeFilterDate,
 } from "@/lib/finance-types";
 
@@ -189,6 +222,10 @@ function resetResults() {
   profileListResult = { data: [], error: null };
   clientListResult = { data: [], error: null };
   unitListResult = { data: [], error: null };
+  partnerConfigListResult = { data: [], error: null };
+  partnerInsertResult = { data: null, error: null };
+  partnerDeleteResult = { error: null };
+  partnerTargetResult = { data: { role: "admin", approval_status: "approved" }, error: null };
   mockRedirect.mockClear();
   mockRevalidatePath.mockClear();
 }
@@ -248,6 +285,31 @@ describe("Finances - Pure Calculation Functions", () => {
     expect(getTimeFilterDate("month")).toBeInstanceOf(Date);
     expect(getTimeFilterDate("3months")).toBeInstanceOf(Date);
     expect(getTimeFilterDate("6months")).toBeInstanceOf(Date);
+  });
+
+  test("calcPartnerProfit: 50% of company net profit", () => {
+    expect(calcPartnerProfit(100000, 50)).toBe(50000);
+  });
+
+  test("calcPartnerProfit: 33.33% of company net profit", () => {
+    expect(calcPartnerProfit(99990, 33.33)).toBe(33326.67);
+  });
+
+  test("splitPartnersEqually: 3 partners → ~33.33 each, sum 100", () => {
+    const result = splitPartnersEqually(["a", "b", "c"]);
+    const total = Object.values(result).reduce((s, v) => s + v, 0);
+    expect(total).toBeCloseTo(100, 2);
+    expect(result["a"]).toBeCloseTo(33.33, 1);
+  });
+
+  test("splitPartnersEqually: empty → {}", () => {
+    expect(splitPartnersEqually([])).toEqual({});
+  });
+
+  test("splitPartnersEqually: 2 partners → 50/50", () => {
+    const result = splitPartnersEqually(["a", "b"]);
+    expect(result["a"]).toBe(50);
+    expect(result["b"]).toBe(50);
   });
 });
 
@@ -424,6 +486,10 @@ describe("Finances - Complete Access Control Matrix", () => {
     { name: "queryClientsSelect", fn: queryClientsSelect, args: [] },
     { name: "queryUnitsSelect", fn: queryUnitsSelect, args: [] },
     { name: "queryEmployeesForSelect", fn: queryEmployeesForSelect, args: [] },
+    { name: "getPartnersConfig", fn: getPartnersConfig, args: [] },
+    { name: "addPartner", fn: addPartner, args: ["admin-2"] },
+    { name: "removePartner", fn: removePartner, args: ["admin-2"] },
+    { name: "getPartnerFinanceDetail", fn: getPartnerFinanceDetail, args: ["partner-id"] },
   ];
 
   test("REGULAR USER: 100% of actions blocked", async () => {
@@ -479,5 +545,101 @@ describe("Finances - Complete Access Control Matrix", () => {
         expect(r.summary.employee_profits).toEqual([]);
       }
     }
+  });
+});
+
+describe("Finances - Partner Server Actions", () => {
+  beforeEach(() => resetResults());
+  afterEach(() => vi.restoreAllMocks());
+
+  describe("addPartner", () => {
+    test("admin can add a partner", async () => {
+      setAsAdmin();
+      partnerTargetResult = { data: { role: "admin", approval_status: "approved" }, error: null };
+      partnerInsertResult = { data: { id: "p1" }, error: null };
+      const r = await addPartner("admin-2");
+      expect(r.success).toBe(true);
+    });
+
+    test("regular user CANNOT add a partner", async () => {
+      setAsRegularUser();
+      const r = await addPartner("admin-2");
+      expect(r.success).toBe(false);
+      if (!r.success) expect(r.error).toBe("unauthorized");
+    });
+
+    test("cannot add non-admin as partner", async () => {
+      setAsAdmin();
+      partnerTargetResult = { data: { role: "user", approval_status: "approved" }, error: null };
+      const r = await addPartner("user-1");
+      expect(r.success).toBe(false);
+      if (!r.success) expect(r.error).toBe("not-an-admin");
+    });
+
+    test("cannot add unapproved user as partner", async () => {
+      setAsAdmin();
+      partnerTargetResult = { data: { role: "admin", approval_status: "pending" }, error: null };
+      const r = await addPartner("admin-3");
+      expect(r.success).toBe(false);
+      if (!r.success) expect(r.error).toBe("not-an-admin");
+    });
+
+    test("duplicate partner insert returns success (idempotent)", async () => {
+      setAsAdmin();
+      partnerTargetResult = { data: { role: "admin", approval_status: "approved" }, error: null };
+      partnerInsertResult = { data: null, error: { code: "23505" } };
+      const r = await addPartner("admin-2");
+      expect(r.success).toBe(true);
+    });
+  });
+
+  describe("removePartner", () => {
+    test("admin can remove a partner", async () => {
+      setAsAdmin();
+      partnerDeleteResult = { error: null };
+      const r = await removePartner("admin-2");
+      expect(r.success).toBe(true);
+    });
+
+    test("regular user CANNOT remove a partner", async () => {
+      setAsRegularUser();
+      const r = await removePartner("admin-2");
+      expect(r.success).toBe(false);
+      if (!r.success) expect(r.error).toBe("unauthorized");
+    });
+  });
+
+  describe("getPartnersConfig", () => {
+    test("admin can get partners config", async () => {
+      setAsAdmin();
+      partnerConfigListResult = { data: [{ id: "p1", partner_id: "admin-2", created_by: "admin-1" }], error: null };
+      const r = await getPartnersConfig();
+      expect(r.length).toBe(1);
+      expect(r[0].partner_id).toBe("admin-2");
+    });
+
+    test("regular user gets empty array", async () => {
+      setAsRegularUser();
+      const r = await getPartnersConfig();
+      expect(r).toEqual([]);
+    });
+  });
+
+  describe("getPartnerFinanceDetail", () => {
+    test("admin can get partner finance detail", async () => {
+      setAsAdmin();
+      profileRoleResult = { data: { role: "admin" } as unknown as { role: string }, error: null };
+      employeeDealSelectResult = { data: [{ deal_id: "deal-1", percentage: 50, profit_amount: 63000 }], error: null };
+      dealSelectListResult = { data: [], error: null };
+      const r = await getPartnerFinanceDetail("admin-2");
+      expect(r).not.toBeNull();
+      expect(r!.total_profit).toBe(63000);
+    });
+
+    test("regular user gets null", async () => {
+      setAsRegularUser();
+      const r = await getPartnerFinanceDetail("admin-2");
+      expect(r).toBeNull();
+    });
   });
 });

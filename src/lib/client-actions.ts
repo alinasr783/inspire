@@ -28,6 +28,8 @@ export type ClientRow = {
   created_by: string;
   created_at: string;
   updated_at: string;
+  is_company_client: boolean;
+  ad_campaign_id: string | null;
 };
 
 const clientSchema = z.object({

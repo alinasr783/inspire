@@ -14,6 +14,7 @@ import { PresenceTd } from "@/components/realtime/presence-td";
 import { TableCellContextMenu, type CellInfo } from "@/components/realtime/table-cell-context-menu";
 import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
 import { useCellStyles } from "@/hooks/use-cell-styles";
+import { useCellNavigation } from "@/hooks/use-cell-navigation";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { showSuccess, showError } from "@/lib/toast-utils";
 
@@ -176,101 +177,13 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
 
   const [deleteOneDialog, setDeleteOneDialog] = useState<{ rid: string; name: string } | null>(null);
   const srvRef = useRef(serverRecords); srvRef.current = serverRecords;
-  const recordsRef = useRef(records); recordsRef.current = records;
-  const [activeRowId, setActiveRowId] = useState<string | null>(null);
-  const activeRowRef = useRef<string | null>(null);
-  const [activeColKey, setActiveColKey] = useState<string | null>(null);
-  const activeColRef = useRef<string | null>(null);
-  const columnsRef = useRef(columns); columnsRef.current = columns;
 
-  useEffect(() => {
-    if (records.length > 0) {
-      const exists = activeRowRef.current && records.find((r) => r.id === activeRowRef.current);
-      if (!exists) {
-        const firstId = records[0].id;
-        activeRowRef.current = firstId;
-        setActiveRowId(firstId);
-      }
-    }
-    const cols = columnsRef.current;
-    if (!activeColRef.current || !cols.some((c) => c.key === activeColRef.current)) {
-      const firstCol = cols[0]?.key ?? null;
-      activeColRef.current = firstCol;
-      setActiveColKey(firstCol);
-    }
-  }, [records]);
-
-  const handleRowMouseEnter = useCallback((uid: string) => {
-    activeRowRef.current = uid;
-    setActiveRowId(uid);
+  const onEditCell = useCallback((rowId: string, colKey: string) => {
+    if (colKey === "whatsapp_state" || colKey === "assigned_employee") return;
+    setEditing({ rid: rowId, key: colKey });
   }, []);
 
-  const handleCellMouseEnter = useCallback((uid: string, colKey: string) => {
-    activeRowRef.current = uid;
-    setActiveRowId(uid);
-    activeColRef.current = colKey;
-    setActiveColKey(colKey);
-  }, []);
-
-  useEffect(() => {
-    function onArrow(e: KeyboardEvent) {
-      const isNav = e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight";
-      const isEnter = e.key === "Enter";
-      if (!isNav && !isEnter) return;
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      const rows = recordsRef.current;
-      if (rows.length === 0) return;
-      e.preventDefault();
-
-      const cols = columnsRef.current;
-      const currentRow = activeRowRef.current;
-      const currentCol = activeColRef.current;
-      const rowIdx = currentRow ? rows.findIndex((r) => r.id === currentRow) : -1;
-      const colIdx = currentCol ? cols.findIndex((c) => c.key === currentCol) : -1;
-
-      if (isEnter) {
-        if (currentRow && currentCol && colIdx >= 0) {
-          const col = cols[colIdx];
-          if (col && col.key !== "whatsapp_state" && col.key !== "assigned_employee") {
-            setEditing({ rid: currentRow, key: currentCol });
-          }
-        }
-        return;
-      }
-
-      const isRtl = document.documentElement.dir === "rtl";
-
-      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-        const nextRowIdx = e.key === "ArrowUp"
-          ? Math.max(0, rowIdx <= 0 ? 0 : rowIdx - 1)
-          : Math.min(rows.length - 1, rowIdx < 0 ? 0 : rowIdx + 1);
-        const nextId = rows[nextRowIdx]?.id;
-        if (nextId && nextId !== currentRow) {
-          activeRowRef.current = nextId;
-          setActiveRowId(nextId);
-          const el = document.querySelector(`tr[data-row-id="${nextId}"]`);
-          if (el) el.scrollIntoView({ block: "nearest", behavior: "auto" });
-        }
-      } else {
-        if (colIdx < 0) return;
-        const isPrev = isRtl ? e.key === "ArrowRight" : e.key === "ArrowLeft";
-        const nextColIdx = isPrev
-          ? Math.max(0, colIdx - 1)
-          : Math.min(cols.length - 1, colIdx + 1);
-        const nextCol = cols[nextColIdx]?.key;
-        if (nextCol && nextCol !== currentCol) {
-          activeColRef.current = nextCol;
-          setActiveColKey(nextCol);
-          const rowEl = document.querySelector(`tr[data-row-id="${currentRow}"]`);
-          const cellEl = rowEl?.querySelector(`td[data-col-key="${nextCol}"]`);
-          if (cellEl) cellEl.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
-        }
-      }
-    }
-    document.addEventListener("keydown", onArrow);
-    return () => document.removeEventListener("keydown", onArrow);
-  }, []);
+  const { activeRowId, activeColKey, handleRowMouseEnter, handleCellMouseEnter } = useCellNavigation(records, columns, onEditCell);
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     const init: Record<string, number> = {};

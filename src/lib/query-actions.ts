@@ -35,8 +35,35 @@ export async function queryClients(): Promise<ClientRow[]> {
     .single();
   const isAdmin = profile?.role === "admin";
 
-  let query = admin.from("clients").select("*").order("created_at", { ascending: false });
+  let query = admin
+    .from("clients")
+    .select("*")
+    .eq("is_company_client", false)
+    .order("created_at", { ascending: false });
   if (!isAdmin) query = query.eq("created_by", user.id);
+  const { data } = await query;
+  return (data ?? []) as ClientRow[];
+}
+
+export async function queryCompanyClients(): Promise<ClientRow[]> {
+  const supabase = await createClient();
+  const admin = createAdminClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  const isAdmin = profile?.role === "admin";
+
+  let query = admin
+    .from("clients")
+    .select("*")
+    .eq("is_company_client", true)
+    .order("created_at", { ascending: false });
+  if (!isAdmin) query = query.eq("assigned_employee", user.id);
   const { data } = await query;
   return (data ?? []) as ClientRow[];
 }

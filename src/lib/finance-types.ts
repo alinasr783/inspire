@@ -5,6 +5,7 @@ export type DealRow = {
   id: string;
   created_at: string;
   created_by: string;
+  ad_campaign_id: string | null;
   contact_type: ContactType;
   buyer_client_id: string | null;
   seller_unit_id: string | null;
@@ -81,12 +82,39 @@ export type DealWithRelations = DealRow & {
       avatar_url: string | null;
     };
   })[];
+  partners: (DealPartnerRow & {
+    profile: {
+      id: string;
+      first_name: string | null;
+      second_name: string | null;
+      position: string | null;
+      avatar_url: string | null;
+    };
+  })[];
 };
 
 export type EmployeeProfitSummary = {
   employee_id: string;
   first_name: string | null;
   second_name: string | null;
+  avatar_url: string | null;
+  total_profit: number;
+  deal_count: number;
+};
+
+export type DealPartnerRow = {
+  id: string;
+  deal_id: string;
+  partner_id: string;
+  percentage: number;
+  profit_amount: number;
+};
+
+export type PartnerProfitSummary = {
+  partner_id: string;
+  first_name: string | null;
+  second_name: string | null;
+  position: string | null;
   avatar_url: string | null;
   total_profit: number;
   deal_count: number;
@@ -99,6 +127,7 @@ export type FinanceSummary = {
   total_employee_profit: number;
   total_nathryat: number;
   employee_profits: EmployeeProfitSummary[];
+  partner_profits: PartnerProfitSummary[];
 };
 
 export type TimeFilter = "week" | "month" | "3months" | "6months" | "all";
@@ -153,4 +182,25 @@ export function calcEmployeePool(finalCommission: number, employeePercentage: nu
 
 export function calcEmployeeProfit(employeePool: number, percentage: number): number {
   return Math.round(employeePool * (percentage / 100) * 100) / 100;
+}
+
+export function calcPartnerProfit(companyNetProfit: number, percentage: number): number {
+  return Math.round(companyNetProfit * (percentage / 100) * 100) / 100;
+}
+
+export function splitPartnersEqually(partnerIds: string[]): Record<string, number> {
+  if (partnerIds.length === 0) return {};
+  const share = 100 / partnerIds.length;
+  const rounded = Math.round(share * 100) / 100;
+  const result: Record<string, number> = {};
+  let total = 0;
+  partnerIds.forEach((id, i) => {
+    if (i === partnerIds.length - 1) {
+      result[id] = Math.round((100 - total) * 100) / 100;
+    } else {
+      result[id] = rounded;
+      total += rounded;
+    }
+  });
+  return result;
 }

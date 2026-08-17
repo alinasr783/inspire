@@ -5,4 +5,5 @@ export { useTasksQuery, prefetchTasks } from "./use-tasks-query";
 export { useDevicesQuery, prefetchDevices } from "./use-devices-query";
 export { useEmployeesQuery, prefetchEmployees } from "./use-employees-query";
 export { useGalleryQuery } from "./use-gallery-query";
+export { useAdCampaignsQuery, useAdCampaignDetailQuery, useAdCampaignOptionsQuery, prefetchAdCampaigns } from "./use-ad-campaigns-query";
 export { queryKeys } from "./query-keys";

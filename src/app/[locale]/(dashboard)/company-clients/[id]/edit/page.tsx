@@ -1,0 +1,99 @@
+import { notFound, redirect } from "next/navigation";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ClientForm } from "@/components/clients/client-form";
+import { getColumnConfig } from "@/lib/client-config-actions";
+import { getAllEmployees } from "@/lib/client-dropdown-actions";
+import { queryCampaignsForSelect } from "@/lib/ad-campaign-actions";
+import type { ClientRow } from "@/lib/client-actions";
+
+export default async function EditCompanyClientPage({
+  params,
+}: {
+  params: Promise<{ locale: string; id: string }>;
+}) {
+  const { locale, id } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations("Clients");
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect(`/${locale}/auth/login`);
+
+  const admin = createAdminClient();
+  const { data: client, error } = await admin
+    .from("clients")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error || !client) {
+    notFound();
+  }
+
+  const clientData = client as ClientRow;
+
+  if (!clientData.is_company_client) {
+    notFound();
+  }
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const isAdmin = profile?.role === "admin";
+  const isAssignee = clientData.assigned_employee === user.id;
+
+  if (!isAdmin && !isAssignee) {
+    redirect(`/${locale}/company-clients/${id}?error=unauthorized`);
+  }
+
+  const customColumns = await getColumnConfig();
+  const employees = await getAllEmployees();
+  const campaignOptions = await queryCampaignsForSelect();
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold tracking-tight">{t("editClient")}</h1>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{clientData.customer_name}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ClientForm
+            mode="edit"
+            clientId={id}
+            customColumns={customColumns}
+            employees={employees}
+            campaignOptions={campaignOptions}
+            adCampaignId={clientData.ad_campaign_id ?? ""}
+            companyMode
+            lockNamePhone={!isAdmin}
+            defaultValues={{
+              customer_name: clientData.customer_name,
+              phone: clientData.phone,
+              phone_alt: clientData.phone_alt ?? "",
+              budget_from: clientData.budget_from ?? undefined,
+              budget_to: clientData.budget_to ?? undefined,
+              payment_method: clientData.payment_method ?? "",
+              preferred_area: clientData.preferred_area ?? "",
+              unit_type: clientData.unit_type ?? "",
+              bedrooms: clientData.bedrooms ?? "",
+              preferred_developer: clientData.preferred_developer ?? "",
+              source: clientData.source ?? "",
+              additional_notes: clientData.additional_notes ?? "",
+              last_contact_date: clientData.last_contact_date ?? "",
+              assigned_employee: clientData.assigned_employee ?? "",
+              ad_campaign_id: clientData.ad_campaign_id ?? "",
+              seriousness_rating: clientData.seriousness_rating ?? 5,
+            }}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

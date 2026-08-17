@@ -31,6 +31,7 @@ export default async function AttendancePage({
 
   let attendanceRecords: AttendanceWithEmployee[] = [];
   let alreadyCheckedIn = false;
+  let alreadyCheckedOut = false;
 
   if (isAdmin) {
     const { data: records } = await admin
@@ -46,12 +47,13 @@ export default async function AttendancePage({
   } else {
     const { data: todayRecord } = await admin
       .from("attendance_records")
-      .select("id")
+      .select("id, check_out_time")
       .eq("employee_id", user.id)
       .eq("check_in_date", today)
       .maybeSingle();
 
     alreadyCheckedIn = !!todayRecord;
+    alreadyCheckedOut = !!todayRecord?.check_out_time;
   }
 
   return (
@@ -67,6 +69,7 @@ export default async function AttendancePage({
         initialRecords={attendanceRecords}
         initialDate={today}
         initialCheckedIn={alreadyCheckedIn}
+        initialCheckedOut={alreadyCheckedOut}
       />
     </div>
   );

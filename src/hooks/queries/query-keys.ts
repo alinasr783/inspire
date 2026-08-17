@@ -9,6 +9,10 @@ export const queryKeys = {
     list: () => [...queryKeys.clients.all, "list"] as const,
     filters: (filters: Record<string, string>) => [...queryKeys.clients.all, "list", filters] as const,
   },
+  companyClients: {
+    all: ["company-clients"] as const,
+    list: () => [...queryKeys.companyClients.all, "list"] as const,
+  },
   deals: {
     all: ["deals"] as const,
     list: () => [...queryKeys.deals.all, "list"] as const,
@@ -50,6 +54,12 @@ export const queryKeys = {
   finances: {
     all: ["finances"] as const,
     list: (timeFilter?: string) => [...queryKeys.finances.all, "list", timeFilter ?? "all"] as const,
+  },
+  adCampaigns: {
+    all: ["ad-campaigns"] as const,
+    list: () => [...queryKeys.adCampaigns.all, "list"] as const,
+    options: () => [...queryKeys.adCampaigns.all, "options"] as const,
+    detail: (id: string) => [...queryKeys.adCampaigns.all, "detail", id] as const,
   },
   contracts: {
     all: ["contracts"] as const,

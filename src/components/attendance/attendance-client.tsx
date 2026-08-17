@@ -19,6 +19,7 @@ interface AttendanceClientProps {
   initialRecords: AttendanceWithEmployee[];
   initialDate: string;
   initialCheckedIn: boolean;
+  initialCheckedOut: boolean;
 }
 
 export function AttendanceClient({
@@ -28,45 +29,35 @@ export function AttendanceClient({
   initialRecords,
   initialDate,
   initialCheckedIn,
+  initialCheckedOut,
 }: AttendanceClientProps) {
   const t = useTranslations("Attendance");
   const [records, setRecords] = useState<AttendanceWithEmployee[]>(initialRecords);
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [checkedIn, setCheckedIn] = useState(initialCheckedIn);
-  const [loading, setLoading] = useState(false);
+  const [checkedOut, setCheckedOut] = useState(initialCheckedOut);
   const [stats, setStats] = useState<AttendanceStatsType | null>(null);
   const [viewMode, setViewMode] = useState<"daily" | "stats">("daily");
 
   const loadRecordsForDate = useCallback(async (date: string) => {
-    setLoading(true);
     const data = await getAttendanceByDate(date);
     setRecords(data);
-    setLoading(false);
   }, []);
 
   const loadStats = useCallback(async (year: number, month: number) => {
-    setLoading(true);
     const data = await getAttendanceStats(year, month);
     setStats(data);
-    setLoading(false);
   }, []);
 
-  useEffect(() => {
-    if (isAdmin) {
-      loadRecordsForDate(selectedDate);
+  const handleCheckInSuccess = useCallback((type: "in" | "out") => {
+    if (type === "in") {
+      setCheckedIn(true);
+      setCheckedOut(false);
+      toast.success(t("checkInSuccess"));
+    } else {
+      setCheckedOut(true);
+      toast.success(t("checkOutSuccess"));
     }
-  }, [selectedDate, loadRecordsForDate, isAdmin]);
-
-  useEffect(() => {
-    if (isAdmin && viewMode === "stats") {
-      const d = new Date(selectedDate);
-      loadStats(d.getFullYear(), d.getMonth() + 1);
-    }
-  }, [viewMode, selectedDate, loadStats, isAdmin]);
-
-  const handleCheckInSuccess = useCallback(() => {
-    setCheckedIn(true);
-    toast.success(t("checkInSuccess"));
   }, [t]);
 
   const handleAdminCheckIn = useCallback(async () => {
@@ -96,6 +87,7 @@ export function AttendanceClient({
         if (today !== initialDate) {
           const status = await checkTodayStatus();
           setCheckedIn(status.checkedIn);
+          setCheckedOut(status.checkedOut);
         }
       };
       const interval = setInterval(checkDayChange, 60000);
@@ -108,6 +100,7 @@ export function AttendanceClient({
       <div className="max-w-md mx-auto">
         <CheckInButton
           checkedIn={checkedIn}
+          checkedOut={checkedOut}
           onSuccess={handleCheckInSuccess}
         />
       </div>
@@ -163,9 +156,12 @@ export function AttendanceClient({
           <input
             type="date"
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            onChange={(e) => {
+              setSelectedDate(e.target.value);
+              void loadRecordsForDate(e.target.value);
+            }}
             max={getEgyptToday()}
-            className="h-9 rounded-lg border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
           <AdminCheckInDialog
             selectedDate={selectedDate}
@@ -178,20 +174,24 @@ export function AttendanceClient({
         <div className="flex gap-1.5">
           <button
             onClick={() => setViewMode("daily")}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
               viewMode === "daily"
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "border-primary/50 bg-primary/10 text-primary"
+                : "border-input bg-background text-foreground hover:bg-muted/50"
             }`}
           >
             {t("dailyView")}
           </button>
           <button
-            onClick={() => setViewMode("stats")}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+            onClick={() => {
+              setViewMode("stats");
+              const d = new Date(selectedDate);
+              void loadStats(d.getFullYear(), d.getMonth() + 1);
+            }}
+            className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
               viewMode === "stats"
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "border-primary/50 bg-primary/10 text-primary"
+                : "border-input bg-background text-foreground hover:bg-muted/50"
             }`}
           >
             {t("statsView")}
@@ -200,23 +200,14 @@ export function AttendanceClient({
       </div>
 
       {viewMode === "daily" && (
-        <>
-          {loading && (
-            <div className="flex items-center justify-center py-8">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
-          )}
-          {!loading && (
-            <AttendanceTable
-              records={records}
-              locale={locale}
-              isAdmin={isAdmin}
-              userId={userId}
-              onUpdate={handleUpdate}
-              onDelete={handleDelete}
-            />
-          )}
-        </>
+        <AttendanceTable
+          records={records}
+          locale={locale}
+          isAdmin={isAdmin}
+          userId={userId}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+        />
       )}
 
       {viewMode === "stats" && (
@@ -228,16 +219,12 @@ export function AttendanceClient({
               onChange={(e) => {
                 const [y, m] = e.target.value.split("-").map(Number);
                 setSelectedDate(`${y}-${String(m).padStart(2, "0")}-01`);
+                void loadStats(y, m);
               }}
-              className="h-9 rounded-lg border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
-          {loading && (
-            <div className="flex items-center justify-center py-8">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
-          )}
-          {!loading && stats && (
+          {stats && (
             <AttendanceStats stats={stats} />
           )}
         </>

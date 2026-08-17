@@ -31,7 +31,7 @@ export default async function ClientsPage({
   const allColumns = await getColumnConfig();
   const customCols = allColumns.filter((c) => !c.is_builtin && c.enabled);
 
-  let query = admin.from("clients").select("*").order("created_at", { ascending: false });
+  let query = admin.from("clients").select("*").eq("is_company_client", false).order("created_at", { ascending: false });
   if (!isAdmin) query = query.eq("created_by", user.id);
   const { data: clients } = await query;
   const clientsData = (clients ?? []) as ClientRow[];
@@ -77,7 +77,7 @@ export default async function ClientsPage({
             <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">{clientsData.length}</span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="min-h-0 flex-1 overflow-y-auto pt-0">
+        <CardContent className="min-h-0 flex-1 overflow-auto pt-0">
           <ClientsClient
             initialClients={clientsData}
             columns={allColumns}

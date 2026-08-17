@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,18 +38,21 @@ export function AdminCheckInDialog({
   const [loading, setLoading] = useState(false);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      setLoadingEmployees(true);
-      getEmployees().then((data) => {
+  const handleOpen = useCallback(() => {
+    setOpen(true);
+    setSelectedEmployee("");
+    setTime("09:00");
+    setNotes("");
+    setLoadingEmployees(true);
+    getEmployees()
+      .then((data) => {
         setEmployees(data);
         setLoadingEmployees(false);
+      })
+      .catch(() => {
+        setLoadingEmployees(false);
       });
-      setSelectedEmployee("");
-      setTime("09:00");
-      setNotes("");
-    }
-  }, [open]);
+  }, []);
 
   const handleSubmit = useCallback(async () => {
     if (!selectedEmployee) {
@@ -78,7 +81,7 @@ export function AdminCheckInDialog({
 
   return (
     <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)} className="gap-1">
+      <Button size="sm" variant="outline" onClick={handleOpen} className="gap-1">
         <Plus className="h-4 w-4" />
         <span className="hidden sm:inline">{t("adminCheckIn")}</span>
       </Button>

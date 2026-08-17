@@ -15,6 +15,10 @@ export type AttendanceRow = {
   latitude: number | null;
   longitude: number | null;
   location_name: string;
+  check_out_time: string | null;
+  check_out_latitude: number | null;
+  check_out_longitude: number | null;
+  check_out_location_name: string;
   notes: string;
   created_by: string;
   created_at: string;
@@ -94,6 +98,50 @@ export async function checkIn(data: {
   return { success: true, id: created.id };
 }
 
+export async function checkOut(data: {
+  latitude: number;
+  longitude: number;
+  location_name?: string;
+  notes?: string;
+}): Promise<ActionResult> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "unauthorized" };
+
+  const admin = createAdminClient();
+
+  const { data: record } = await admin
+    .from("attendance_records")
+    .select("id, check_out_time")
+    .eq("employee_id", user.id)
+    .is("check_out_time", null)
+    .order("check_in_time", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!record) {
+    return { success: false, error: "no-active-checkin" };
+  }
+
+  if (record.check_out_time) {
+    return { success: false, error: "already-checked-out" };
+  }
+
+  const { error } = await admin
+    .from("attendance_records")
+    .update({
+      check_out_time: new Date().toISOString(),
+      check_out_latitude: data.latitude,
+      check_out_longitude: data.longitude,
+      check_out_location_name: data.location_name ?? "",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", record.id);
+
+  if (error) return { success: false, error: "update-failed" };
+  revalidatePath("/", "layout");
+  return { success: true, id: record.id };
+}
+
 export async function adminCheckIn(data: {
   employee_id: string;
   check_in_date: string;
@@ -154,6 +202,10 @@ export async function updateAttendance(
     latitude?: number | null;
     longitude?: number | null;
     location_name?: string;
+    check_out_time?: string | null;
+    check_out_latitude?: number | null;
+    check_out_longitude?: number | null;
+    check_out_location_name?: string;
     notes?: string;
   }
 ): Promise<ActionResult> {
@@ -185,6 +237,10 @@ export async function updateAttendance(
   if (data.latitude !== undefined) updateData.latitude = data.latitude;
   if (data.longitude !== undefined) updateData.longitude = data.longitude;
   if (data.location_name !== undefined) updateData.location_name = data.location_name;
+  if (data.check_out_time !== undefined) updateData.check_out_time = data.check_out_time;
+  if (data.check_out_latitude !== undefined) updateData.check_out_latitude = data.check_out_latitude;
+  if (data.check_out_longitude !== undefined) updateData.check_out_longitude = data.check_out_longitude;
+  if (data.check_out_location_name !== undefined) updateData.check_out_location_name = data.check_out_location_name;
   if (data.notes !== undefined) updateData.notes = data.notes;
 
   const { error } = await adminClient
@@ -418,19 +474,23 @@ export async function getEmployees() {
   return (data ?? []) as { id: string; first_name: string; second_name: string; position: string }[];
 }
 
-export async function checkTodayStatus(): Promise<{ checkedIn: boolean; recordId?: string }> {
+export async function checkTodayStatus(): Promise<{ checkedIn: boolean; checkedOut: boolean; recordId?: string }> {
   const user = await getCurrentUser();
-  if (!user) return { checkedIn: false };
+  if (!user) return { checkedIn: false, checkedOut: false };
 
   const adminClient = createAdminClient();
   const today = getEgyptToday();
 
   const { data } = await adminClient
     .from("attendance_records")
-    .select("id")
+    .select("id, check_out_time")
     .eq("employee_id", user.id)
     .eq("check_in_date", today)
     .maybeSingle();
 
-  return { checkedIn: !!data, recordId: data?.id };
+  return {
+    checkedIn: !!data,
+    checkedOut: !!data?.check_out_time,
+    recordId: data?.id,
+  };
 }

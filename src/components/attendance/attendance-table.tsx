@@ -3,6 +3,12 @@
 import { useMemo, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
@@ -25,7 +31,8 @@ interface AttendanceTableProps {
   onDelete: () => void;
 }
 
-function formatTime(dateStr: string) {
+function formatTime(dateStr: string | null) {
+  if (!dateStr) return "";
   const d = new Date(dateStr);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
@@ -36,12 +43,20 @@ function formatDate(dateStr: string) {
   return `${d}/${m}/${y}`;
 }
 
-function getOpenStreetMapUrl(lat: number, lng: number) {
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.005},${lat - 0.005},${lng + 0.005},${lat + 0.005}&layer=mapnik&marker=${lat},${lng}`;
+function formatWorkingHours(checkIn: string, checkOut: string | null): string {
+  if (!checkOut) return "";
+  const inMs = new Date(checkIn).getTime();
+  const outMs = new Date(checkOut).getTime();
+  if (isNaN(inMs) || isNaN(outMs) || outMs <= inMs) return "";
+  const diffMs = outMs - inMs;
+  const totalMinutes = Math.floor(diffMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}h ${String(minutes).padStart(2, "0")}m`;
 }
 
-function getGoogleMapsUrl(lat: number, lng: number) {
-  return `https://www.google.com/maps?q=${lat},${lng}`;
+function getOpenStreetMapUrl(lat: number, lng: number) {
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.005},${lat - 0.005},${lng + 0.005},${lat + 0.005}&layer=mapnik&marker=${lat},${lng}`;
 }
 
 export function AttendanceTable({
@@ -54,6 +69,7 @@ export function AttendanceTable({
   const t = useTranslations("Attendance");
   const [editId, setEditId] = useState<string | null>(null);
   const [editTime, setEditTime] = useState("");
+  const [editOutTime, setEditOutTime] = useState("");
   const [editDate, setEditDate] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [mapUrl, setMapUrl] = useState<string | null>(null);
@@ -81,6 +97,12 @@ export function AttendanceTable({
     setEditId(record.id);
     const d = new Date(record.check_in_time);
     setEditTime(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
+    if (record.check_out_time) {
+      const od = new Date(record.check_out_time);
+      setEditOutTime(`${String(od.getHours()).padStart(2, "0")}:${String(od.getMinutes()).padStart(2, "0")}`);
+    } else {
+      setEditOutTime("");
+    }
     setEditDate(record.check_in_date);
     setEditNotes(record.notes ?? "");
   };
@@ -92,6 +114,9 @@ export function AttendanceTable({
       check_in_date: editDate,
       check_in_time: editTime,
       notes: editNotes,
+      ...(isAdmin
+        ? { check_out_time: editOutTime ? `${editDate}T${editOutTime}:00+02:00` : null }
+        : {}),
     });
     setSaving(false);
     if (result.success) {
@@ -120,137 +145,222 @@ export function AttendanceTable({
       const name = [record.employee?.first_name, record.employee?.second_name]
         .filter(Boolean)
         .join(" ") || t("employee");
-      setMapTitle(name);
+      setMapTitle(`${name} — ${t("checkIn")}`);
       setMapUrl(getOpenStreetMapUrl(record.latitude, record.longitude));
       setShowMobileMap(true);
     }
   };
 
-  const openGoogleMaps = (lat: number, lng: number) => {
-    window.open(getGoogleMapsUrl(lat, lng), "_blank");
+  const openCheckOutMap = (record: AttendanceWithEmployee) => {
+    if (record.check_out_latitude && record.check_out_longitude) {
+      const name = [record.employee?.first_name, record.employee?.second_name]
+        .filter(Boolean)
+        .join(" ") || t("employee");
+      setMapTitle(`${name} — ${t("checkOut")}`);
+      setMapUrl(getOpenStreetMapUrl(record.check_out_latitude, record.check_out_longitude));
+      setShowMobileMap(true);
+    }
   };
 
   if (records.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border bg-card py-16">
-        <Clock className="h-12 w-12 text-muted-foreground/30" />
-        <p className="mt-4 text-sm text-muted-foreground">{t("noRecords")}</p>
-      </div>
+      <>
+        <div className="hidden sm:flex flex-col items-center justify-center rounded-2xl border bg-card py-16 shadow-sm ring-1 ring-border/50">
+          <Clock className="h-10 w-10 text-muted-foreground/30" />
+          <p className="mt-3 text-sm text-muted-foreground">{t("noRecords")}</p>
+        </div>
+        <div className="sm:hidden flex flex-col items-center justify-center rounded-xl border bg-card py-14">
+          <Clock className="h-10 w-10 text-muted-foreground/30" />
+          <p className="mt-3 text-sm text-muted-foreground">{t("noRecords")}</p>
+        </div>
+      </>
     );
   }
 
   return (
     <>
       {/* Desktop Table */}
-      <div className="hidden sm:block overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-foreground/5">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
+      <Card className="hidden sm:flex max-h-[calc(100vh-220px)] flex-col">
+        <CardHeader className="shrink-0 pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            {t("title")}
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+              {sortedRecords.length}
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="min-h-0 flex-1 overflow-auto pt-0">
+          <table className="border-separate border-spacing-0 text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
+            <colgroup>
+              {isAdmin && <col style={{ width: 200 }} />}
+              <col style={{ width: 100 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 140 }} />
+              <col style={{ width: 160 }} />
+              <col style={{ width: 120 }} />
+            </colgroup>
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-muted/95 backdrop-blur-sm">
                 {isAdmin && (
-                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
+                  <th className="border-b border-r px-2.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
                     {t("employee")}
                   </th>
                 )}
-                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                  {t("time")}
+                <th className="border-b border-r px-2.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
+                  {t("checkIn")}
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
+                <th className="border-b border-r px-2.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
+                  {t("checkOut")}
+                </th>
+                <th className="border-b border-r px-2.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
+                  {t("workingHours")}
+                </th>
+                <th className="border-b border-r px-2.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
                   {t("location")}
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground hidden md:table-cell">
+                <th className="border-b border-r px-2.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
                   {t("notes")}
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
+                <th className="border-b px-3 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
                   {t("actions")}
                 </th>
               </tr>
             </thead>
             <tbody>
-              {sortedRecords.map((record) => (
-                <tr key={record.id} className="border-b last:border-0 hover:bg-muted/30">
-                  {isAdmin && (
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {record.employee?.avatar_url ? (
-                          <img
-                            src={record.employee.avatar_url}
-                            alt=""
-                            className="h-6 w-6 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10">
-                            <User className="h-3 w-3 text-primary" />
+              {sortedRecords.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={isAdmin ? 7 : 6}
+                    className="px-3 py-12 text-center text-muted-foreground"
+                  >
+                    <Clock className="mx-auto mb-2 h-8 w-8 opacity-50" />
+                    {t("noRecords")}
+                  </td>
+                </tr>
+              ) : (
+                sortedRecords.map((record) => (
+                  <tr key={record.id} className="border-b last:border-0 hover:bg-muted/30">
+                    {isAdmin && (
+                      <td className="border-b border-r px-2.5 py-2 align-middle">
+                        <div className="flex items-center gap-2.5">
+                          {record.employee?.avatar_url ? (
+                            <img
+                              src={record.employee.avatar_url}
+                              alt=""
+                              className="h-7 w-7 rounded-full object-cover shrink-0"
+                            />
+                          ) : (
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                              <User className="h-3.5 w-3.5 text-primary" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-medium">
+                              {[record.employee?.first_name, record.employee?.second_name]
+                                .filter(Boolean)
+                                .join(" ") || "—"}
+                            </p>
+                            {record.employee?.position && (
+                              <p className="truncate text-[11px] text-muted-foreground">
+                                {record.employee.position}
+                              </p>
+                            )}
                           </div>
-                        )}
-                        <span className="font-medium">
-                          {[record.employee?.first_name, record.employee?.second_name]
-                            .filter(Boolean)
-                            .join(" ") || "—"}
+                        </div>
+                      </td>
+                    )}
+                    <td className="border-b border-r px-2.5 py-2 align-middle">
+                      <div className="flex flex-col items-start gap-1">
+                        <span className="inline-flex w-fit items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium tabular-nums text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
+                          {formatTime(record.check_in_time)}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {formatDate(record.check_in_date)}
                         </span>
                       </div>
                     </td>
-                  )}
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col">
-                      <span className="font-mono font-medium tabular-nums">
-                        {formatTime(record.check_in_time)}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {formatDate(record.check_in_date)}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {record.latitude && record.longitude ? (
-                      <button
-                        onClick={() => openMap(record)}
-                        className="inline-flex items-center gap-1 text-primary hover:underline text-xs"
-                      >
-                        <MapPin className="h-3 w-3" />
-                        {t("viewOnMap")}
-                      </button>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 hidden md:table-cell max-w-[200px] truncate">
-                    <span className="text-xs text-muted-foreground">
-                      {record.notes || "—"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {canEdit(record) ? (
+                    <td className="border-b border-r px-2.5 py-2 align-middle">
+                      {record.check_out_time ? (
+                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium tabular-nums text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                          {formatTime(record.check_out_time)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="border-b border-r px-2.5 py-2 align-middle">
+                      {(() => {
+                        const hours = formatWorkingHours(record.check_in_time, record.check_out_time);
+                        return hours ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium tabular-nums text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                            {hours}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        );
+                      })()}
+                    </td>
+                    <td className="border-b border-r px-2.5 py-2 align-middle">
                       <div className="flex items-center gap-1">
+                        {record.latitude && record.longitude ? (
+                          <button
+                            onClick={() => openMap(record)}
+                            title={t("checkInLocation")}
+                            className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/50"
+                          >
+                            <MapPin className="h-3 w-3" />
+                            {t("in")}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                        {record.check_out_latitude && record.check_out_longitude ? (
+                          <button
+                            onClick={() => openCheckOutMap(record)}
+                            title={t("checkOutLocation")}
+                            className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/50"
+                          >
+                            <MapPin className="h-3 w-3" />
+                            {t("out")}
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="border-b border-r px-2.5 py-2 align-middle">
+                      <span className="block max-w-[160px] truncate text-[13px] text-muted-foreground">
+                        {record.notes || "—"}
+                      </span>
+                    </td>
+                    <td className="border-b px-2 py-2 align-middle">
+                      <div className="flex items-center gap-0.5">
                         {(isAdmin || record.employee_id === userId) && (
                           <button
                             onClick={() => handleEdit(record)}
-                            className="rounded p-1 hover:bg-muted"
                             title={t("edit")}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
                           >
-                            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                            <Pencil className="h-4 w-4" />
                           </button>
                         )}
                         {isAdmin && (
                           <button
                             onClick={() => setDeleteDialog(record.id)}
-                            className="rounded p-1 hover:bg-muted"
                             title={t("delete")}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-500 hover:bg-red-50 hover:text-red-600"
                           >
-                            <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         )}
                       </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Mobile Cards */}
       <div className="sm:hidden space-y-3">
@@ -290,6 +400,14 @@ export function AttendanceTable({
                         <span className="font-mono font-bold text-base tabular-nums">
                           {formatTime(record.check_in_time)}
                         </span>
+                        {record.check_out_time && (
+                          <>
+                            <span className="text-muted-foreground text-xs">→</span>
+                            <span className="font-mono font-bold text-base tabular-nums">
+                              {formatTime(record.check_out_time)}
+                            </span>
+                          </>
+                        )}
                         {record.latitude && record.longitude && (
                           <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:bg-emerald-950">
                             <MapPin className="h-2.5 w-2.5" />
@@ -314,9 +432,25 @@ export function AttendanceTable({
                       <span className="text-muted-foreground">{t("date")}</span>
                       <p className="font-medium">{formatDate(record.check_in_date)}</p>
                     </div>
-                    {record.latitude && record.longitude && (
+                    <div>
+                      <span className="text-muted-foreground">{t("workingHours")}</span>
+                      <p className="font-medium text-emerald-600">
+                        {formatWorkingHours(record.check_in_time, record.check_out_time) || "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t("checkIn")}</span>
+                      <p className="font-medium font-mono">{formatTime(record.check_in_time)}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t("checkOut")}</span>
+                      <p className="font-medium font-mono">
+                        {record.check_out_time ? formatTime(record.check_out_time) : "—"}
+                      </p>
+                    </div>
+                    {(record.latitude && record.longitude) && (
                       <div>
-                        <span className="text-muted-foreground">{t("location")}</span>
+                        <span className="text-muted-foreground">{t("checkInLocation")}</span>
                         <div className="flex items-center gap-2 mt-0.5">
                           <button
                             onClick={() => openMap(record)}
@@ -325,11 +459,19 @@ export function AttendanceTable({
                             <MapPin className="h-3 w-3" />
                             {t("viewOnMap")}
                           </button>
+                        </div>
+                      </div>
+                    )}
+                    {(record.check_out_latitude && record.check_out_longitude) && (
+                      <div>
+                        <span className="text-muted-foreground">{t("checkOutLocation")}</span>
+                        <div className="flex items-center gap-2 mt-0.5">
                           <button
-                            onClick={() => openGoogleMaps(record.latitude!, record.longitude!)}
-                            className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                            onClick={() => openCheckOutMap(record)}
+                            className="inline-flex items-center gap-1 text-amber-600 hover:underline font-medium"
                           >
-                            Google Maps
+                            <MapPin className="h-3 w-3" />
+                            {t("viewOnMap")}
                           </button>
                         </div>
                       </div>
@@ -402,6 +544,20 @@ export function AttendanceTable({
                   className="mt-1.5 w-full h-11 rounded-lg border border-input bg-background px-3 py-2 text-sm"
                 />
               </div>
+              {isAdmin && (
+                <div>
+                  <label className="text-sm font-medium">{t("checkOut")}</label>
+                  <input
+                    type="time"
+                    value={editOutTime}
+                    onChange={(e) => setEditOutTime(e.target.value)}
+                    className="mt-1.5 w-full h-11 rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                  />
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {t("checkOutEditHint")}
+                  </p>
+                </div>
+              )}
               <div>
                 <label className="text-sm font-medium">{t("notes")}</label>
                 <input

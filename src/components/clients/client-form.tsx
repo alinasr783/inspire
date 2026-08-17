@@ -10,9 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { addClient, updateClient } from "@/lib/client-actions";
+import { addCompanyClient, updateCompanyClient } from "@/lib/company-client-actions";
 import { getDropdownOptions } from "@/lib/client-dropdown-actions";
 import { DynamicSelect } from "./dynamic-select";
 import type { ColumnConfig } from "@/lib/client-config-actions";
+import type { AdCampaignOption } from "@/lib/ad-campaign-types";
 
 const maybeNum = (inner: z.ZodTypeAny) =>
   z.preprocess((v) => (v === "" ? undefined : v), inner);
@@ -32,6 +34,7 @@ const baseSchema = z.object({
   additional_notes: z.string().trim().optional().default(""),
   last_contact_date: z.string().trim().optional().default(""),
   assigned_employee: z.string().trim().optional().default(""),
+  ad_campaign_id: z.string().trim().optional().default(""),
   seriousness_rating: z.coerce.number().int().min(1).max(10),
 });
 
@@ -44,11 +47,15 @@ interface ClientFormProps {
   customColumns: ColumnConfig[];
   assignedEmployeeValue?: string;
   employees?: { id: string; name: string }[];
+  campaignOptions?: AdCampaignOption[];
+  adCampaignId?: string;
+  companyMode?: boolean;
+  lockNamePhone?: boolean;
 }
 
 const selectClass = "flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground [&>option]:text-foreground [&>option]:bg-background";
 
-export function ClientForm({ mode, defaultValues, clientId, customColumns, assignedEmployeeValue, employees }: ClientFormProps) {
+export function ClientForm({ mode, defaultValues, clientId, customColumns, assignedEmployeeValue, employees, campaignOptions, adCampaignId, companyMode = false, lockNamePhone = false }: ClientFormProps) {
   const t = useTranslations("Clients");
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -101,6 +108,7 @@ export function ClientForm({ mode, defaultValues, clientId, customColumns, assig
       additional_notes: "",
       last_contact_date: "",
       assigned_employee: assignedEmployeeValue || "",
+      ad_campaign_id: adCampaignId || "",
       seriousness_rating: 5,
       ...defaultValues,
     },
@@ -143,9 +151,11 @@ export function ClientForm({ mode, defaultValues, clientId, customColumns, assig
     fd.append("custom_fields", JSON.stringify(customFields));
 
     if (mode === "edit" && clientId) {
-      await updateClient(clientId, fd);
+      if (companyMode) await updateCompanyClient(clientId, fd);
+      else await updateClient(clientId, fd);
     } else {
-      await addClient(fd);
+      if (companyMode) await addCompanyClient(fd);
+      else await addClient(fd);
     }
   };
 
@@ -175,7 +185,7 @@ export function ClientForm({ mode, defaultValues, clientId, customColumns, assig
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="customer_name">{t("customerName")} *</Label>
-          <Input id="customer_name" autoComplete="off" {...register("customer_name")} />
+          <Input id="customer_name" autoComplete="off" disabled={lockNamePhone} {...register("customer_name")} />
           {errors.customer_name && (
             <p className="text-sm text-destructive">{t("errors.createFailed")}</p>
           )}
@@ -183,7 +193,7 @@ export function ClientForm({ mode, defaultValues, clientId, customColumns, assig
 
         <div className="space-y-2">
           <Label htmlFor="phone">{t("phone")} *</Label>
-          <Input id="phone" dir="ltr" {...register("phone")} />
+          <Input id="phone" dir="ltr" disabled={lockNamePhone} {...register("phone")} />
           {errors.phone && (
             <p className="text-sm text-destructive">{t("errors.createFailed")}</p>
           )}
@@ -259,6 +269,24 @@ export function ClientForm({ mode, defaultValues, clientId, customColumns, assig
             ))}
           </select>
         </div>
+
+        {companyMode && campaignOptions && (
+          <div className="space-y-2">
+            <Label htmlFor="ad_campaign_id">{t("adCampaign")}</Label>
+            <select
+              id="ad_campaign_id"
+              className={selectClass}
+              {...register("ad_campaign_id")}
+            >
+              <option value="">{t("noCampaign")}</option>
+              {campaignOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="additional_notes">{t("additionalNotes")}</Label>

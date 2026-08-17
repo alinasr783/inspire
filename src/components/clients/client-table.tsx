@@ -5,15 +5,19 @@ import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
-import { Users, Eye, Pencil, Trash2 } from "lucide-react";
+import { Users, Eye, Pencil, Trash2, Megaphone } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { updateColumnOrder, renameColumnConfig, type ColumnConfig } from "@/lib/client-config-actions";
 import { updateClientField, quickCreateClient, deleteClient } from "@/lib/client-actions";
+import { updateCompanyClientField, deleteCompanyClient } from "@/lib/company-client-actions";
+import { assignClientCampaign } from "@/lib/ad-campaign-actions";
+import type { AdCampaignOption } from "@/lib/ad-campaign-types";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { PresenceTd } from "@/components/realtime/presence-td";
 import { TableCellContextMenu, type CellInfo } from "@/components/realtime/table-cell-context-menu";
 import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
 import { useCellStyles } from "@/hooks/use-cell-styles";
+import { useCellNavigation } from "@/hooks/use-cell-navigation";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { showSuccess, showError } from "@/lib/toast-utils";
@@ -39,6 +43,7 @@ const COL_WIDTHS: Record<string, number> = {
 const DEFAULT_WIDTH = 150;
 const MIN_WIDTH = 50;
 const ACTIONS_WIDTH = 130;
+const CAMPAIGN_WIDTH = 150;
 
 const IS_BROWSER = typeof window !== "undefined";
 
@@ -68,6 +73,11 @@ interface ClientTableProps {
   creatorMap: Map<string, string>;
   employeeMap: Map<string, string>;
   userId: string;
+  companyMode?: boolean;
+  basePath?: string;
+  canDelete?: boolean;
+  canEditNamePhone?: boolean;
+  campaignOptions?: AdCampaignOption[];
 }
 
 const DROPDOWN_OPTIONS: Record<string, string[]> = {
@@ -173,16 +183,28 @@ interface TableRowProps {
   clientsData: ClientRow[];
   locale: string;
   isSelected: boolean;
+  activeColKey: string | null;
   onRowMouseEnter: (uid: string) => void;
+  onCellMouseEnter: (uid: string, colKey: string) => void;
+  basePath: string;
+  canDelete: boolean;
+  showCampaignCol: boolean;
+  canAssignCampaign: boolean;
+  campaignNameMap: Map<string, string>;
+  campaignColorMap: Map<string, string>;
+  onAssignCampaign: (cid: string, campaignId: string) => void;
 }
 
 const TableRowComponent = memo(function TableRowComponent({
   client, index, localCols, stale, editing,
   getCellRaw, getEditOptions, getEditType,
   cellEdit, cellSave, editCancel, onContextMenu, onDelete,
-  clientsData, locale, isSelected, onRowMouseEnter,
+  clientsData, locale, isSelected, activeColKey, onRowMouseEnter, onCellMouseEnter,
+  basePath, canDelete, showCampaignCol, canAssignCampaign, campaignNameMap, campaignColorMap, onAssignCampaign,
 }: TableRowProps) {
   const ed = editing;
+  const campaignId = String(client.ad_campaign_id ?? "");
+  const campaignName = campaignId ? (campaignNameMap.get(campaignId) ?? "—") : "";
 
   return (
     <tr
@@ -197,35 +219,77 @@ const TableRowComponent = memo(function TableRowComponent({
         const isEdit = ed?.cid === client.id && ed?.key === key;
         const raw = getCellRaw(col, client);
         const editOptions = getEditOptions(col);
+        const isActiveCell = isSelected && activeColKey === key;
         return (
-          <PresenceTd key={col.id} table="clients" rowId={client.id as string} colKey={key} className="overflow-hidden border-b border-r align-middle" onContextMenu={onContextMenu}>
+          <PresenceTd key={col.id} table="clients" rowId={client.id as string} colKey={key} className={`overflow-hidden border-b border-r align-middle ${isActiveCell ? "bg-primary/15" : ""}`} onContextMenu={onContextMenu}>
             {isEdit ? (
               <CellEditor defaultValue={key === "assigned_employee" ? String(client[key] ?? "") : raw}
                 type={getEditType(col)} options={editOptions} colKey={key}
                 onSave={(v) => cellSave(client.id as string, key, v)} onCancel={editCancel} />
             ) : (
-              <CellDisplay col={col} raw={raw} locale={locale} onEdit={() => cellEdit(client.id as string, key)} />
+              <div className="h-full w-full" onMouseEnter={() => onCellMouseEnter(client.id as string, key)}>
+                <CellDisplay col={col} raw={raw} locale={locale} onEdit={() => cellEdit(client.id as string, key)} />
+              </div>
             )}
           </PresenceTd>
         );
       })}
+      {showCampaignCol && (
+        <td className="overflow-hidden border-b border-r align-middle px-2 py-2">
+          {canAssignCampaign ? (
+            <select
+              value={campaignId}
+              onChange={(e) => onAssignCampaign(client.id as string, e.target.value)}
+              className="block h-full w-full border-none bg-transparent px-0 py-0 text-xs outline-none cursor-pointer"
+            >
+              <option value="">—</option>
+              {Array.from(campaignNameMap.entries()).map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
+          ) : (
+            <span className="block truncate text-xs">
+              {campaignId ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: campaignColorMap.get(campaignId) ?? "#276ef1" }} />
+                  <span className="truncate">{campaignName}</span>
+                </span>
+              ) : "—"}
+            </span>
+          )}
+        </td>
+      )}
       <td className="whitespace-nowrap px-2 py-2">
         <div className="flex items-center gap-0.5">
-          <Link href={`/clients/${client.id}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Eye className="h-4 w-4" /></Link>
-          <Link href={`/clients/${client.id}/edit`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Pencil className="h-4 w-4" /></Link>
-          <button className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-red-50 text-red-500 hover:text-red-600" onClick={() => onDelete(client.id as string)}><Trash2 className="h-4 w-4" /></button>
+          <Link href={`${basePath}/${client.id}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Eye className="h-4 w-4" /></Link>
+          <Link href={`${basePath}/${client.id}/edit`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Pencil className="h-4 w-4" /></Link>
+          {canDelete && <button className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-red-50 text-red-500 hover:text-red-600" onClick={() => onDelete(client.id as string)}><Trash2 className="h-4 w-4" /></button>}
         </div>
       </td>
     </tr>
   );
 });
 
-export function ClientTable({ columns, clients, locale, creatorMap, employeeMap, userId }: ClientTableProps) {
+export function ClientTable({ columns, clients, locale, creatorMap, employeeMap, userId, companyMode = false, basePath = "/clients", canDelete = true, canEditNamePhone = true, campaignOptions }: ClientTableProps) {
   const t = useTranslations("Clients");
   const router = useRouter();
   const { notifyCellEdit } = useRealtime();
 
-  const { data: liveClients, setInitialData } = useRealtimeSync<ClientRow>("clients");
+  const showCampaignCol = companyMode && !!campaignOptions && campaignOptions.length >= 0;
+  const campaignNameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of campaignOptions ?? []) m.set(c.id, c.name);
+    return m;
+  }, [campaignOptions]);
+  const campaignColorMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of campaignOptions ?? []) m.set(c.id, c.color);
+    return m;
+  }, [campaignOptions]);
+
+  const { data: liveClients, setInitialData } = useRealtimeSync<ClientRow>("clients", {
+    filter: companyMode ? "is_company_client=eq.true" : "is_company_client=eq.false",
+  });
   useEffect(() => { setInitialData(clients); }, [clients, setInitialData]);
   useCellStyles("clients");
   const clientsData = liveClients.length > 0 ? liveClients : clients;
@@ -237,7 +301,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
 
   useEffect(() => {
     if (!IS_BROWSER || enabledColumns.length === 0) return;
-    const saved = localStorage.getItem("inspire_cw_clients_order");
+    const saved = localStorage.getItem(`inspire_cw_clients_order${companyMode ? "_company" : ""}`);
     if (saved) {
       try {
         const ids = JSON.parse(saved) as string[];
@@ -245,60 +309,30 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
         if (reordered.length === enabledColumns.length) setLocalCols(reordered);
       } catch {}
     }
-  }, [enabledColumns]);
+  }, [enabledColumns, companyMode]);
 
   const [localClients, setLocalClients] = useState(clientsData);
   const { containerRef, ctrlD } = useTableCellKeyboard(localClients);
   const bgSaveRef = useRef<Set<string>>(new Set());
-  const localClientsRef = useRef(localClients); localClientsRef.current = localClients;
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const selectedRowRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (localClients.length > 0) {
-      const exists = selectedRowRef.current && localClients.find((c) => c.id === selectedRowRef.current);
-      if (!exists) {
-        const firstId = localClients[0].id as string;
-        selectedRowRef.current = firstId;
-        setSelectedRowId(firstId);
-      }
-    }
-  }, [localClients]);
-
-  const handleRowMouseEnter = useCallback((uid: string) => {
-    selectedRowRef.current = uid;
-    setSelectedRowId(uid);
-  }, []);
-
-  useEffect(() => {
-    function onArrow(e: KeyboardEvent) {
-      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      const rows = localClientsRef.current;
-      if (rows.length === 0) return;
-      e.preventDefault();
-      const current = selectedRowRef.current;
-      const idx = current ? rows.findIndex((c) => c.id === current) : -1;
-      const nextIdx = e.key === "ArrowUp"
-        ? Math.max(0, idx <= 0 ? 0 : idx - 1)
-        : Math.min(rows.length - 1, idx < 0 ? 0 : idx + 1);
-      const nextId = rows[nextIdx]?.id as string | undefined;
-      if (!nextId) return;
-      selectedRowRef.current = nextId;
-      setSelectedRowId(nextId);
-      const el = document.querySelector(`tr[data-row-id="${nextId}"]`);
-      if (el) el.scrollIntoView({ block: "nearest", behavior: "auto" });
-    }
-    document.addEventListener("keydown", onArrow);
-    return () => document.removeEventListener("keydown", onArrow);
-  }, []);
   const dragIdxRef = useRef<number | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [editingCol, setEditingCol] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const editRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState<{ cid: string; key: string } | null>(null);
+
+  const cellEdit = useCallback((cid: string, key: string) => {
+    if (!canEditNamePhone && (key === "customer_name" || key === "phone")) return;
+    setEditing({ cid, key });
+  }, [canEditNamePhone]);
+  const editCancel = useCallback(() => setEditing(null), []);
+
+  const onEditCell = useCallback((rowId: string, colKey: string) => {
+    cellEdit(rowId, colKey);
+  }, [cellEdit]);
+
+  const { activeRowId, activeColKey, handleRowMouseEnter, handleCellMouseEnter } = useCellNavigation(localClients, localCols, onEditCell);
+
   const [ctxMenu, setCtxMenu] = useState<{ info: CellInfo; pos: { x: number; y: number }; shortcut?: { scope: "row" | "column"; target: "color_bg" } } | null>(null);
   const handleContextMenu = useCallback((e: React.MouseEvent, info: CellInfo) => {
     e.preventDefault();
@@ -335,10 +369,15 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
     if (!deleteDialog) return;
     const cid = deleteDialog.cid;
     setDeleting(true);
-    try { await deleteClient(cid); setLocalClients((prev) => prev.filter((c) => c.id !== cid)); showSuccess("Client deleted"); } catch (e: any) { showError(e?.message || "Delete failed"); }
+    try {
+      if (companyMode) await deleteCompanyClient(cid);
+      else await deleteClient(cid);
+      setLocalClients((prev) => prev.filter((c) => c.id !== cid));
+      showSuccess("Client deleted");
+    } catch (e: any) { showError(e?.message || "Delete failed"); }
     setDeleting(false);
     setDeleteDialog(null);
-  }, [deleteDialog]);
+  }, [deleteDialog, companyMode]);
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     const defaults: Record<string, number> = {};
@@ -401,9 +440,9 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
     setDragIdx(null);
     const updated = finalCols.map((col, i) => ({ id: col.id, sort_order: i }));
     await updateColumnOrder(updated);
-    if (IS_BROWSER) localStorage.setItem("inspire_cw_clients_order", JSON.stringify(finalCols.map((c) => c.id)));
+    if (IS_BROWSER) localStorage.setItem(`inspire_cw_clients_order${companyMode ? "_company" : ""}`, JSON.stringify(finalCols.map((c) => c.id)));
     router.refresh();
-  }, [localCols, router]);
+  }, [localCols, router, companyMode]);
 
   const handleDoubleClick = (col: ColumnConfig) => { setEditingCol(col.id); setEditValue(locale === "ar" ? col.label_ar : col.label_en); setTimeout(() => editRef.current?.select(), 50); };
   const handleRename = async (col: ColumnConfig) => { if (!editValue.trim()) return; await renameColumnConfig(col.id, locale === "ar" ? editValue.trim() : col.label_ar, locale === "en" ? editValue.trim() : col.label_en); setEditingCol(null); router.refresh(); };
@@ -415,7 +454,6 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
     "seriousness_rating",
   ]));
 
-  const cellEdit = useCallback((cid: string, key: string) => setEditing({ cid, key }), []);
   const cellSave = useCallback((cid: string, key: string, value: string) => {
     setEditing(null);
     setLocalClients((prev) => prev.map((c) => {
@@ -426,9 +464,19 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
     }));
     notifyCellEdit({ table: "clients", rowId: cid, field: key, action: "update" });
     const tag = cid + key;
-    if (!bgSaveRef.current.has(tag)) { bgSaveRef.current.add(tag); updateClientField(cid, key, value).finally(() => bgSaveRef.current.delete(tag)); }
-  }, [notifyCellEdit]);
-  const editCancel = useCallback(() => setEditing(null), []);
+    if (!bgSaveRef.current.has(tag)) {
+      bgSaveRef.current.add(tag);
+      const save = companyMode ? updateCompanyClientField(cid, key, value) : updateClientField(cid, key, value);
+      save.finally(() => bgSaveRef.current.delete(tag));
+    }
+  }, [notifyCellEdit, companyMode]);
+
+  const onAssignCampaign = useCallback((cid: string, campaignId: string) => {
+    setLocalClients((prev) => prev.map((c) => (c.id === cid ? { ...c, ad_campaign_id: campaignId || null } as ClientRow : c)));
+    assignClientCampaign(cid, campaignId || null)
+      .then((res) => { if (!res.success) showError(res.error || "Update failed"); })
+      .catch(() => showError("Update failed"));
+  }, []);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -440,7 +488,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
           const val = prev[colKey]; return (val != null && val !== "") ? String(val) : null;
         });
       }
-      if (e.altKey && e.key === "n") {
+      if (e.altKey && e.key === "n" && !companyMode) {
         e.preventDefault();
         quickCreateClient(userId).then((newClient) => {
           setLocalClients((prev) => [newClient, ...prev]);
@@ -448,7 +496,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
       }
     }
     document.addEventListener("keydown", onKey); return () => document.removeEventListener("keydown", onKey);
-  }, [ctrlD, cellSave, localClients]);
+  }, [ctrlD, cellSave, localClients, companyMode]);
 
   // Memoized helpers to avoid recreating closures per render
   const getCellRaw = useCallback((col: ColumnConfig, client: ClientRow) => {
@@ -481,11 +529,12 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
 
   return (
     <TooltipProvider>
-      <div ref={containerRef} className="overflow-x-auto">
-        <table className="border-collapse text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
+      <div ref={containerRef}>
+        <table className="border-separate border-spacing-0 text-sm" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
             <col style={{ width: 60 }} />
             {localCols.map((col) => <col key={col.id} data-col-key={col.key} style={{ width: colWidths[col.key] ?? COL_WIDTHS[col.key] ?? DEFAULT_WIDTH }} />)}
+            {showCampaignCol && <col style={{ width: CAMPAIGN_WIDTH }} />}
             <col style={{ width: ACTIONS_WIDTH }} />
           </colgroup>
           <thead className="sticky top-0 z-10">
@@ -499,6 +548,11 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderRight = "2px solid var(--primary)"; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderRight = "2px solid transparent"; }} />
                 </th>
               ))}
+              {showCampaignCol && (
+                <th className="border-b border-r px-2 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1"><Megaphone className="h-3 w-3" />{t("adCampaign")}</span>
+                </th>
+              )}
               <th className="border-b px-3 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">{t("actions")}</th>
             </tr>
           </thead>
@@ -524,8 +578,17 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
                   onDelete={openDelete}
                   clientsData={clientsData}
                   locale={locale}
-                  isSelected={selectedRowId === client.id}
+                  isSelected={activeRowId === client.id}
+                  activeColKey={activeColKey}
                   onRowMouseEnter={handleRowMouseEnter}
+                  onCellMouseEnter={handleCellMouseEnter}
+                  basePath={basePath}
+                  canDelete={canDelete}
+                  showCampaignCol={showCampaignCol}
+                  canAssignCampaign={canEditNamePhone}
+                  campaignNameMap={campaignNameMap}
+                  campaignColorMap={campaignColorMap}
+                  onAssignCampaign={onAssignCampaign}
                 />
               ))
             )}

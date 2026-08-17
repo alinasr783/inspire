@@ -21,10 +21,13 @@ import {
   X,
   UserCheck,
   CalendarDays,
+  Briefcase,
+  Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { prefetchUnits } from "@/hooks/queries/use-units-query";
 import { prefetchClients } from "@/hooks/queries/use-clients-query";
+import { prefetchCompanyClients } from "@/hooks/queries/use-company-clients-query";
 import { prefetchDeals } from "@/hooks/queries/use-deals-query";
 import { prefetchTasks } from "@/hooks/queries/use-tasks-query";
 import { prefetchDevices } from "@/hooks/queries/use-devices-query";
@@ -32,10 +35,12 @@ import { prefetchEmployees } from "@/hooks/queries/use-employees-query";
 import { prefetchFinances } from "@/hooks/queries/use-finances-query";
 import { prefetchContracts } from "@/hooks/queries/use-contracts-query";
 import { prefetchTeamMembers } from "@/hooks/queries/use-team-query";
+import { prefetchAdCampaigns } from "@/hooks/queries/use-ad-campaigns-query";
 
 const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => void> = {
   properties: prefetchUnits,
   clients: prefetchClients,
+  companyClients: prefetchCompanyClients,
   deals: prefetchDeals,
   tasks: prefetchTasks,
   devices: prefetchDevices,
@@ -43,6 +48,7 @@ const prefetchMap: Record<string, (qc: ReturnType<typeof useQueryClient>) => voi
   finances: (qc) => prefetchFinances(qc),
   contracts: (qc) => prefetchContracts(qc),
   team: (qc) => prefetchTeamMembers(qc),
+  adCampaigns: (qc) => prefetchAdCampaigns(qc),
 };
 
 const TABS = [
@@ -55,6 +61,7 @@ const TABS = [
 
 const MORE_ITEMS = [
   { key: "unconfirmedData", href: "/unconfirmed-data", icon: FileSpreadsheet },
+  { key: "companyClients", href: "/company-clients", icon: Briefcase },
   { key: "attendance", href: "/attendance", icon: UserCheck },
   { key: "calendar", href: "/calendar", icon: CalendarDays },
   { key: "visits", href: "/visits", icon: CalendarCheck },
@@ -185,6 +192,23 @@ export function BottomTabBar({ role }: { role?: string }) {
                 >
                   <Banknote className="h-5 w-5" />
                   {t("finances")}
+                </Link>
+              )}
+              {role === "admin" && (
+                <Link
+                  href="/ad-campaigns"
+                  prefetch={true}
+                  onMouseEnter={() => handlePrefetch("adCampaigns")}
+                  onClick={() => setMoreOpen(false)}
+                  className={cn(
+                    "flex flex-col items-center gap-1.5 rounded-xl px-3 py-3 text-xs font-medium transition-colors",
+                    pathname.startsWith("/ad-campaigns")
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <Megaphone className="h-5 w-5" />
+                  {t("adCampaigns")}
                 </Link>
               )}
               {role === "admin" && (

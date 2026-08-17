@@ -21,6 +21,7 @@ import {
   MapPin,
   Home,
   ChevronRight,
+  Handshake,
 } from "lucide-react";
 
 const rtlFlip = "rtl:scale-x-[-1]";
@@ -191,6 +192,37 @@ export function DealDetailsPage({ deal }: { deal: DealWithRelations }) {
                     </p>
                   </div>
                   <p className="text-sm font-bold text-emerald-600">{formatCurrency(emp.profit_amount)}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Partners */}
+      {deal.partners && deal.partners.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Handshake className="size-4 text-purple-600" />
+              {t("partnerSplit")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {deal.partners.map((part) => (
+                <div key={part.id} className="flex items-center gap-3 rounded-xl border p-3">
+                  <Avatar className="size-10 rounded-xl">
+                    <AvatarImage src={part.profile?.avatar_url ?? undefined} />
+                    <AvatarFallback className="rounded-xl bg-primary/10 text-xs">
+                      {getEmployeeName(part.profile).split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{getEmployeeName(part.profile)}</p>
+                    <p className="text-xs text-muted-foreground">{Math.round(part.percentage * 100) / 100}%</p>
+                  </div>
+                  <p className="text-sm font-bold text-purple-600">{formatCurrency(part.profit_amount)}</p>
                 </div>
               ))}
             </div>

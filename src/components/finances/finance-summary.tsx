@@ -4,8 +4,8 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { FinanceSummary, EmployeeProfitSummary } from "@/lib/finance-types";
-import { Banknote, TrendingUp, Building2, Users, ChevronRight } from "lucide-react";
+import type { FinanceSummary, EmployeeProfitSummary, PartnerProfitSummary } from "@/lib/finance-types";
+import { Banknote, TrendingUp, Building2, Users, ChevronRight, Handshake } from "lucide-react";
 
 const rtlFlip = "rtl:scale-x-[-1]";
 
@@ -49,6 +49,24 @@ export function FinanceSummary({ summary }: { summary: FinanceSummary }) {
         <StatCard icon={Banknote} label={t("nathryat")} value={formatCurrency(summary.total_nathryat)} color="#9ca3af" />
       </div>
 
+      {summary.partner_profits.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Handshake className="size-4 text-purple-600" />
+              {t("partnerProfits")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-6">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {summary.partner_profits.map((part) => (
+                <PartnerCard key={part.partner_id} part={part} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {summary.employee_profits.length > 0 && (
         <Card>
           <CardHeader>
@@ -67,6 +85,34 @@ export function FinanceSummary({ summary }: { summary: FinanceSummary }) {
         </Card>
       )}
     </div>
+  );
+}
+
+function PartnerCard({ part }: { part: PartnerProfitSummary }) {
+  const t = useTranslations("Finances");
+  const router = useRouter();
+  const name = [part.first_name, part.second_name].filter(Boolean).join(" ") || "—";
+  const initials = name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+
+  return (
+    <button
+      onClick={() => router.push(`/finances/partner/${part.partner_id}`)}
+      className="flex items-center gap-3 rounded-xl border p-3 text-start transition-colors hover:bg-muted/50 hover:border-primary/30 w-full"
+    >
+      <Avatar className="size-10 rounded-xl">
+        <AvatarImage src={part.avatar_url ?? undefined} />
+        <AvatarFallback className="rounded-xl bg-primary/10 text-xs font-semibold">{initials || "?"}</AvatarFallback>
+      </Avatar>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{name}</p>
+        <p className="text-xs text-muted-foreground">{t("dealsCount", { count: part.deal_count })}</p>
+      </div>
+      <div className="shrink-0 text-right">
+        <p className="text-sm font-bold text-purple-600">{formatCurrency(part.total_profit)}</p>
+        <p className="text-[11px] text-muted-foreground">{t("netProfit")}</p>
+      </div>
+      <ChevronRight className={`size-4 text-muted-foreground shrink-0 ${rtlFlip}`} />
+    </button>
   );
 }
 

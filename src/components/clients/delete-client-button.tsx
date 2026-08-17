@@ -3,11 +3,12 @@
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { deleteClient } from "@/lib/client-actions";
+import { deleteCompanyClient } from "@/lib/company-client-actions";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Trash2 } from "lucide-react";
 
-export function DeleteClientButton({ clientId }: { clientId: string }) {
+export function DeleteClientButton({ clientId, companyMode = false }: { clientId: string; companyMode?: boolean }) {
   const t = useTranslations("Clients");
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -29,7 +30,7 @@ export function DeleteClientButton({ clientId }: { clientId: string }) {
         loading={pending}
         onConfirm={() => {
           startTransition(() => {
-            void deleteClient(clientId);
+            void (companyMode ? deleteCompanyClient(clientId) : deleteClient(clientId));
           });
         }}
       />

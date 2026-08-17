@@ -14,6 +14,7 @@ import { PresenceTd } from "@/components/realtime/presence-td";
 import { TableCellContextMenu, type CellInfo } from "@/components/realtime/table-cell-context-menu";
 import { useTableCellKeyboard } from "@/hooks/use-table-cell-keyboard";
 import { useCellStyles } from "@/hooks/use-cell-styles";
+import { useCellNavigation } from "@/hooks/use-cell-navigation";
 import { showSuccess, showError, showWarning } from "@/lib/toast-utils";
 
 const STALE_DAYS = 30;
@@ -165,13 +166,15 @@ interface TableRowProps {
   locale: string;
   duplicatePhones: Set<string>;
   isSelected: boolean;
+  activeColKey: string | null;
   onRowMouseEnter: (uid: string) => void;
+  onCellMouseEnter: (uid: string, colKey: string) => void;
 }
 
 const TableRowComponent = memo(function TableRowComponent({
   unit, columns, index, onCellSave, isAdmin, onDelete, userId, onContextMenu,
   employeeMap, uniqueValues, editing, cellEdit, editCancel, stale, getCellInfo, locale, duplicatePhones,
-  isSelected, onRowMouseEnter,
+  isSelected, activeColKey, onRowMouseEnter, onCellMouseEnter,
 }: TableRowProps) {
   const uid = unit.id;
   const ed = editing;
@@ -193,10 +196,11 @@ const TableRowComponent = memo(function TableRowComponent({
         const key = col.key;
         const isEdit = ed?.uid === uid && ed?.colId === col.id;
         const info = getCellInfo(col, unit);
+        const isActiveCell = isSelected && activeColKey === key;
 
         return (
           <PresenceTd key={col.id} table="properties" rowId={uid} colKey={key}
-            className="overflow-hidden border-b border-r p-0 align-middle"
+            className={`overflow-hidden border-b border-r p-0 align-middle ${isActiveCell ? "bg-primary/15" : ""}`}
             style={highlightBg ? { backgroundColor: highlightBg } : undefined}
             onContextMenu={onContextMenu}>
             {isEdit ? (
@@ -209,7 +213,7 @@ const TableRowComponent = memo(function TableRowComponent({
                 onCancel={editCancel}
               />
             ) : (
-              <span className="relative block h-full w-full">
+              <span className="relative block h-full w-full" onMouseEnter={() => onCellMouseEnter(uid, key)}>
                 <CellDisplay
                   raw={key === "last_contact_date" ? toDateValue(info.raw) : info.raw}
                   ltr={info.ltr}
@@ -262,53 +266,6 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   const srvRef = useRef(serverUnits); srvRef.current = serverUnits;
   const bgSaveRef = useRef<Set<string>>(new Set());
 
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const selectedRowRef = useRef<string | null>(null);
-  const localUnitsRef = useRef(localUnits);
-  localUnitsRef.current = localUnits;
-
-  useEffect(() => {
-    if (localUnits.length > 0) {
-      const exists = selectedRowRef.current && localUnits.find((u) => u.id === selectedRowRef.current);
-      if (!exists) {
-        const firstId = localUnits[0].id;
-        selectedRowRef.current = firstId;
-        setSelectedRowId(firstId);
-      }
-    }
-  }, [localUnits]);
-
-  const handleRowMouseEnter = useCallback((uid: string) => {
-    selectedRowRef.current = uid;
-    setSelectedRowId(uid);
-  }, []);
-
-  useEffect(() => {
-    function onArrow(e: KeyboardEvent) {
-      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      const units = localUnitsRef.current;
-      if (units.length === 0) return;
-      e.preventDefault();
-
-      const current = selectedRowRef.current;
-      const idx = current ? units.findIndex((u) => u.id === current) : -1;
-      const nextIdx = e.key === "ArrowUp"
-        ? Math.max(0, idx <= 0 ? 0 : idx - 1)
-        : Math.min(units.length - 1, idx < 0 ? 0 : idx + 1);
-      const nextId = units[nextIdx]?.id;
-      if (!nextId) return;
-
-      selectedRowRef.current = nextId;
-      setSelectedRowId(nextId);
-      const el = document.querySelector(`tr[data-row-id="${nextId}"]`);
-      if (el) el.scrollIntoView({ block: "nearest", behavior: "auto" });
-    }
-    document.addEventListener("keydown", onArrow);
-    return () => document.removeEventListener("keydown", onArrow);
-  }, []);
-
   const dragIdxRef = useRef<number | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [localCols, setLocalCols] = useState(enabledColumns);
@@ -319,6 +276,13 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   const [editing, setEditing] = useState<{ uid: string; colId: string } | null>(null);
   const cellEdit = useCallback((uid: string, colId: string) => setEditing({ uid, colId }), []);
   const editCancel = useCallback(() => setEditing(null), []);
+
+  const onEditCell = useCallback((rowId: string, colKey: string) => {
+    const col = localCols.find((c) => c.key === colKey);
+    if (col) cellEdit(rowId, col.id);
+  }, [localCols, cellEdit]);
+
+  const { activeRowId, activeColKey, handleRowMouseEnter, handleCellMouseEnter } = useCellNavigation(localUnits, localCols, onEditCell);
 
   const [ctxMenu, setCtxMenu] = useState<{ info: CellInfo; pos: { x: number; y: number }; shortcut?: { scope: "row" | "column"; target: "color_bg" } } | null>(null);
   const handleContextMenu = useCallback((e: React.MouseEvent, info: CellInfo) => {
@@ -658,8 +622,10 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
                   getCellInfo={getCellInfo}
                   locale={locale}
                   duplicatePhones={duplicatePhones}
-                  isSelected={selectedRowId === unit.id}
+                  isSelected={activeRowId === unit.id}
+                  activeColKey={activeColKey}
                   onRowMouseEnter={handleRowMouseEnter}
+                  onCellMouseEnter={handleCellMouseEnter}
                 />
               ))
             )}
