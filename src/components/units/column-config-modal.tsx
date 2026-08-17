@@ -126,7 +126,7 @@ export function ColumnConfigModal() {
         <Settings2 className="h-3.5 w-3.5" />
         {t("manageColumns")}
       </SheetTrigger>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto p-4 sm:p-6">
+      <SheetContent className="sm:max-w-md sm:p-6">
         <SheetHeader className="mb-6">
           <SheetTitle>{t("manageColumns")}</SheetTitle>
           <SheetDescription>

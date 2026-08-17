@@ -14,16 +14,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
 import { createTask } from "@/lib/task-actions";
 import { getFolders, type Folder } from "@/lib/unconfirmed-folder-actions";
-import { useMediaQuery } from "@/hooks/use-media-query";
 import { Loader2 } from "lucide-react";
 
 export function AddTaskDialog({
@@ -38,7 +30,6 @@ export function AddTaskDialog({
   preselectedEmployeeId?: string;
 }) {
   const t = useTranslations("Tasks");
-  const isMobile = useMediaQuery("(max-width: 767px)");
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -267,23 +258,9 @@ export function AddTaskDialog({
     </div>
   );
 
-  if (isMobile) {
-    return (
-      <Sheet key={preselectedEmployeeId ?? "_new"} open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto px-4 pb-6">
-          <SheetHeader>
-            <SheetTitle>{t("newTask")}</SheetTitle>
-            <SheetDescription>{t("newTaskDesc")}</SheetDescription>
-          </SheetHeader>
-          {formContent}
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
   return (
     <Dialog key={preselectedEmployeeId ?? "_new"} open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t("newTask")}</DialogTitle>
           <DialogDescription>{t("newTaskDesc")}</DialogDescription>

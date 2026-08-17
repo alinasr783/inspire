@@ -173,7 +173,7 @@ export function TaskDetailSheet({
 
   return (
     <Sheet key={taskId} open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={sheetSide} className="w-[90vw] max-w-md p-0">
+      <SheetContent side={sheetSide} className="sm:w-[90vw] sm:max-w-md sm:p-0">
         {loading ? (
           <div className="flex h-full items-center justify-center">
             <Loader2 className="size-6 animate-spin text-muted-foreground" />
