@@ -69,6 +69,9 @@ export default async function TasksPage({
       userId={user?.id ?? ""}
       confirmationFolders={confirmation?.folders ?? []}
       confirmationTasks={confirmation?.tasks ?? []}
+      confirmationFileTotals={confirmation?.fileTotals ?? {}}
+      confirmationTaskConfirmed={confirmation?.taskConfirmed ?? {}}
+      confirmationFileDone={confirmation?.fileDone ?? {}}
       employeeNames={employeeNames}
     />
   );

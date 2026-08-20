@@ -376,6 +376,9 @@ function statusForProgress(current: string, progress: number): string {
 export async function fetchConfirmationOverview(): Promise<{
   folders: Folder[];
   tasks: TaskRow[];
+  fileTotals: Record<string, number>;
+  taskConfirmed: Record<string, number>;
+  fileDone: Record<string, number>;
 } | null> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -391,5 +394,58 @@ export async function fetchConfirmationOverview(): Promise<{
     .eq("task_type", "confirmation")
     .order("created_at", { ascending: false });
 
-  return { folders, tasks: (tasks ?? []) as TaskRow[] };
+  const confTasks = (tasks ?? []) as TaskRow[];
+  const allFileIds = folders.flatMap((f) => f.files.map((fl) => fl.id));
+
+  // total real rows per file (all records in the file, regardless of assignment)
+  const fileTotals: Record<string, number> = {};
+  if (allFileIds.length > 0) {
+    const { data: fileRows } = await admin
+      .from("unconfirmed_records")
+      .select("file_id")
+      .in("file_id", allFileIds);
+    for (const r of (fileRows ?? []) as { file_id: string }[]) {
+      fileTotals[r.file_id] = (fileTotals[r.file_id] ?? 0) + 1;
+    }
+  }
+
+  // done rows per confirmation task (same method as task progress: file_id + assigned_employee)
+  const taskConfirmed: Record<string, number> = {};
+  const pairFiles = Array.from(
+    new Set(confTasks.map((t) => t.file_id).filter(Boolean) as string[])
+  );
+  const pairEmps = Array.from(new Set(confTasks.map((t) => t.assigned_to).filter(Boolean)));
+  // employees that have a confirmation task, grouped by file (for union-based file done)
+  const taskEmpsByFile = new Map<string, Set<string>>();
+  for (const t of confTasks) {
+    if (t.file_id && t.assigned_to) {
+      if (!taskEmpsByFile.has(t.file_id)) taskEmpsByFile.set(t.file_id, new Set());
+      taskEmpsByFile.get(t.file_id)!.add(t.assigned_to);
+    }
+  }
+  const fileDone: Record<string, number> = {};
+  if (pairFiles.length > 0 && pairEmps.length > 0) {
+    const { data: recs } = await admin
+      .from("unconfirmed_records")
+      .select("file_id, assigned_employee")
+      .in("file_id", pairFiles)
+      .in("assigned_employee", pairEmps);
+    const pairMap = new Map<string, number>();
+    for (const r of (recs ?? []) as { file_id: string; assigned_employee: string }[]) {
+      const key = `${r.file_id}|${r.assigned_employee}`;
+      pairMap.set(key, (pairMap.get(key) ?? 0) + 1);
+      // union-based file done: count each record once per file if its employee has a task there
+      const emps = taskEmpsByFile.get(r.file_id);
+      if (emps && r.assigned_employee && emps.has(r.assigned_employee)) {
+        fileDone[r.file_id] = (fileDone[r.file_id] ?? 0) + 1;
+      }
+    }
+    for (const t of confTasks) {
+      if (t.file_id && t.assigned_to) {
+        taskConfirmed[t.id] = pairMap.get(`${t.file_id}|${t.assigned_to}`) ?? 0;
+      }
+    }
+  }
+
+  return { folders, tasks: confTasks, fileTotals, taskConfirmed, fileDone };
 }

@@ -48,6 +48,9 @@ export function TasksClient({
   userId,
   confirmationFolders,
   confirmationTasks,
+  confirmationFileTotals,
+  confirmationTaskConfirmed,
+  confirmationFileDone,
   employeeNames,
 }: {
   isAdmin: boolean;
@@ -57,6 +60,9 @@ export function TasksClient({
   userId: string;
   confirmationFolders: Folder[];
   confirmationTasks: TaskRow[];
+  confirmationFileTotals: Record<string, number>;
+  confirmationTaskConfirmed: Record<string, number>;
+  confirmationFileDone: Record<string, number>;
   employeeNames: Record<string, string>;
 }) {
   const t = useTranslations("Tasks");
@@ -165,6 +171,10 @@ export function TasksClient({
             <ConfirmationOverview
               folders={confirmationFolders}
               tasks={confirmationTasks}
+              liveTasks={liveTasks}
+              fileTotals={confirmationFileTotals}
+              taskConfirmed={confirmationTaskConfirmed}
+              fileDone={confirmationFileDone}
               employeeNames={employeeNames}
             />
           )}

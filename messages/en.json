@@ -497,7 +497,13 @@
     "noFileAssigned": "No file linked",
     "viewAllFiles": "All Files in Unconfirmed Data",
     "filesCount": "{count} files",
-    "tasksInFile": "{count} tasks"
+    "tasksInFile": "{count} tasks",
+    "comparisonDone": "Done",
+    "comparisonRemaining": "In tasks, not done",
+    "comparisonNotInTasks": "Not in tasks yet",
+    "comparisonTotal": "Total rows: {total}",
+    "comparisonTotalShort": "{total} rows",
+    "comparisonTarget": "Task target: {target}"
   },
   "UnconfirmedData": {
     "title": "Unconfirmed Data",

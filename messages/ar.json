@@ -497,7 +497,13 @@
     "noFileAssigned": "لا يوجد ملف مرتبط",
     "viewAllFiles": "كل الملفات في البيانات غير المؤكدة",
     "filesCount": "{count} ملفات",
-    "tasksInFile": "{count} مهام"
+    "tasksInFile": "{count} مهام",
+    "comparisonDone": "تمت",
+    "comparisonRemaining": "في المهام ولم تتم",
+    "comparisonNotInTasks": "غير موجودة في المهام بعد",
+    "comparisonTotal": "إجمالي الصفوف: {total}",
+    "comparisonTotalShort": "{total} صف",
+    "comparisonTarget": "هدف المهمة: {target}"
   },
   "UnconfirmedData": {
     "title": "البيانات غير المؤكدة",
