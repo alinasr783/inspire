@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
+import { CheckInReminder } from "@/components/attendance/check-in-reminder";
 import { DashboardClientShell } from "@/components/providers/dashboard-client-shell";
 import { ThemeColorProvider } from "@/components/providers/theme-color-provider";
 import { getCrmLogoUrl } from "@/lib/crm-actions";
@@ -93,6 +94,7 @@ export default async function DashboardLayout({
           </div>
         </div>
         <BottomTabBar role={profile.role} />
+        <CheckInReminder />
       </ThemeColorProvider>
     </DashboardClientShell>
   );

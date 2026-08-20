@@ -1243,7 +1243,11 @@
     "totalCheckIns": "إجمالي التسجيلات",
     "daysPresent": "أيام الحضور",
     "avgCheckIn": "متوسط وقت الحضور",
-    "position": "المنصب"
+    "position": "المنصب",
+    "checkInReminderTitle": "تذكير تسجيل الحضور",
+    "checkInReminderDesc": "لم تسجل حضورك اليوم بعد. سجّل حضورك الآن وسيتم تسجيل موقعك الحالي مع وقت الحضور بدقة.",
+    "later": "لاحقاً",
+    "dismiss": "إغلاق"
   },
   "Visits": {
     "title": "الزيارات",

@@ -1242,7 +1242,11 @@
     "totalCheckIns": "Total Check-ins",
     "daysPresent": "Days Present",
     "avgCheckIn": "Avg Check-in Time",
-    "position": "Position"
+    "position": "Position",
+    "checkInReminderTitle": "Check-in Reminder",
+    "checkInReminderDesc": "You haven't checked in yet today. Check in now and your current location will be recorded with the exact time.",
+    "later": "Later",
+    "dismiss": "Close"
   },
   "Visits": {
     "title": "Visits",
