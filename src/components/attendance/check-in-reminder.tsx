@@ -13,7 +13,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2, LogIn, MapPin, X } from "lucide-react";
 import { checkIn, checkTodayStatus } from "@/lib/attendance-actions";
+import { getCurrentLocation, LocationError } from "@/lib/geolocation";
 import { getEgyptToday } from "@/lib/utils";
+
+function locationErrorMessage(t: (key: string) => string, err: unknown) {
+  if (err instanceof LocationError) {
+    return t(`locationError_${err.code}`);
+  }
+  return t("locationError");
+}
 
 export function CheckInReminder() {
   const t = useTranslations("Attendance");
@@ -58,41 +66,32 @@ export function CheckInReminder() {
 
   const handleCheckIn = useCallback(async () => {
     setLoading(true);
+    let coords: { latitude: number; longitude: number };
     try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        if (!navigator.geolocation) {
-          reject(new Error("geolocation-not-supported"));
-          return;
-        }
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
-        });
-      });
-
-      const { latitude, longitude } = position.coords;
-      const result = await checkIn({
-        latitude,
-        longitude,
-        location_name: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
-      });
-
-      if (result.success) {
-        checkedInRef.current = true;
-        setOpen(false);
-        toast.success(t("checkInSuccess"));
-      } else if (result.error === "already-checked-in") {
-        checkedInRef.current = true;
-        setOpen(false);
-      } else {
-        toast.error(t("checkInFailed"));
-      }
-    } catch {
-      toast.error(t("locationError"));
-    } finally {
+      coords = await getCurrentLocation();
+    } catch (err) {
+      toast.error(locationErrorMessage(t, err));
       setLoading(false);
+      return;
     }
+
+    const result = await checkIn({
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      location_name: `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`,
+    });
+
+    if (result.success) {
+      checkedInRef.current = true;
+      setOpen(false);
+      toast.success(t("checkInSuccess"));
+    } else if (result.error === "already-checked-in") {
+      checkedInRef.current = true;
+      setOpen(false);
+    } else {
+      toast.error(t("checkInFailed"));
+    }
+    setLoading(false);
   }, [t]);
 
   const handleDismiss = useCallback(() => {

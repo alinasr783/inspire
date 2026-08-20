@@ -10,6 +10,7 @@ import type { UnitRow } from "@/lib/unit-actions";
 import { getUnitGallery } from "@/lib/gallery-actions";
 import { GalleryManager } from "@/components/gallery/gallery-manager";
 import { MobileShareSection } from "@/components/properties/mobile-share-section";
+import { AddToContactsButton } from "@/components/properties/add-to-contacts-button";
 import { ShareQrCode } from "@/components/properties/share-qr-code";
 import { CopyButton } from "@/components/clients/copy-button";
 import { DeleteUnitButton } from "@/components/units/delete-unit-button";
@@ -356,6 +357,32 @@ export default async function UnitDetailPage({
 
   const qrShareUrl = `https://wa.me/?text=${encodeURIComponent(mobileShareText)}`;
 
+  const contactFullName = [
+    "O",
+    unitData.customer_name,
+    unitData.area,
+    unitData.unit_type,
+    unitData.compound_name,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const contactNote = [
+    unitData.compound_name && `${t("compoundName")}: ${unitData.compound_name}`,
+    unitData.area && `${t("area")}: ${unitData.area}`,
+    unitData.unit_type && `${t("unitType")}: ${unitData.unit_type}`,
+    unitData.finishing_status && `${t("finishingStatus")}: ${unitData.finishing_status}`,
+    unitData.rent_sale && `${t("rentSale")}: ${unitData.rent_sale}`,
+    cashDisplay && `${t("cashRequired")}: ${cashDisplay}`,
+    remainingDisplay && `${t("remaining")}: ${remainingDisplay}`,
+    unitData.additional_notes && `${t("additionalNotes")}: ${unitData.additional_notes}`,
+    unitData.feedback && `${t("feedback")}: ${unitData.feedback}`,
+    `${t("assignedEmployee")}: ${assigneeName}`,
+    contactValid && `${t("lastContactDate")}: ${formatDate(unitData.last_contact_date!, locale)}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   return (
     <div className="space-y-6 pb-20 md:pb-0">
       <nav className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -429,7 +456,7 @@ export default async function UnitDetailPage({
 
           <div className="flex flex-col items-stretch gap-2 lg:items-end">
             {phoneDigits && (
-              <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:flex sm:flex-wrap">
                 <a
                   href={`https://wa.me/${phoneDigits}`}
                   target="_blank"
@@ -455,6 +482,11 @@ export default async function UnitDetailPage({
                   <Phone className="size-3.5" />
                   {t("call")}
                 </a>
+                <AddToContactsButton
+                  phone={phoneDigits}
+                  fullName={contactFullName}
+                  note={contactNote}
+                />
               </div>
             )}
 

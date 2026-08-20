@@ -308,7 +308,8 @@
     "columnAddFailed": "Failed to add column",
     "columnOptionsPlaceholder": "One option per line",
     "saving": "Saving...",
-    "scanToShare": "Scan to share via WhatsApp"
+    "scanToShare":  "Scan to share via WhatsApp",
+    "addToContacts":  "Add to Contacts"
   },
   "Clients": {
     "title": "Clients",
@@ -1194,6 +1195,10 @@
     "alreadyCheckedInTitle": "Today's Attendance Recorded",
     "alreadyCheckedInDesc": "You've successfully checked in today. You can check out anytime.",
     "locationError": "Could not get your location. Please enable GPS and try again.",
+    "locationError_unsupported": "Your browser doesn't support location services.",
+    "locationError_denied": "Location access was denied. Enable it in your browser settings and try again.",
+    "locationError_unavailable": "Could not determine your location. Make sure GPS/location is enabled and try again.",
+    "locationError_timeout": "Getting your location is taking too long. Please try again.",
     "employee": "Employee",
     "time": "Time",
     "date": "Date",

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { MapPin, Loader2, CheckCircle2, LogIn, LogOut } from "lucide-react";
 import { checkIn, checkOut } from "@/lib/attendance-actions";
+import { getCurrentLocation, LocationError } from "@/lib/geolocation";
 
 interface CheckInButtonProps {
   checkedIn: boolean;
@@ -13,77 +14,72 @@ interface CheckInButtonProps {
   onSuccess: (type: "in" | "out") => void;
 }
 
+function locationErrorMessage(t: (key: string) => string, err: unknown) {
+  if (err instanceof LocationError) {
+    return t(`locationError_${err.code}`);
+  }
+  return t("locationError");
+}
+
 export function CheckInButton({ checkedIn, checkedOut, onSuccess }: CheckInButtonProps) {
   const t = useTranslations("Attendance");
   const [loading, setLoading] = useState(false);
 
-  const getPosition = useCallback(async () => {
-    return new Promise<GeolocationPosition>((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error("geolocation-not-supported"));
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      });
-    });
-  }, []);
-
   const handleCheckIn = useCallback(async () => {
     setLoading(true);
+    let coords: { latitude: number; longitude: number };
     try {
-      const position = await getPosition();
-      const { latitude, longitude } = position.coords;
-
-      const result = await checkIn({
-        latitude,
-        longitude,
-        location_name: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
-      });
-
-      if (result.success) {
-        onSuccess("in");
-      } else if (result.error === "already-checked-in") {
-        toast.error(t("alreadyCheckedIn"));
-      } else {
-        toast.error(t("checkInFailed"));
-      }
-    } catch {
-      toast.error(t("locationError"));
-    } finally {
+      coords = await getCurrentLocation();
+    } catch (err) {
+      toast.error(locationErrorMessage(t, err));
       setLoading(false);
+      return;
     }
-  }, [getPosition, onSuccess, t]);
+
+    const result = await checkIn({
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      location_name: `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`,
+    });
+
+    if (result.success) {
+      onSuccess("in");
+    } else if (result.error === "already-checked-in") {
+      toast.error(t("alreadyCheckedIn"));
+    } else {
+      toast.error(t("checkInFailed"));
+    }
+    setLoading(false);
+  }, [onSuccess, t]);
 
   const handleCheckOut = useCallback(async () => {
     setLoading(true);
+    let coords: { latitude: number; longitude: number };
     try {
-      const position = await getPosition();
-      const { latitude, longitude } = position.coords;
-
-      const result = await checkOut({
-        latitude,
-        longitude,
-        location_name: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
-      });
-
-      if (result.success) {
-        onSuccess("out");
-      } else if (result.error === "already-checked-out") {
-        toast.error(t("alreadyCheckedOut"));
-      } else if (result.error === "no-active-checkin") {
-        toast.error(t("noActiveCheckIn"));
-      } else {
-        toast.error(t("checkOutFailed"));
-      }
-    } catch {
-      toast.error(t("locationError"));
-    } finally {
+      coords = await getCurrentLocation();
+    } catch (err) {
+      toast.error(locationErrorMessage(t, err));
       setLoading(false);
+      return;
     }
-  }, [getPosition, onSuccess, t]);
+
+    const result = await checkOut({
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      location_name: `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`,
+    });
+
+    if (result.success) {
+      onSuccess("out");
+    } else if (result.error === "already-checked-out") {
+      toast.error(t("alreadyCheckedOut"));
+    } else if (result.error === "no-active-checkin") {
+      toast.error(t("noActiveCheckIn"));
+    } else {
+      toast.error(t("checkOutFailed"));
+    }
+    setLoading(false);
+  }, [onSuccess, t]);
 
   if (checkedIn && checkedOut) {
     return (
