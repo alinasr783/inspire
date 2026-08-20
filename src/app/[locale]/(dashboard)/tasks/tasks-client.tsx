@@ -10,9 +10,11 @@ import { AdTrackingSection } from "@/components/tasks/ad-tracking-section";
 import { TaskConfirmationTracker } from "@/components/tasks/task-confirmation-tracker";
 import { AddTaskDialog } from "@/components/tasks/add-task-dialog";
 import { TaskDetailSheet } from "@/components/tasks/task-detail-sheet";
+import { ConfirmationOverview } from "@/components/tasks/confirmation-overview";
 import { combineEmployeesWithTasks, calculateOverviewStats } from "@/lib/task-types";
 import type { TaskRow, EmployeeWithTasks, OverviewStats, EmployeeRow } from "@/lib/task-types";
-import { Plus } from "lucide-react";
+import type { Folder } from "@/lib/unconfirmed-folder-actions";
+import { Plus, Users, ListTree } from "lucide-react";
 
 function OverviewStatsBar({ stats }: { stats: OverviewStats; isAdmin: boolean }) {
   const t = useTranslations("Tasks");
@@ -44,12 +46,18 @@ export function TasksClient({
   initialEmployees,
   employeesList,
   userId,
+  confirmationFolders,
+  confirmationTasks,
+  employeeNames,
 }: {
   isAdmin: boolean;
   initialTasks: TaskRow[];
   initialEmployees: EmployeeWithTasks[];
   employeesList: { id: string; name: string }[];
   userId: string;
+  confirmationFolders: Folder[];
+  confirmationTasks: TaskRow[];
+  employeeNames: Record<string, string>;
 }) {
   const t = useTranslations("Tasks");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -57,6 +65,7 @@ export function TasksClient({
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [activeTab, setActiveTab] = useState<"employees" | "overview">("employees");
 
   const { data: liveTasks, setInitialData } = useRealtimeSync<TaskRow>("tasks");
 
@@ -120,7 +129,46 @@ export function TasksClient({
       <OverviewStatsBar stats={currentStats} isAdmin={isAdmin} />
 
       {isAdmin ? (
-        <EmployeeCards employees={employees} onAddTask={handleAddTask} />
+        <div className="space-y-5">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab("employees")}
+              className={
+                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors " +
+                (activeTab === "employees"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground")
+              }
+            >
+              <Users className="size-4" />
+              {t("employeesTab")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("overview")}
+              className={
+                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors " +
+                (activeTab === "overview"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground")
+              }
+            >
+              <ListTree className="size-4" />
+              {t("overviewTab")}
+            </button>
+          </div>
+
+          {activeTab === "employees" ? (
+            <EmployeeCards employees={employees} onAddTask={handleAddTask} onOpenTask={handleOpenDetail} />
+          ) : (
+            <ConfirmationOverview
+              folders={confirmationFolders}
+              tasks={confirmationTasks}
+              employeeNames={employeeNames}
+            />
+          )}
+        </div>
       ) : (
         <>
           <TaskConfirmationTracker tasks={myTasks} />

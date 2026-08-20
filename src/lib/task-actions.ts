@@ -6,7 +6,8 @@ import { getLocale } from "next-intl/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { combineEmployeesWithTasks, calculateOverviewStats } from "@/lib/task-types";
+import { combineEmployeesWithTasks, calculateOverviewStats, type TaskRow } from "@/lib/task-types";
+import { getFolders, type Folder } from "@/lib/unconfirmed-folder-actions";
 import type { TaskStatus } from "@/lib/task-types";
 
 export type ActionResult = { success: true } | { success: false; error: string };
@@ -369,4 +370,26 @@ function statusForProgress(current: string, progress: number): string {
   if (progress >= 100) return "done";
   if (progress > 0) return "in_progress";
   return current === "done" ? "in_progress" : current;
+}
+
+// ── fetch data for the confirmation-progress overview (admin) ──
+export async function fetchConfirmationOverview(): Promise<{
+  folders: Folder[];
+  tasks: TaskRow[];
+} | null> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const admin = createAdminClient();
+
+  const folders = await getFolders();
+
+  const { data: tasks } = await admin
+    .from("tasks")
+    .select("*")
+    .eq("task_type", "confirmation")
+    .order("created_at", { ascending: false });
+
+  return { folders, tasks: (tasks ?? []) as TaskRow[] };
 }

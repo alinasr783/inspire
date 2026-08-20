@@ -42,9 +42,22 @@ const ID_WIDTH = 44;
 /* -- Cell Editor -- */
 const CellEditor = memo(({ defaultValue, type, onSave, onCancel }: { defaultValue: string; type: string; onSave: (v: string) => void; onCancel: () => void }) => {
   const ref = useRef<HTMLInputElement>(null);
+  const committedRef = useRef(false);
   useEffect(() => { const el = ref.current; if (el) { el.focus(); el.select(); } }, []);
-  const commit = useCallback(() => onSave(ref.current?.value ?? ""), [onSave]);
-  const keyDown = useCallback((e: React.KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); commit(); } if (e.key === "Escape") onCancel(); }, [commit, onCancel]);
+  const commit = useCallback(() => {
+    if (committedRef.current) return;
+    committedRef.current = true;
+    onSave(ref.current?.value ?? "");
+  }, [onSave]);
+  const cancel = useCallback(() => {
+    if (committedRef.current) return;
+    committedRef.current = true;
+    onCancel();
+  }, [onCancel]);
+  const keyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter") { e.preventDefault(); commit(); }
+    if (e.key === "Escape") { e.preventDefault(); cancel(); }
+  }, [commit, cancel]);
   return <input ref={ref} type={type === "date" ? "date" : "text"} defaultValue={defaultValue} onBlur={commit} onKeyDown={keyDown} className="block w-full h-full border-none outline-none bg-transparent px-0 py-0 text-xs" />;
 });
 CellEditor.displayName = "CellEditor";
@@ -141,13 +154,29 @@ const Row = function Row({ record, columns, locale, selectable, rowIndex, isSele
   );
 };
 
-export function UploadsTable({ records: serverRecords, columns, locale, selectable, userId, employees }: { records: UnconfirmedRecord[]; columns: Columns[]; locale: string; selectable?: boolean; userId: string; employees: { id: string; name: string }[] }) {
+export function UploadsTable({ records: serverRecords, columns, locale, selectable, userId, employees, onPendingChange }: { records: UnconfirmedRecord[]; columns: Columns[]; locale: string; selectable?: boolean; userId: string; employees: { id: string; name: string }[]; onPendingChange?: (count: number) => void }) {
   const t = useTranslations("UnconfirmedData");
   const { notifyCellEdit } = useRealtime();
   const [records, setRecords] = useState(serverRecords);
+  const recordsRef = useRef(records);
+  useEffect(() => { recordsRef.current = records; }, [records]);
   const { containerRef, ctrlD } = useTableCellKeyboard(records);
   useCellStyles("unconfirmed");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [pending, setPending] = useState<Set<string>>(new Set());
+  const pendingRef = useRef(pending);
+  const setPendingCell = useCallback((key: string, on: boolean) => {
+    setPending((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(key); else next.delete(key);
+      pendingRef.current = next;
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    onPendingChange?.(pending.size);
+  }, [pending, onPendingChange]);
   const [selTo, setSelTo] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [editing, setEditing] = useState<{ rid: string; key: string } | null>(null);
@@ -196,11 +225,29 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   const prevServerIdsRef = useRef("");
   useEffect(() => {
     const ids = serverRecords.map((r) => r.id).sort().join(",");
-    if (ids !== prevServerIdsRef.current) {
-      setRecords(serverRecords);
-      prevServerIdsRef.current = ids;
-    }
-  }, [serverRecords]);
+    if (ids === prevServerIdsRef.current) return;
+    prevServerIdsRef.current = ids;
+    setRecords((prev) => {
+      const prevMap = new Map(prev.map((r) => [r.id, r]));
+      const result: UnconfirmedRecord[] = [];
+      for (const sr of serverRecords) {
+        const local = prevMap.get(sr.id);
+        if (local) {
+          const merged = { ...sr } as Record<string, unknown>;
+          for (const col of columns) {
+            const pendKey = `${sr.id}:${col.key}`;
+            if (pendingRef.current.has(pendKey)) {
+              merged[col.key] = (local as Record<string, unknown>)[col.key];
+            }
+          }
+          result.push(merged as UnconfirmedRecord);
+        } else {
+          result.push(sr);
+        }
+      }
+      return result;
+    });
+  }, [serverRecords, columns]);
 
   useEffect(() => {
     function onTableReset(e: Event) {
@@ -261,7 +308,38 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
     setDeleteOneDialog(null);
   }, [deleteOneDialog]);
   const cellEdit = useCallback((rid: string, key: string) => setEditing({ rid, key }), []);
-  const cellSave = useCallback((rid: string, key: string, val: string) => { setEditing(null); const shouldAutoAssign = (key === "whatsapp_state" && val !== "") || (key === "last_feedback" && val.trim() !== ""); setRecords((p) => p.map((r) => { if (r.id !== rid) return r; const updates: Record<string, unknown> = { [key]: val }; if (shouldAutoAssign) updates.assigned_employee = userId; return { ...r, ...updates }; })); notifyCellEdit({ table: "unconfirmed_records", rowId: rid, field: key, action: "update" }); updateRecordField(rid, key, val).catch(() => {}); }, [notifyCellEdit, userId]);
+  const cellSave = useCallback((rid: string, key: string, val: string) => {
+    setEditing(null);
+    const rec = recordsRef.current.find((r) => r.id === rid);
+    const prevVal = rec ? String((rec as Record<string, unknown>)[key] ?? "") : "";
+    if (prevVal === val) return;
+
+    const pendKey = `${rid}:${key}`;
+    const shouldAutoAssign = (key === "whatsapp_state" && val !== "") || (key === "last_feedback" && val.trim() !== "");
+
+    setPendingCell(pendKey, true);
+    setRecords((p) => p.map((r) => {
+      if (r.id !== rid) return r;
+      const updates: Record<string, unknown> = { [key]: val };
+      if (shouldAutoAssign) updates.assigned_employee = userId;
+      return { ...r, ...updates };
+    }));
+
+    notifyCellEdit({ table: "unconfirmed_records", rowId: rid, field: key, action: "update" });
+
+    updateRecordField(rid, key, val)
+      .then(() => { setPendingCell(pendKey, false); })
+      .catch((err) => {
+        console.error("updateRecordField failed:", err);
+        setRecords((p) => p.map((r) => {
+          if (r.id !== rid) return r;
+          const updates: Record<string, unknown> = { [key]: prevVal };
+          return { ...r, ...updates };
+        }));
+        setPendingCell(pendKey, false);
+        showError(t("saveFailed"));
+      });
+  }, [notifyCellEdit, userId, setPendingCell, t]);
   const editCancel = useCallback(() => setEditing(null), []);
 
   useEffect(() => {

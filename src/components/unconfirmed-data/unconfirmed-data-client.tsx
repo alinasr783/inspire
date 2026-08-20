@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,8 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
 
   const { data: liveRecords, setInitialData } = useRealtimeSync<UnconfirmedRecord>("unconfirmed_records");
 
+  const handlePendingChange = useCallback((c: number) => setSyncCount(c), []);
+
   useEffect(() => {
     setInitialData(initialRecords);
   }, [initialRecords, setInitialData]);
@@ -40,6 +42,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
   const [folders, setFolders] = useState<Folder[]>([]);
   const [showCount, setShowCount] = useState(50);
   const [feedbackOnly, setFeedbackOnly] = useState(false);
+  const [syncCount, setSyncCount] = useState(0);
 
   useEffect(() => {
     getFolders().then((data) => setFolders(data)).catch(() => {});
@@ -113,7 +116,20 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
 
       <Card className="flex max-h-[calc(100vh-180px)] flex-col">
         <CardHeader className="shrink-0 pb-3">
-          <CardTitle className="text-base">{t("allUploads")}</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span>{t("allUploads")}</span>
+            {syncCount > 0 ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary" title={t("syncingTitle")}>
+                <span className="h-2 w-2 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                {t("syncing", { count: syncCount })}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400" title={t("syncIdleTitle")}>
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                {t("syncIdle")}
+              </span>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent className="min-h-0 flex-1 overflow-auto pt-0">
           <div className="mb-4 space-y-3">
@@ -185,7 +201,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
             </div>
           </div>
 
-          <UploadsTable records={filteredRecords.slice(0, showCount)} columns={columns} locale={locale} selectable={true} userId={userId} employees={employees} />
+          <UploadsTable records={filteredRecords.slice(0, showCount)} columns={columns} locale={locale} selectable={true} userId={userId} employees={employees} onPendingChange={handlePendingChange} />
           {showCount < filteredRecords.length && (
             <div className="flex justify-center pt-4">
               <Button variant="outline" onClick={() => setShowCount((c) => c + 50)}>

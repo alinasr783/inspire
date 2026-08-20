@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -9,8 +9,10 @@ import {
   Users,
   AlertTriangle,
   Plus,
+  Play,
 } from "lucide-react";
-import type { EmployeeWithTasks } from "@/lib/task-types";
+import { getRelativeDate } from "@/lib/relative-date";
+import type { EmployeeWithTasks, TaskRow } from "@/lib/task-types";
 
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/);
@@ -19,14 +21,54 @@ function getInitials(name: string) {
     : parts[0]?.slice(0, 2) ?? "??";
 }
 
+function InProgressTaskCard({
+  task,
+  locale,
+  onOpen,
+}: {
+  task: TaskRow;
+  locale: string;
+  onOpen: () => void;
+}) {
+  const t = useTranslations("Tasks");
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="w-full rounded-xl border bg-muted/30 p-3 text-start transition-colors hover:bg-muted/60"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="truncate text-sm font-medium">{task.title}</span>
+        <span className="shrink-0 text-sm font-bold tabular-nums text-amber-600 dark:text-amber-400">
+          {task.progress}%
+        </span>
+      </div>
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full bg-primary transition-all"
+          style={{ width: `${Math.min(task.progress, 100)}%` }}
+        />
+      </div>
+      <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+        <Play className="size-3" />
+        <span>{t("columnInProgress")}</span>
+        <span className="ms-auto">{getRelativeDate(new Date(task.due_date), locale)}</span>
+      </div>
+    </button>
+  );
+}
+
 export function EmployeeCards({
   employees,
   onAddTask,
+  onOpenTask,
 }: {
   employees: EmployeeWithTasks[];
   onAddTask: (employeeId: string) => void;
+  onOpenTask?: (taskId: string) => void;
 }) {
   const t = useTranslations("Tasks");
+  const locale = useLocale();
 
   if (employees.length === 0) {
     return (
@@ -42,6 +84,7 @@ export function EmployeeCards({
       {employees.map((emp) => {
         const todoCount = emp.tasks.filter((t) => t.status === "todo").length;
         const inProgressCount = emp.tasks.filter((t) => t.status === "in_progress").length;
+        const inProgressTasks = emp.tasks.filter((t) => t.status === "in_progress");
         const doneCount = emp.tasks.filter((t) => t.status === "done").length;
 
         const now = new Date();
@@ -96,6 +139,19 @@ export function EmployeeCards({
                   <span className="text-[11px] font-medium text-red-700 dark:text-red-300">
                     {t("overdueCount", { count: overdueCount })}
                   </span>
+                </div>
+              )}
+
+              {onOpenTask && inProgressTasks.length > 0 && (
+                <div className="mt-3 space-y-2 border-t pt-3">
+                  {inProgressTasks.map((task) => (
+                    <InProgressTaskCard
+                      key={task.id}
+                      task={task}
+                      locale={locale}
+                      onOpen={() => onOpenTask(task.id)}
+                    />
+                  ))}
                 </div>
               )}
             </div>

@@ -2,8 +2,8 @@ import { setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TasksClient } from "./tasks-client";
-import { combineEmployeesWithTasks } from "@/lib/task-types";
-import type { TaskRow, EmployeeRow } from "@/lib/task-types";
+import { combineEmployeesWithTasks, type TaskRow, type EmployeeRow } from "@/lib/task-types";
+import { fetchConfirmationOverview } from "@/lib/task-actions";
 
 export default async function TasksPage({
   params,
@@ -52,6 +52,11 @@ export default async function TasksPage({
 
   const employees = combineEmployeesWithTasks(employeesList, tasks);
 
+  const confirmation = isAdmin ? await fetchConfirmationOverview() : null;
+  const employeeNames: Record<string, string> = Object.fromEntries(
+    (profiles ?? []).map((e) => [e.id, [e.first_name, e.second_name].filter(Boolean).join(" ") || e.id])
+  );
+
   return (
     <TasksClient
       isAdmin={isAdmin}
@@ -62,6 +67,9 @@ export default async function TasksPage({
         name: [e.first_name, e.second_name].filter(Boolean).join(" ") || e.id,
       }))}
       userId={user?.id ?? ""}
+      confirmationFolders={confirmation?.folders ?? []}
+      confirmationTasks={confirmation?.tasks ?? []}
+      employeeNames={employeeNames}
     />
   );
 }
