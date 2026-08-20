@@ -36,6 +36,18 @@ export function AddToContactsButton({
     lines.push("END:VCARD");
 
     const vcard = lines.join("\r\n");
+
+    const isIOS =
+      /iP(ad|hone|od)/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+    if (isIOS) {
+      const dataUri =
+        "data:text/vcard;charset=utf-8," + encodeURIComponent(vcard);
+      window.location.href = dataUri;
+      return;
+    }
+
     const blob = new Blob([vcard], { type: "text/vcard;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
