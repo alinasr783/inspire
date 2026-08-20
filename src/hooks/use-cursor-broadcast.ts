@@ -16,6 +16,7 @@ export function useCursorBroadcast(
     firstName?: string;
     secondName?: string;
     color: string;
+    avatarUrl?: string | null;
   } | null,
   onCursorsUpdate: (cursors: RemoteCursor[]) => void
 ) {
@@ -24,7 +25,9 @@ export function useCursorBroadcast(
   const channelRef = useRef<RealtimeChannel | null>(null);
   const pathname = usePathname();
   const onCursorsUpdateRef = useRef(onCursorsUpdate);
-  onCursorsUpdateRef.current = onCursorsUpdate;
+  useEffect(() => {
+    onCursorsUpdateRef.current = onCursorsUpdate;
+  });
 
   const updateCursors = useCallback(() => {
     onCursorsUpdateRef.current(Array.from(cursorsRef.current.values()));
@@ -75,7 +78,9 @@ export function useCursorBroadcast(
       const payload: RemoteCursor = {
         userId: user.id,
         userName: `${user.firstName ?? ""} ${user.secondName ?? ""}`.trim(),
+        firstName: user.firstName ?? "",
         userColor: user.color,
+        avatarUrl: user.avatarUrl ?? null,
         x: e.clientX,
         y: e.clientY,
         sx: window.scrollX,
@@ -111,5 +116,5 @@ export function useCursorBroadcast(
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [user?.id, user?.firstName, user?.secondName, user?.color, pathname]);
+  }, [user?.id, user?.firstName, user?.secondName, user?.avatarUrl, user?.color, pathname]);
 }

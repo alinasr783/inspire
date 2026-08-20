@@ -22,7 +22,9 @@ export type RealtimePayload<T = Record<string, unknown>> = {
 export type CursorPayload = {
   userId: string;
   userName: string;
+  firstName: string;
   userColor: string;
+  avatarUrl: string | null;
   x: number;
   y: number;
   sx: number;

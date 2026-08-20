@@ -3,14 +3,7 @@
 import { useMemo, useEffect, useRef, useState } from "react";
 import { usePathname } from "@/i18n/navigation";
 import type { RemoteCursor } from "@/hooks/use-cursor-broadcast";
-
-function CursorArrow({ color }: { color: string }) {
-  return (
-    <svg width="16" height="20" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M1 1L5.5 15L8 10.5L13.5 11.5L1 1Z" fill={color} stroke="white" strokeWidth="1.2" strokeLinejoin="round" />
-    </svg>
-  );
-}
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 function getViewportXY(cursor: RemoteCursor) {
   const sx = (cursor.sx ?? 0) as number;
@@ -65,9 +58,23 @@ function CursorItem({ cursor }: { cursor: RemoteCursor }) {
 
   return (
     <div ref={ref} className="pointer-events-none fixed z-[9998]" style={{ left: x, top: y, willChange: "left, top" }}>
-      <CursorArrow color={cursor.userColor} />
-      <span className="absolute left-4 top-2 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[11px] font-medium leading-none text-white" style={{ backgroundColor: cursor.userColor }}>
-        {cursor.userName}
+      <Avatar
+        className="h-7 w-7 rounded-full border-2 shadow-sm"
+        style={{ borderColor: cursor.userColor }}
+      >
+        {cursor.avatarUrl ? <AvatarImage src={cursor.avatarUrl} alt="" /> : null}
+        <AvatarFallback
+          className="text-[10px] font-semibold text-white"
+          style={{ backgroundColor: cursor.userColor }}
+        >
+          {(cursor.firstName?.[0] ?? cursor.userName?.[0] ?? "?").toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
+      <span
+        className="absolute left-7 top-4 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[11px] font-medium leading-none text-white shadow"
+        style={{ backgroundColor: cursor.userColor }}
+      >
+        {cursor.firstName || cursor.userName}
       </span>
     </div>
   );
