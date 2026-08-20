@@ -46,6 +46,7 @@ export function TasksClient({
   initialEmployees,
   employeesList,
   userId,
+  showAdTracking,
   confirmationFolders,
   confirmationTasks,
   confirmationFileTotals,
@@ -58,6 +59,7 @@ export function TasksClient({
   initialEmployees: EmployeeWithTasks[];
   employeesList: { id: string; name: string }[];
   userId: string;
+  showAdTracking: boolean;
   confirmationFolders: Folder[];
   confirmationTasks: TaskRow[];
   confirmationFileTotals: Record<string, number>;
@@ -182,7 +184,7 @@ export function TasksClient({
       ) : (
         <>
           <TaskConfirmationTracker tasks={myTasks} />
-          <AdTrackingSection employeeId={userId} />
+          {showAdTracking && <AdTrackingSection employeeId={userId} />}
           <TaskKanban
             key={refreshKey}
             tasks={myTasks}

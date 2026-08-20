@@ -16,10 +16,12 @@ export function EmployeeKanbanClient({
   initialTasks,
   employeeId,
   employeesList,
+  showAdTracking,
 }: {
   initialTasks: TaskRow[];
   employeeId: string;
   employeesList: { id: string; name: string }[];
+  showAdTracking: boolean;
 }) {
   const t = useTranslations("Tasks");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -43,7 +45,7 @@ export function EmployeeKanbanClient({
     <div className="space-y-4">
       <TaskConfirmationTracker tasks={employeeTasks} />
 
-      <AdTrackingSection employeeId={employeeId} />
+      {showAdTracking && <AdTrackingSection employeeId={employeeId} />}
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">

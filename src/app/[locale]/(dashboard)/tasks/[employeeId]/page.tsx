@@ -24,9 +24,10 @@ export default async function EmployeeDetailPage({
   if (!user) notFound();
 
   const { data: me } = await admin
-    .from("profiles").select("role").eq("id", user.id).single();
+    .from("profiles").select("role, show_ad_tracking").eq("id", user.id).single();
   const isOwnProfile = user.id === employeeId;
   if (me?.role !== "admin" && !isOwnProfile) notFound();
+  const showAdTracking = isOwnProfile ? (me?.show_ad_tracking ?? false) : true;
 
   const result = await fetchEmployeeWithTasks(employeeId);
   if (!result) notFound();
@@ -83,6 +84,7 @@ export default async function EmployeeDetailPage({
         initialTasks={tasks}
         employeeId={employeeId}
         employeesList={employeesList}
+        showAdTracking={showAdTracking}
       />
     </div>
   );

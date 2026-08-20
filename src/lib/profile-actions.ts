@@ -117,7 +117,11 @@ export async function removeAvatar(): Promise<ProfileActionResult> {
 }
 
 export async function updateProfileSettings(
-  settings: { primary_color?: string | null; notification_prefs?: Record<string, boolean> }
+  settings: {
+    primary_color?: string | null;
+    notification_prefs?: Record<string, boolean>;
+    show_ad_tracking?: boolean;
+  }
 ): Promise<ProfileActionResult> {
   try {
     const supabase = await createClient();
@@ -140,6 +144,10 @@ export async function updateProfileSettings(
 
     if (settings.notification_prefs !== undefined) {
       updates.notification_prefs = settings.notification_prefs;
+    }
+
+    if (settings.show_ad_tracking !== undefined) {
+      updates.show_ad_tracking = settings.show_ad_tracking;
     }
 
     const { error: updateError } = await admin

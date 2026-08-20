@@ -25,6 +25,7 @@ interface ProfileFormProps {
   avatarUrl: string | null;
   primaryColor: string | null;
   notificationPrefs: Record<string, boolean>;
+  showAdTracking: boolean;
   role: string;
   logoUrl: string | null;
 }
@@ -50,6 +51,7 @@ export function ProfileForm({
   avatarUrl: initialAvatarUrl,
   primaryColor: initialPrimaryColor,
   notificationPrefs: initialNotificationPrefs,
+  showAdTracking: initialShowAdTracking,
   role,
   logoUrl: initialLogoUrl,
 }: ProfileFormProps) {
@@ -70,6 +72,7 @@ export function ProfileForm({
   const [selectedColor, setSelectedColor] = useState<string | null>(initialPrimaryColor);
   const [pendingColor, setPendingColor] = useState<string | null>(null);
   const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>(initialNotificationPrefs);
+  const [showAdTracking, setShowAdTracking] = useState<boolean>(initialShowAdTracking);
   const [logoUrl, setLogoUrl] = useState<string | null>(initialLogoUrl);
   const [isUploadingLogo, startUploadLogo] = useTransition();
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -208,6 +211,18 @@ export function ProfileForm({
       const result = await updateProfileSettings({ notification_prefs: updated });
       if (!result.success) {
         setNotifPrefs(notifPrefs);
+        toast.error(t("saveFailed"));
+      }
+    });
+  };
+
+  const handleAdTrackingToggle = (enabled: boolean) => {
+    setShowAdTracking(enabled);
+
+    startTransition(async () => {
+      const result = await updateProfileSettings({ show_ad_tracking: enabled });
+      if (!result.success) {
+        setShowAdTracking(!enabled);
         toast.error(t("saveFailed"));
       }
     });
@@ -495,6 +510,35 @@ export function ProfileForm({
                   />
                 </div>
               ))}
+            </CardContent>
+          </Card>
+
+          <Card className="group transition-shadow hover:shadow-md">
+            <CardHeader className="pb-3 px-5 pt-5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                  <Bell className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <CardTitle className="text-sm">{t("adTrackingVisibility")}</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="px-5 pb-5 space-y-3">
+              <CardDescription className="text-xs">
+                {t("adTrackingVisibilityDesc")}
+              </CardDescription>
+              <div className="flex items-center justify-between py-1.5">
+                <Label
+                  htmlFor="ad-tracking-toggle"
+                  className="text-xs cursor-pointer flex-1 pr-2"
+                >
+                  {t("adTrackingVisibilityLabel")}
+                </Label>
+                <Switch
+                  id="ad-tracking-toggle"
+                  checked={showAdTracking}
+                  onCheckedChange={handleAdTrackingToggle}
+                />
+              </div>
             </CardContent>
           </Card>
 

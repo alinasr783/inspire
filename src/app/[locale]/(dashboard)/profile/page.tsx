@@ -27,13 +27,14 @@ export default async function ProfilePage({
     avatar_url: string | null;
     primary_color: string | null;
     notification_prefs: Record<string, boolean> | null;
+    show_ad_tracking: boolean | null;
     role: string;
   } | null = null;
 
   try {
     const { data } = await admin
       .from("profiles")
-      .select("first_name, second_name, avatar_url, primary_color, notification_prefs, role")
+      .select("first_name, second_name, avatar_url, primary_color, notification_prefs, show_ad_tracking, role")
       .eq("id", user.id)
       .single();
     profile = data;
@@ -44,7 +45,7 @@ export default async function ProfilePage({
       .eq("id", user.id)
       .single();
     profile = data
-      ? { ...data, avatar_url: null, primary_color: null, notification_prefs: null }
+      ? { ...data, avatar_url: null, primary_color: null, notification_prefs: null, show_ad_tracking: null }
       : null;
   }
 
@@ -60,6 +61,7 @@ export default async function ProfilePage({
       avatarUrl={profile.avatar_url ?? null}
       primaryColor={profile.primary_color ?? null}
       notificationPrefs={profile.notification_prefs ?? {}}
+      showAdTracking={profile.show_ad_tracking ?? false}
       role={profile.role}
       logoUrl={logoUrl}
     />

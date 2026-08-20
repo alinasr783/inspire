@@ -18,10 +18,11 @@ export default async function TasksPage({
   const admin = createAdminClient();
 
   const { data: me } = user
-    ? await admin.from("profiles").select("role").eq("id", user.id).single()
+    ? await admin.from("profiles").select("role, show_ad_tracking").eq("id", user.id).single()
     : { data: null };
 
   const isAdmin = me?.role === "admin";
+  const showAdTracking = me?.show_ad_tracking ?? false;
 
   // Fetch all approved employees (for admin view, or employees list for add-task dialog)
   const { data: profiles } = await admin
@@ -67,6 +68,7 @@ export default async function TasksPage({
         name: [e.first_name, e.second_name].filter(Boolean).join(" ") || e.id,
       }))}
       userId={user?.id ?? ""}
+      showAdTracking={showAdTracking}
       confirmationFolders={confirmation?.folders ?? []}
       confirmationTasks={confirmation?.tasks ?? []}
       confirmationFileTotals={confirmation?.fileTotals ?? {}}
