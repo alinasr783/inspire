@@ -94,8 +94,8 @@ function buildMeta(meta?: AttendanceMeta): Record<string, unknown> {
 }
 
 export async function checkIn(data: {
-  latitude: number;
-  longitude: number;
+  latitude?: number | null;
+  longitude?: number | null;
   location_name?: string;
   notes?: string;
   battery?: number | null;
@@ -128,8 +128,8 @@ export async function checkIn(data: {
       employee_id: user.id,
       check_in_date: today,
       check_in_time: new Date().toISOString(),
-      latitude: data.latitude,
-      longitude: data.longitude,
+      latitude: data.latitude ?? null,
+      longitude: data.longitude ?? null,
       location_name: data.location_name ?? "",
       check_in_battery: data.battery ?? null,
       check_in_device_name: data.device_name ?? "",
@@ -146,8 +146,8 @@ export async function checkIn(data: {
 }
 
 export async function checkOut(data: {
-  latitude: number;
-  longitude: number;
+  latitude?: number | null;
+  longitude?: number | null;
   location_name?: string;
   notes?: string;
   battery?: number | null;
@@ -182,8 +182,8 @@ export async function checkOut(data: {
     .from("attendance_records")
     .update({
       check_out_time: new Date().toISOString(),
-      check_out_latitude: data.latitude,
-      check_out_longitude: data.longitude,
+      check_out_latitude: data.latitude ?? null,
+      check_out_longitude: data.longitude ?? null,
       check_out_location_name: data.location_name ?? "",
       check_out_battery: data.battery ?? null,
       check_out_device_name: data.device_name ?? "",

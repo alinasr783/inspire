@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { MapPin, Loader2, CheckCircle2, LogIn, LogOut } from "lucide-react";
 import { checkIn, checkOut } from "@/lib/attendance-actions";
-import { getCurrentLocation, LocationError } from "@/lib/geolocation";
+import { getCurrentLocation } from "@/lib/geolocation";
 import { getDeviceInfo } from "@/lib/device-info";
 
 interface CheckInButtonProps {
@@ -15,12 +15,15 @@ interface CheckInButtonProps {
   onSuccess: (type: "in" | "out") => void;
 }
 
-function locationErrorMessage(t: (key: string) => string, err: unknown) {
-  if (err instanceof LocationError) {
-    return t(`locationError_${err.code}`);
-  }
-  return t("locationError");
-}
+const EMPTY_DEVICE: Awaited<ReturnType<typeof getDeviceInfo>> = {
+  battery: null,
+  deviceName: "",
+  os: "",
+  networkType: "",
+  timezone: "",
+  language: "",
+  memory: null,
+};
 
 export function CheckInButton({ checkedIn, checkedOut, onSuccess }: CheckInButtonProps) {
   const t = useTranslations("Attendance");
@@ -28,20 +31,24 @@ export function CheckInButton({ checkedIn, checkedOut, onSuccess }: CheckInButto
 
   const handleCheckIn = useCallback(async () => {
     setLoading(true);
-    let coords: { latitude: number; longitude: number };
-    let device: Awaited<ReturnType<typeof getDeviceInfo>>;
+    let device = EMPTY_DEVICE;
     try {
-      [coords, device] = await Promise.all([getCurrentLocation(), getDeviceInfo()]);
-    } catch (err) {
-      toast.error(locationErrorMessage(t, err));
-      setLoading(false);
-      return;
+      device = await getDeviceInfo();
+    } catch {
+      // device info is best-effort
+    }
+    let coords: { latitude: number; longitude: number } | null = null;
+    try {
+      coords = await getCurrentLocation();
+    } catch {
+      // Location is best-effort — never block check-in because of it.
+      toast.warning(t("locationWarning"));
     }
 
     const result = await checkIn({
-      latitude: coords.latitude,
-      longitude: coords.longitude,
-      location_name: `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null,
+      location_name: coords ? `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}` : "",
       battery: device.battery,
       device_name: device.deviceName,
       meta: {
@@ -65,20 +72,24 @@ export function CheckInButton({ checkedIn, checkedOut, onSuccess }: CheckInButto
 
   const handleCheckOut = useCallback(async () => {
     setLoading(true);
-    let coords: { latitude: number; longitude: number };
-    let device: Awaited<ReturnType<typeof getDeviceInfo>>;
+    let device = EMPTY_DEVICE;
     try {
-      [coords, device] = await Promise.all([getCurrentLocation(), getDeviceInfo()]);
-    } catch (err) {
-      toast.error(locationErrorMessage(t, err));
-      setLoading(false);
-      return;
+      device = await getDeviceInfo();
+    } catch {
+      // device info is best-effort
+    }
+    let coords: { latitude: number; longitude: number } | null = null;
+    try {
+      coords = await getCurrentLocation();
+    } catch {
+      // Location is best-effort — never block check-out because of it.
+      toast.warning(t("locationWarning"));
     }
 
     const result = await checkOut({
-      latitude: coords.latitude,
-      longitude: coords.longitude,
-      location_name: `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null,
+      location_name: coords ? `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}` : "",
       battery: device.battery,
       device_name: device.deviceName,
       meta: {
