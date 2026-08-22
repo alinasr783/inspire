@@ -14,17 +14,35 @@ import { Button } from "@/components/ui/button";
 import { Loader2, LogIn, MapPin, X } from "lucide-react";
 import { checkIn, checkTodayStatus } from "@/lib/attendance-actions";
 import { getCurrentLocation } from "@/lib/geolocation";
-import { getDeviceInfo } from "@/lib/device-info";
+import { getDeviceInfo, deviceInfoToMeta, triggerVibration } from "@/lib/device-info";
 import { getEgyptToday } from "@/lib/utils";
 
 const EMPTY_DEVICE: Awaited<ReturnType<typeof getDeviceInfo>> = {
   battery: null,
+  charging: null,
   deviceName: "",
   os: "",
+  browser: "",
+  browserVersion: "",
+  deviceType: "",
+  platform: "",
+  screen: "",
+  viewport: "",
+  dpr: null,
+  colorDepth: null,
+  cpuCores: null,
+  memory: null,
   networkType: "",
+  downlink: null,
+  rtt: null,
+  saveData: null,
+  online: false,
   timezone: "",
   language: "",
-  memory: null,
+  maxTouchPoints: 0,
+  cookiesEnabled: false,
+  orientation: "",
+  vibrationSupported: false,
 };
 
 export function CheckInReminder() {
@@ -90,16 +108,11 @@ export function CheckInReminder() {
       location_name: coords ? `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}` : "",
       battery: device.battery,
       device_name: device.deviceName,
-      meta: {
-        os: device.os,
-        network_type: device.networkType,
-        timezone: device.timezone,
-        language: device.language,
-        memory: device.memory,
-      },
+      meta: deviceInfoToMeta(device),
     });
 
     if (result.success) {
+      triggerVibration();
       checkedInRef.current = true;
       setOpen(false);
       toast.success(t("checkInSuccess"));

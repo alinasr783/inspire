@@ -10,14 +10,12 @@ import {
 } from "@/components/ui/dialog";
 import {
   Battery,
-  Clock,
   Cpu,
   Globe,
-  HardDrive,
-  Languages,
+  LayoutGrid,
   MapPin,
-  MonitorSmartphone,
-  Network,
+  Smartphone,
+  Wifi,
 } from "lucide-react";
 import type { AttendanceWithEmployee } from "@/lib/attendance-actions";
 
@@ -42,108 +40,165 @@ function getOpenStreetMapUrl(lat: number, lng: number) {
   return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.005},${lat - 0.005},${lng + 0.005},${lat + 0.005}&layer=mapnik&marker=${lat},${lng}`;
 }
 
-function DetailRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: React.ReactNode;
-}) {
+function boolLabel(value: unknown, t: (key: string) => string): string {
+  if (typeof value !== "boolean") return "—";
+  return value ? t("yes") : t("no");
+}
+
+function Cell({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 py-1.5">
-      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <span className="shrink-0">{icon}</span>
-        {label}
-      </span>
+    <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/60 px-2.5 py-1.5">
+      <span className="text-[11px] text-muted-foreground">{label}</span>
       <span className="min-w-0 truncate text-xs font-medium text-foreground">{value}</span>
     </div>
   );
 }
 
-function MetaSection({
+function Group({
+  icon,
   title,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="text-foreground/70">{icon}</span>
+        {title}
+      </p>
+      <div className="grid grid-cols-2 gap-1.5">{children}</div>
+    </div>
+  );
+}
+
+function DeviceSection({
+  title,
+  titleColorClass,
   time,
-  battery,
-  deviceName,
   lat,
   lng,
+  battery,
+  deviceName,
   meta,
   mapLinkLabel,
   t,
 }: {
   title: string;
+  titleColorClass: string;
   time: string | null;
-  battery: number | null;
-  deviceName: string;
   lat: number | null;
   lng: number | null;
+  battery: number | null;
+  deviceName: string;
   meta: Record<string, unknown>;
   mapLinkLabel: string;
   t: (key: string) => string;
 }) {
   const coords = lat != null && lng != null ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : null;
-  const colorClass = title === t("checkIn") ? "text-blue-600" : "text-amber-600";
+  const M = meta;
 
   return (
-    <div className="rounded-xl border bg-muted/20 p-3">
-      <p className={`mb-1 text-xs font-semibold uppercase tracking-wide ${colorClass}`}>{title}</p>
-      <DetailRow icon={<Clock className="h-3.5 w-3.5" />} label={t("time")} value={fmtTime(time)} />
-      <DetailRow
-        icon={<MapPin className="h-3.5 w-3.5" />}
-        label={t("location")}
-        value={
-          coords ? (
-            <a
-              href={getOpenStreetMapUrl(lat!, lng!)}
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary hover:underline"
-            >
-              {coords} · {mapLinkLabel}
-            </a>
-          ) : (
-            "—"
-          )
-        }
-      />
-      <DetailRow
-        icon={<MonitorSmartphone className="h-3.5 w-3.5" />}
-        label={t("device")}
-        value={deviceName || "—"}
-      />
-      <DetailRow
-        icon={<Battery className="h-3.5 w-3.5" />}
-        label={t("battery")}
-        value={battery != null ? `${battery}%` : "—"}
-      />
-      <DetailRow icon={<Globe className="h-3.5 w-3.5" />} label={t("ip")} value={(meta.ip as string) || "—"} />
-      <DetailRow
-        icon={<Network className="h-3.5 w-3.5" />}
-        label={t("network")}
-        value={(meta.network_type as string) || "—"}
-      />
-      <DetailRow
-        icon={<Languages className="h-3.5 w-3.5" />}
-        label={t("language")}
-        value={(meta.language as string) || "—"}
-      />
-      <DetailRow
-        icon={<Globe className="h-3.5 w-3.5" />}
-        label={t("timezone")}
-        value={(meta.timezone as string) || "—"}
-      />
-      <DetailRow
-        icon={<Cpu className="h-3.5 w-3.5" />}
-        label={t("os")}
-        value={(meta.os as string) || "—"}
-      />
-      <DetailRow
-        icon={<HardDrive className="h-3.5 w-3.5" />}
-        label={t("memory")}
-        value={meta.memory != null ? `${meta.memory} GB` : "—"}
-      />
+    <div className="space-y-3">
+      <div className={`flex items-center gap-2 text-sm font-semibold ${titleColorClass}`}>
+        {title}
+      </div>
+
+      {/* Location & time */}
+      <div className="rounded-xl border bg-muted/20 p-3 space-y-1.5">
+        <Cell label={t("time")} value={<span className="font-mono">{fmtTime(time)}</span>} />
+        <Cell
+          label={t("location")}
+          value={
+            coords ? (
+              <a
+                href={getOpenStreetMapUrl(lat!, lng!)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary hover:underline"
+              >
+                {coords} · {mapLinkLabel}
+              </a>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )
+          }
+        />
+      </div>
+
+      {/* Device */}
+      <Group icon={<Smartphone className="h-3.5 w-3.5" />} title={t("deviceInfo")}>
+        <Cell label={t("device")} value={deviceName || "—"} />
+        <Cell
+          label={t("battery")}
+          value={
+            <span className="inline-flex items-center gap-1">
+              <Battery className="h-3 w-3" />
+              {battery != null ? `${battery}%` : "—"}
+            </span>
+          }
+        />
+        <Cell
+          label={t("chargingState")}
+          value={
+            M.charging == null ? (
+              "—"
+            ) : M.charging ? (
+              <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                ⚡ {t("charging")}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">{t("onBattery")}</span>
+            )
+          }
+        />
+        <Cell label={t("os")} value={(M.os as string) || "—"} />
+        <Cell
+          label={t("browser")}
+          value={`${(M.browser as string) || "—"}${M.browser_version ? ` ${M.browser_version}` : ""}`}
+        />
+        <Cell label={t("deviceType")} value={(M.device_type as string) || "—"} />
+        <Cell label={t("platform")} value={(M.platform as string) || "—"} />
+        <Cell label={t("vibration")} value={boolLabel(M.vibration_supported, t)} />
+      </Group>
+
+      {/* Screen */}
+      <Group icon={<LayoutGrid className="h-3.5 w-3.5" />} title={t("screenInfo")}>
+        <Cell label={t("screen")} value={(M.screen as string) || "—"} />
+        <Cell label={t("viewport")} value={(M.viewport as string) || "—"} />
+        <Cell label={t("dpr")} value={M.dpr != null ? `${M.dpr}x` : "—"} />
+        <Cell label={t("colorDepth")} value={M.color_depth != null ? `${M.color_depth}-bit` : "—"} />
+        <Cell label={t("orientation")} value={M.orientation ? t(`orientation_${M.orientation}`) : "—"} />
+      </Group>
+
+      {/* Performance */}
+      <Group icon={<Cpu className="h-3.5 w-3.5" />} title={t("performance")}>
+        <Cell label={t("memory")} value={M.memory != null ? `${M.memory} GB` : "—"} />
+        <Cell label={t("cpuCores")} value={M.cpu_cores != null ? `${M.cpu_cores}` : "—"} />
+      </Group>
+
+      {/* Network */}
+      <Group icon={<Wifi className="h-3.5 w-3.5" />} title={t("networkInfo")}>
+        <Cell label={t("ip")} value={(M.ip as string) || "—"} />
+        <Cell label={t("network")} value={(M.network_type as string) || "—"} />
+        <Cell
+          label={t("downlink")}
+          value={M.downlink != null ? `${M.downlink} Mbps` : "—"}
+        />
+        <Cell label={t("rtt")} value={M.rtt != null ? `${M.rtt} ms` : "—"} />
+        <Cell label={t("saveData")} value={boolLabel(M.save_data, t)} />
+        <Cell label={t("online")} value={boolLabel(M.online, t)} />
+      </Group>
+
+      {/* System / general */}
+      <Group icon={<Globe className="h-3.5 w-3.5" />} title={t("systemInfo")}>
+        <Cell label={t("timezone")} value={(M.timezone as string) || "—"} />
+        <Cell label={t("language")} value={(M.language as string) || "—"} />
+        <Cell label={t("touchPoints")} value={M.max_touch_points != null ? `${M.max_touch_points}` : "—"} />
+        <Cell label={t("cookies")} value={boolLabel(M.cookies_enabled, t)} />
+      </Group>
     </div>
   );
 }
@@ -169,37 +224,51 @@ export function AttendanceDetailsDialog({ record, onClose }: AttendanceDetailsDi
         <DialogHeader>
           <DialogTitle>{t("recordDetails")}</DialogTitle>
           <DialogDescription>
-            {employeeName} · {fmtDate(record.check_in_date)}
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {employeeName}
+            </span>
+            {" · "}
+            {fmtDate(record.check_in_date)}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <MetaSection
+
+        <div className="space-y-5">
+          <DeviceSection
             title={t("checkIn")}
+            titleColorClass="text-blue-600 dark:text-blue-400"
             time={record.check_in_time}
-            battery={record.check_in_battery}
-            deviceName={record.check_in_device_name}
             lat={record.latitude}
             lng={record.longitude}
+            battery={record.check_in_battery}
+            deviceName={record.check_in_device_name}
             meta={inMeta}
             mapLinkLabel={t("viewOnMap")}
             t={t}
           />
-          {record.check_out_time && (
-            <MetaSection
+
+          {record.check_out_time ? (
+            <DeviceSection
               title={t("checkOut")}
+              titleColorClass="text-amber-600 dark:text-amber-400"
               time={record.check_out_time}
-              battery={record.check_out_battery}
-              deviceName={record.check_out_device_name}
               lat={record.check_out_latitude}
               lng={record.check_out_longitude}
+              battery={record.check_out_battery}
+              deviceName={record.check_out_device_name}
               meta={outMeta}
               mapLinkLabel={t("viewOnMap")}
               t={t}
             />
+          ) : (
+            <div className="rounded-xl border border-dashed bg-muted/10 p-3 text-center text-xs text-muted-foreground">
+              {t("notCheckedOut")}
+            </div>
           )}
+
           {record.notes && (
             <div className="rounded-xl border bg-muted/20 p-3">
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {t("notes")}
               </p>
               <p className="text-xs text-foreground">{record.notes}</p>

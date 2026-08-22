@@ -8,13 +8,7 @@ import { getEgyptToday } from "@/lib/utils";
 
 export type ActionResult = { success: true; id?: string } | { success: false; error: string };
 
-export type AttendanceMeta = {
-  os?: string;
-  network_type?: string;
-  timezone?: string;
-  language?: string;
-  memory?: number | null;
-};
+export type AttendanceMeta = Record<string, unknown>;
 
 export type AttendanceRow = {
   id: string;
@@ -83,14 +77,12 @@ async function getClientIp(): Promise<string> {
 }
 
 function buildMeta(meta?: AttendanceMeta): Record<string, unknown> {
-  const { os, network_type, timezone, language, memory } = meta ?? {};
-  return {
-    ...(os ? { os } : {}),
-    ...(network_type ? { network_type } : {}),
-    ...(timezone ? { timezone } : {}),
-    ...(language ? { language } : {}),
-    ...(memory != null ? { memory } : {}),
-  };
+  if (!meta) return {};
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(meta)) {
+    if (value !== undefined && value !== null && value !== "") out[key] = value;
+  }
+  return out;
 }
 
 export async function checkIn(data: {
