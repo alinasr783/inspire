@@ -30,6 +30,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
 
   const { data: liveRecords, setInitialData } = useRealtimeSync<UnconfirmedRecord>("unconfirmed_records");
 
+  const [syncCount, setSyncCount] = useState(0);
   const handlePendingChange = useCallback((c: number) => setSyncCount(c), []);
 
   useEffect(() => {
@@ -42,13 +43,10 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
   const [folders, setFolders] = useState<Folder[]>([]);
   const [showCount, setShowCount] = useState(50);
   const [feedbackOnly, setFeedbackOnly] = useState(false);
-  const [syncCount, setSyncCount] = useState(0);
 
   useEffect(() => {
     getFolders().then((data) => setFolders(data)).catch(() => {});
   }, []);
-
-  useEffect(() => { setShowCount(50); }, [search, folderId, fileId, feedbackOnly]);
 
   const currentFiles = folders.find((f) => f.id === folderId)?.files ?? [];
 
@@ -138,7 +136,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
               <Input
                 type="search"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setShowCount(50); }}
                 placeholder={t("filterSearch")}
                 className="ps-9"
               />
@@ -148,7 +146,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
               <div className="relative">
                 <select
                   value={folderId}
-                  onChange={(e) => { setFolderId(e.target.value); setFileId(""); }}
+                  onChange={(e) => { setFolderId(e.target.value); setFileId(""); setShowCount(50); }}
                   className={`${selectClass} pr-7`}
                 >
                   <option value="">{t("allFolders")}</option>
@@ -162,7 +160,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
               <div className="relative">
                 <select
                   value={fileId}
-                  onChange={(e) => setFileId(e.target.value)}
+                  onChange={(e) => { setFileId(e.target.value); setShowCount(50); }}
                   className={`${selectClass} pr-7`}
                   disabled={!folderId}
                 >
@@ -178,7 +176,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
                 <input
                   type="checkbox"
                   checked={feedbackOnly}
-                  onChange={(e) => setFeedbackOnly(e.target.checked)}
+                  onChange={(e) => { setFeedbackOnly(e.target.checked); setShowCount(50); }}
                   className="sr-only"
                 />
                 <span className={`relative inline-flex h-4 w-8 shrink-0 items-center rounded-full transition-colors ${feedbackOnly ? "bg-primary" : "bg-muted-foreground/30"}`}>
@@ -191,7 +189,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
                 <Button
                   variant="ghost"
                   size="sm"
-                    onClick={() => { setSearch(""); setFolderId(""); setFileId(""); setFeedbackOnly(false); }}
+                    onClick={() => { setSearch(""); setFolderId(""); setFileId(""); setFeedbackOnly(false); setShowCount(50); }}
                   className="h-8 gap-1 text-xs"
                 >
                   <X className="h-3 w-3" />
@@ -204,7 +202,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
           <UploadsTable records={filteredRecords.slice(0, showCount)} columns={columns} locale={locale} selectable={true} userId={userId} employees={employees} onPendingChange={handlePendingChange} />
           {showCount < filteredRecords.length && (
             <div className="flex justify-center pt-4">
-              <Button variant="outline" onClick={() => setShowCount((c) => c + 50)}>
+              <Button variant="outline" onClick={() => setShowCount((c) => c + 100)}>
                 {t("showMore")} ({filteredRecords.length - showCount} {t("remaining")})
               </Button>
             </div>
