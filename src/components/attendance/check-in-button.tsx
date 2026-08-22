@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Loader2, CheckCircle2, LogIn, LogOut } from "lucide-react";
 import { checkIn, checkOut } from "@/lib/attendance-actions";
 import { getCurrentLocation, LocationError } from "@/lib/geolocation";
+import { getDeviceInfo } from "@/lib/device-info";
 
 interface CheckInButtonProps {
   checkedIn: boolean;
@@ -28,8 +29,9 @@ export function CheckInButton({ checkedIn, checkedOut, onSuccess }: CheckInButto
   const handleCheckIn = useCallback(async () => {
     setLoading(true);
     let coords: { latitude: number; longitude: number };
+    let device: Awaited<ReturnType<typeof getDeviceInfo>>;
     try {
-      coords = await getCurrentLocation();
+      [coords, device] = await Promise.all([getCurrentLocation(), getDeviceInfo()]);
     } catch (err) {
       toast.error(locationErrorMessage(t, err));
       setLoading(false);
@@ -40,6 +42,8 @@ export function CheckInButton({ checkedIn, checkedOut, onSuccess }: CheckInButto
       latitude: coords.latitude,
       longitude: coords.longitude,
       location_name: `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`,
+      battery: device.battery,
+      device_name: device.deviceName,
     });
 
     if (result.success) {
@@ -55,8 +59,9 @@ export function CheckInButton({ checkedIn, checkedOut, onSuccess }: CheckInButto
   const handleCheckOut = useCallback(async () => {
     setLoading(true);
     let coords: { latitude: number; longitude: number };
+    let device: Awaited<ReturnType<typeof getDeviceInfo>>;
     try {
-      coords = await getCurrentLocation();
+      [coords, device] = await Promise.all([getCurrentLocation(), getDeviceInfo()]);
     } catch (err) {
       toast.error(locationErrorMessage(t, err));
       setLoading(false);
@@ -67,6 +72,8 @@ export function CheckInButton({ checkedIn, checkedOut, onSuccess }: CheckInButto
       latitude: coords.latitude,
       longitude: coords.longitude,
       location_name: `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`,
+      battery: device.battery,
+      device_name: device.deviceName,
     });
 
     if (result.success) {

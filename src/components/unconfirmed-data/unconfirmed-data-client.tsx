@@ -41,7 +41,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
   const [folderId, setFolderId] = useState(searchParams.get("folder") ?? "");
   const [fileId, setFileId] = useState(searchParams.get("file") ?? "");
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [showCount, setShowCount] = useState(50);
+  const [showCount, setShowCount] = useState(100);
   const [feedbackOnly, setFeedbackOnly] = useState(false);
 
   useEffect(() => {
@@ -136,7 +136,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
               <Input
                 type="search"
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setShowCount(50); }}
+                onChange={(e) => { setSearch(e.target.value); setShowCount(100); }}
                 placeholder={t("filterSearch")}
                 className="ps-9"
               />
@@ -146,7 +146,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
               <div className="relative">
                 <select
                   value={folderId}
-                  onChange={(e) => { setFolderId(e.target.value); setFileId(""); setShowCount(50); }}
+                  onChange={(e) => { setFolderId(e.target.value); setFileId(""); setShowCount(100); }}
                   className={`${selectClass} pr-7`}
                 >
                   <option value="">{t("allFolders")}</option>
@@ -160,7 +160,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
               <div className="relative">
                 <select
                   value={fileId}
-                  onChange={(e) => { setFileId(e.target.value); setShowCount(50); }}
+                  onChange={(e) => { setFileId(e.target.value); setShowCount(100); }}
                   className={`${selectClass} pr-7`}
                   disabled={!folderId}
                 >
@@ -176,7 +176,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
                 <input
                   type="checkbox"
                   checked={feedbackOnly}
-                  onChange={(e) => { setFeedbackOnly(e.target.checked); setShowCount(50); }}
+                  onChange={(e) => { setFeedbackOnly(e.target.checked); setShowCount(100); }}
                   className="sr-only"
                 />
                 <span className={`relative inline-flex h-4 w-8 shrink-0 items-center rounded-full transition-colors ${feedbackOnly ? "bg-primary" : "bg-muted-foreground/30"}`}>
@@ -189,7 +189,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
                 <Button
                   variant="ghost"
                   size="sm"
-                    onClick={() => { setSearch(""); setFolderId(""); setFileId(""); setFeedbackOnly(false); setShowCount(50); }}
+                    onClick={() => { setSearch(""); setFolderId(""); setFileId(""); setFeedbackOnly(false); setShowCount(100); }}
                   className="h-8 gap-1 text-xs"
                 >
                   <X className="h-3 w-3" />

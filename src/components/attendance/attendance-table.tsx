@@ -17,7 +17,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { MapPin, Pencil, Trash2, Clock, User, ChevronDown, ChevronUp } from "lucide-react";
+import { MapPin, Pencil, Trash2, Clock, User, ChevronDown, ChevronUp, Smartphone, Battery } from "lucide-react";
 import type { AttendanceWithEmployee } from "@/lib/attendance-actions";
 import { updateAttendance, deleteAttendance } from "@/lib/attendance-actions";
 import { toast } from "sonner";
@@ -57,6 +57,12 @@ function formatWorkingHours(checkIn: string, checkOut: string | null): string {
 
 function getOpenStreetMapUrl(lat: number, lng: number) {
   return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.005},${lat - 0.005},${lng + 0.005},${lat + 0.005}&layer=mapnik&marker=${lat},${lng}`;
+}
+
+function batteryColorClass(battery: number): string {
+  if (battery >= 50) return "text-emerald-600 dark:text-emerald-400";
+  if (battery >= 20) return "text-amber-600 dark:text-amber-400";
+  return "text-red-500 dark:text-red-400";
 }
 
 export function AttendanceTable({
@@ -194,6 +200,7 @@ export function AttendanceTable({
               <col style={{ width: 100 }} />
               <col style={{ width: 110 }} />
               <col style={{ width: 140 }} />
+              <col style={{ width: 170 }} />
               <col style={{ width: 160 }} />
               <col style={{ width: 120 }} />
             </colgroup>
@@ -217,6 +224,9 @@ export function AttendanceTable({
                   {t("location")}
                 </th>
                 <th className="border-b border-r px-2.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
+                  {t("device")}
+                </th>
+                <th className="border-b border-r px-2.5 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
                   {t("notes")}
                 </th>
                 <th className="border-b px-3 py-2 text-start text-xs font-medium uppercase tracking-wide whitespace-nowrap">
@@ -228,7 +238,7 @@ export function AttendanceTable({
               {sortedRecords.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 7 : 6}
+                    colSpan={isAdmin ? 8 : 7}
                     className="px-3 py-12 text-center text-muted-foreground"
                   >
                     <Clock className="mx-auto mb-2 h-8 w-8 opacity-50" />
@@ -322,6 +332,37 @@ export function AttendanceTable({
                             {t("out")}
                           </button>
                         ) : null}
+                      </div>
+                    </td>
+                    <td className="border-b border-r px-2.5 py-2 align-middle">
+                      <div className="flex flex-col gap-1">
+                        {record.check_in_device_name || record.check_in_battery != null ? (
+                          <div className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+                            <Smartphone className="h-3 w-3 shrink-0 text-muted-foreground/70" />
+                            <span className="truncate">{record.check_in_device_name || t("unknownDevice")}</span>
+                            {record.check_in_battery != null && (
+                              <span className={`inline-flex shrink-0 items-center gap-0.5 tabular-nums ${batteryColorClass(record.check_in_battery)}`}>
+                                <Battery className="h-3 w-3" />
+                                {record.check_in_battery}%
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                        {(record.check_out_device_name || record.check_out_battery != null) &&
+                          record.check_out_device_name !== record.check_in_device_name && (
+                            <div className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+                              <Smartphone className="h-3 w-3 shrink-0 text-muted-foreground/70" />
+                              <span className="truncate">{record.check_out_device_name || t("unknownDevice")}</span>
+                              {record.check_out_battery != null && (
+                                <span className={`inline-flex shrink-0 items-center gap-0.5 tabular-nums ${batteryColorClass(record.check_out_battery)}`}>
+                                  <Battery className="h-3 w-3" />
+                                  {record.check_out_battery}%
+                                </span>
+                              )}
+                            </div>
+                          )}
                       </div>
                     </td>
                     <td className="border-b border-r px-2.5 py-2 align-middle">
@@ -470,6 +511,37 @@ export function AttendanceTable({
                             <MapPin className="h-3 w-3" />
                             {t("viewOnMap")}
                           </button>
+                        </div>
+                      </div>
+                    )}
+                    {(record.check_in_device_name || record.check_in_battery != null || record.check_out_device_name || record.check_out_battery != null) && (
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">{t("device")}</span>
+                        <div className="mt-1 space-y-1">
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <Smartphone className="h-3 w-3 shrink-0" />
+                            <span className="font-medium text-foreground">{t("checkIn")}:</span>
+                            <span className="truncate">{record.check_in_device_name || t("unknownDevice")}</span>
+                            {record.check_in_battery != null && (
+                              <span className={`inline-flex shrink-0 items-center gap-0.5 tabular-nums ${batteryColorClass(record.check_in_battery)}`}>
+                                <Battery className="h-3 w-3" />
+                                {record.check_in_battery}%
+                              </span>
+                            )}
+                          </div>
+                          {(record.check_out_device_name || record.check_out_battery != null) && (
+                            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                              <Smartphone className="h-3 w-3 shrink-0" />
+                              <span className="font-medium text-foreground">{t("checkOut")}:</span>
+                              <span className="truncate">{record.check_out_device_name || t("unknownDevice")}</span>
+                              {record.check_out_battery != null && (
+                                <span className={`inline-flex shrink-0 items-center gap-0.5 tabular-nums ${batteryColorClass(record.check_out_battery)}`}>
+                                  <Battery className="h-3 w-3" />
+                                  {record.check_out_battery}%
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}

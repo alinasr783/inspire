@@ -12,8 +12,9 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Loader2 } from "lucide-react";
-import { adminCheckIn, getEmployees } from "@/lib/attendance-actions";
+import { adminCheckIn, adminCheckOut, getEmployees } from "@/lib/attendance-actions";
 import type { AttendanceWithEmployee } from "@/lib/attendance-actions";
+import { cn } from "@/lib/utils";
 
 interface AdminCheckInDialogProps {
   selectedDate: string;
@@ -23,12 +24,15 @@ interface AdminCheckInDialogProps {
   records: AttendanceWithEmployee[];
 }
 
+type Mode = "in" | "out";
+
 export function AdminCheckInDialog({
   selectedDate,
   onSuccess,
 }: AdminCheckInDialogProps) {
   const t = useTranslations("Attendance");
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<Mode>("in");
   const [employees, setEmployees] = useState<
     { id: string; first_name: string; second_name: string; position: string }[]
   >([]);
@@ -40,6 +44,7 @@ export function AdminCheckInDialog({
 
   const handleOpen = useCallback(() => {
     setOpen(true);
+    setMode("in");
     setSelectedEmployee("");
     setTime("09:00");
     setNotes("");
@@ -61,38 +66,79 @@ export function AdminCheckInDialog({
     }
 
     setLoading(true);
-    const result = await adminCheckIn({
-      employee_id: selectedEmployee,
-      check_in_date: selectedDate,
-      check_in_time: time,
-      notes,
-    });
+    const result =
+      mode === "in"
+        ? await adminCheckIn({
+            employee_id: selectedEmployee,
+            check_in_date: selectedDate,
+            check_in_time: time,
+            notes,
+          })
+        : await adminCheckOut({
+            employee_id: selectedEmployee,
+            check_out_date: selectedDate,
+            check_out_time: time,
+            notes,
+          });
     setLoading(false);
 
     if (result.success) {
       setOpen(false);
       onSuccess();
-    } else if (result.error === "already-checked-in") {
+    } else if (mode === "in" && result.error === "already-checked-in") {
       toast.error(t("employeeAlreadyCheckedIn"));
+    } else if (mode === "out" && result.error === "already-checked-out") {
+      toast.error(t("employeeAlreadyCheckedOut"));
+    } else if (mode === "out" && result.error === "no-active-checkin") {
+      toast.error(t("employeeNoCheckIn"));
     } else {
-      toast.error(t("adminCheckInFailed"));
+      toast.error(mode === "in" ? t("adminCheckInFailed") : t("adminCheckOutFailed"));
     }
-  }, [selectedEmployee, selectedDate, time, notes, onSuccess, t]);
+  }, [selectedEmployee, selectedDate, time, notes, mode, onSuccess, t]);
 
   return (
     <>
       <Button size="sm" variant="outline" onClick={handleOpen} className="gap-1">
         <Plus className="h-4 w-4" />
-        <span className="hidden sm:inline">{t("adminCheckIn")}</span>
+        <span className="hidden sm:inline">{t("adminRegister")}</span>
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{t("adminCheckInTitle")}</DialogTitle>
-            <DialogDescription>{t("adminCheckInDesc")}</DialogDescription>
+            <DialogTitle>
+              {mode === "in" ? t("adminCheckInTitle") : t("adminCheckOutTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {mode === "in" ? t("adminCheckInDesc") : t("adminCheckOutDesc")}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="flex gap-1.5 rounded-lg border border-border bg-muted/40 p-1">
+              <button
+                onClick={() => setMode("in")}
+                className={cn(
+                  "flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors",
+                  mode === "in"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {t("tabCheckIn")}
+              </button>
+              <button
+                onClick={() => setMode("out")}
+                className={cn(
+                  "flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors",
+                  mode === "out"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {t("tabCheckOut")}
+              </button>
+            </div>
+
             <div>
               <label className="text-sm font-medium">{t("employee")}</label>
               {loadingEmployees ? (

@@ -19,6 +19,10 @@ export type AttendanceRow = {
   check_out_latitude: number | null;
   check_out_longitude: number | null;
   check_out_location_name: string;
+  check_in_battery: number | null;
+  check_in_device_name: string;
+  check_out_battery: number | null;
+  check_out_device_name: string;
   notes: string;
   created_by: string;
   created_at: string;
@@ -59,6 +63,8 @@ export async function checkIn(data: {
   longitude: number;
   location_name?: string;
   notes?: string;
+  battery?: number | null;
+  device_name?: string;
 }): Promise<ActionResult> {
   const user = await getCurrentUser();
   if (!user) return { success: false, error: "unauthorized" };
@@ -87,6 +93,8 @@ export async function checkIn(data: {
       latitude: data.latitude,
       longitude: data.longitude,
       location_name: data.location_name ?? "",
+      check_in_battery: data.battery ?? null,
+      check_in_device_name: data.device_name ?? "",
       notes: data.notes ?? "",
       created_by: user.id,
     })
@@ -103,6 +111,8 @@ export async function checkOut(data: {
   longitude: number;
   location_name?: string;
   notes?: string;
+  battery?: number | null;
+  device_name?: string;
 }): Promise<ActionResult> {
   const user = await getCurrentUser();
   if (!user) return { success: false, error: "unauthorized" };
@@ -133,6 +143,8 @@ export async function checkOut(data: {
       check_out_latitude: data.latitude,
       check_out_longitude: data.longitude,
       check_out_location_name: data.location_name ?? "",
+      check_out_battery: data.battery ?? null,
+      check_out_device_name: data.device_name ?? "",
       updated_at: new Date().toISOString(),
     })
     .eq("id", record.id);
@@ -150,6 +162,8 @@ export async function adminCheckIn(data: {
   longitude?: number;
   location_name?: string;
   notes?: string;
+  battery?: number | null;
+  device_name?: string;
 }): Promise<ActionResult> {
   const admin = await isAdmin();
   if (!admin) return { success: false, error: "unauthorized" };
@@ -183,6 +197,8 @@ export async function adminCheckIn(data: {
       latitude: data.latitude ?? null,
       longitude: data.longitude ?? null,
       location_name: data.location_name ?? "",
+      check_in_battery: data.battery ?? null,
+      check_in_device_name: data.device_name ?? "",
       notes: data.notes ?? "",
       created_by: user.id,
     })
@@ -192,6 +208,52 @@ export async function adminCheckIn(data: {
   if (error) return { success: false, error: "create-failed" };
   revalidatePath("/", "layout");
   return { success: true, id: created.id };
+}
+
+export async function adminCheckOut(data: {
+  employee_id: string;
+  check_out_date: string;
+  check_out_time: string;
+  notes?: string;
+}): Promise<ActionResult> {
+  const isUserAdmin = await isAdmin();
+  if (!isUserAdmin) return { success: false, error: "unauthorized" };
+
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "unauthorized" };
+
+  const adminClient = createAdminClient();
+
+  const { data: record } = await adminClient
+    .from("attendance_records")
+    .select("id, check_out_time")
+    .eq("employee_id", data.employee_id)
+    .eq("check_in_date", data.check_out_date)
+    .maybeSingle();
+
+  if (!record) {
+    return { success: false, error: "no-active-checkin" };
+  }
+
+  if (record.check_out_time) {
+    return { success: false, error: "already-checked-out" };
+  }
+
+  const timeStr = `${data.check_out_date}T${data.check_out_time}:00+02:00`;
+
+  const { error } = await adminClient
+    .from("attendance_records")
+    .update({
+      check_out_time: timeStr,
+      check_out_location_name: `registered by ${user.email ?? "admin"}`,
+      notes: data.notes ?? "",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", record.id);
+
+  if (error) return { success: false, error: "update-failed" };
+  revalidatePath("/", "layout");
+  return { success: true, id: record.id };
 }
 
 export async function updateAttendance(

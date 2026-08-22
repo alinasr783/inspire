@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, LogIn, MapPin, X } from "lucide-react";
 import { checkIn, checkTodayStatus } from "@/lib/attendance-actions";
 import { getCurrentLocation, LocationError } from "@/lib/geolocation";
+import { getDeviceInfo } from "@/lib/device-info";
 import { getEgyptToday } from "@/lib/utils";
 
 function locationErrorMessage(t: (key: string) => string, err: unknown) {
@@ -67,8 +68,9 @@ export function CheckInReminder() {
   const handleCheckIn = useCallback(async () => {
     setLoading(true);
     let coords: { latitude: number; longitude: number };
+    let device: Awaited<ReturnType<typeof getDeviceInfo>>;
     try {
-      coords = await getCurrentLocation();
+      [coords, device] = await Promise.all([getCurrentLocation(), getDeviceInfo()]);
     } catch (err) {
       toast.error(locationErrorMessage(t, err));
       setLoading(false);
@@ -79,6 +81,8 @@ export function CheckInReminder() {
       latitude: coords.latitude,
       longitude: coords.longitude,
       location_name: `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`,
+      battery: device.battery,
+      device_name: device.deviceName,
     });
 
     if (result.success) {

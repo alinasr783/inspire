@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS public.attendance_records (
   check_out_latitude numeric,
   check_out_longitude numeric,
   check_out_location_name text DEFAULT ''::text,
+  check_in_battery smallint,
+  check_in_device_name text DEFAULT ''::text,
+  check_out_battery smallint,
+  check_out_device_name text DEFAULT ''::text,
   notes text DEFAULT ''::text,
   created_by uuid NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -29,6 +33,12 @@ ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_out_time ti
 ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_out_latitude numeric;
 ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_out_longitude numeric;
 ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_out_location_name text DEFAULT ''::text;
+
+-- Add device info columns (battery level + device name)
+ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_in_battery smallint;
+ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_in_device_name text DEFAULT ''::text;
+ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_out_battery smallint;
+ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_out_device_name text DEFAULT ''::text;
 
 -- Index for date-based queries
 CREATE INDEX IF NOT EXISTS idx_attendance_check_in_date ON public.attendance_records (check_in_date);
