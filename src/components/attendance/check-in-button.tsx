@@ -44,6 +44,13 @@ export function CheckInButton({ checkedIn, checkedOut, onSuccess }: CheckInButto
       location_name: `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`,
       battery: device.battery,
       device_name: device.deviceName,
+      meta: {
+        os: device.os,
+        network_type: device.networkType,
+        timezone: device.timezone,
+        language: device.language,
+        memory: device.memory,
+      },
     });
 
     if (result.success) {
@@ -74,6 +81,13 @@ export function CheckInButton({ checkedIn, checkedOut, onSuccess }: CheckInButto
       location_name: `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`,
       battery: device.battery,
       device_name: device.deviceName,
+      meta: {
+        os: device.os,
+        network_type: device.networkType,
+        timezone: device.timezone,
+        language: device.language,
+        memory: device.memory,
+      },
     });
 
     if (result.success) {

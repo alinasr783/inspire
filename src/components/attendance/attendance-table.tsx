@@ -17,9 +17,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { MapPin, Pencil, Trash2, Clock, User, ChevronDown, ChevronUp, Smartphone, Battery } from "lucide-react";
+import { MapPin, Pencil, Trash2, Clock, User, ChevronDown, ChevronUp, Smartphone, Battery, Eye } from "lucide-react";
 import type { AttendanceWithEmployee } from "@/lib/attendance-actions";
 import { updateAttendance, deleteAttendance } from "@/lib/attendance-actions";
+import { AttendanceDetailsDialog } from "@/components/attendance/attendance-details-dialog";
 import { toast } from "sonner";
 
 interface AttendanceTableProps {
@@ -84,6 +85,7 @@ export function AttendanceTable({
   const [deleteDialog, setDeleteDialog] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [detailsRecord, setDetailsRecord] = useState<AttendanceWithEmployee | null>(null);
 
   const sortedRecords = useMemo(
     () =>
@@ -94,9 +96,6 @@ export function AttendanceTable({
       ),
     [records]
   );
-
-  const canEdit = (record: AttendanceWithEmployee) =>
-    isAdmin || record.employee_id === userId;
 
   const handleEdit = (record: AttendanceWithEmployee) => {
     setEditId(record.id);
@@ -372,6 +371,13 @@ export function AttendanceTable({
                     </td>
                     <td className="border-b px-2 py-2 align-middle">
                       <div className="flex items-center gap-0.5">
+                        <button
+                          onClick={() => setDetailsRecord(record)}
+                          title={t("details")}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
                         {(isAdmin || record.employee_id === userId) && (
                           <button
                             onClick={() => handleEdit(record)}
@@ -553,32 +559,39 @@ export function AttendanceTable({
                     )}
                   </div>
 
-                  {canEdit(record) && (
-                    <div className="flex items-center gap-1 pt-1 border-t">
-                      {(isAdmin || record.employee_id === userId) && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEdit(record)}
-                          className="h-8 gap-1 text-xs"
-                        >
-                          <Pencil className="h-3 w-3" />
-                          {t("edit")}
-                        </Button>
-                      )}
-                      {isAdmin && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setDeleteDialog(record.id)}
-                          className="h-8 gap-1 text-xs text-red-500 border-red-200 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          {t("delete")}
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1 pt-1 border-t">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setDetailsRecord(record)}
+                      className="h-8 gap-1 text-xs"
+                    >
+                      <Eye className="h-3 w-3" />
+                      {t("details")}
+                    </Button>
+                    {(isAdmin || record.employee_id === userId) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEdit(record)}
+                        className="h-8 gap-1 text-xs"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        {t("edit")}
+                      </Button>
+                    )}
+                    {isAdmin && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setDeleteDialog(record.id)}
+                        className="h-8 gap-1 text-xs text-red-500 border-red-200 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        {t("delete")}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -680,6 +693,12 @@ export function AttendanceTable({
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Record Details */}
+      <AttendanceDetailsDialog
+        record={detailsRecord}
+        onClose={() => setDetailsRecord(null)}
+      />
     </>
   );
 }

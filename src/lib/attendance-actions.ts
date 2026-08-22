@@ -1,11 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getEgyptToday } from "@/lib/utils";
 
 export type ActionResult = { success: true; id?: string } | { success: false; error: string };
+
+export type AttendanceMeta = {
+  os?: string;
+  network_type?: string;
+  timezone?: string;
+  language?: string;
+  memory?: number | null;
+};
 
 export type AttendanceRow = {
   id: string;
@@ -21,8 +30,10 @@ export type AttendanceRow = {
   check_out_location_name: string;
   check_in_battery: number | null;
   check_in_device_name: string;
+  check_in_meta: Record<string, unknown>;
   check_out_battery: number | null;
   check_out_device_name: string;
+  check_out_meta: Record<string, unknown>;
   notes: string;
   created_by: string;
   created_at: string;
@@ -58,6 +69,30 @@ async function isAdmin(): Promise<boolean> {
   return data?.role === "admin";
 }
 
+async function getClientIp(): Promise<string> {
+  try {
+    const h = await headers();
+    const xff = h.get("x-forwarded-for");
+    if (xff) return xff.split(",")[0].trim();
+    const realIp = h.get("x-real-ip");
+    if (realIp) return realIp.trim();
+  } catch {
+    // headers() not available in this context
+  }
+  return "";
+}
+
+function buildMeta(meta?: AttendanceMeta): Record<string, unknown> {
+  const { os, network_type, timezone, language, memory } = meta ?? {};
+  return {
+    ...(os ? { os } : {}),
+    ...(network_type ? { network_type } : {}),
+    ...(timezone ? { timezone } : {}),
+    ...(language ? { language } : {}),
+    ...(memory != null ? { memory } : {}),
+  };
+}
+
 export async function checkIn(data: {
   latitude: number;
   longitude: number;
@@ -65,6 +100,7 @@ export async function checkIn(data: {
   notes?: string;
   battery?: number | null;
   device_name?: string;
+  meta?: AttendanceMeta;
 }): Promise<ActionResult> {
   const user = await getCurrentUser();
   if (!user) return { success: false, error: "unauthorized" };
@@ -84,6 +120,8 @@ export async function checkIn(data: {
     return { success: false, error: "already-checked-in" };
   }
 
+  const meta: Record<string, unknown> = { ...buildMeta(data.meta), ip: await getClientIp() };
+
   const { data: created, error } = await admin
     .from("attendance_records")
     .insert({
@@ -95,6 +133,7 @@ export async function checkIn(data: {
       location_name: data.location_name ?? "",
       check_in_battery: data.battery ?? null,
       check_in_device_name: data.device_name ?? "",
+      check_in_meta: meta,
       notes: data.notes ?? "",
       created_by: user.id,
     })
@@ -113,6 +152,7 @@ export async function checkOut(data: {
   notes?: string;
   battery?: number | null;
   device_name?: string;
+  meta?: AttendanceMeta;
 }): Promise<ActionResult> {
   const user = await getCurrentUser();
   if (!user) return { success: false, error: "unauthorized" };
@@ -136,6 +176,8 @@ export async function checkOut(data: {
     return { success: false, error: "already-checked-out" };
   }
 
+  const meta: Record<string, unknown> = { ...buildMeta(data.meta), ip: await getClientIp() };
+
   const { error } = await admin
     .from("attendance_records")
     .update({
@@ -145,6 +187,7 @@ export async function checkOut(data: {
       check_out_location_name: data.location_name ?? "",
       check_out_battery: data.battery ?? null,
       check_out_device_name: data.device_name ?? "",
+      check_out_meta: meta,
       updated_at: new Date().toISOString(),
     })
     .eq("id", record.id);
@@ -164,6 +207,7 @@ export async function adminCheckIn(data: {
   notes?: string;
   battery?: number | null;
   device_name?: string;
+  meta?: AttendanceMeta;
 }): Promise<ActionResult> {
   const admin = await isAdmin();
   if (!admin) return { success: false, error: "unauthorized" };
@@ -188,6 +232,8 @@ export async function adminCheckIn(data: {
     ? `${data.check_in_date}T${data.check_in_time}:00+02:00`
     : new Date().toISOString();
 
+  const meta: Record<string, unknown> = { ...buildMeta(data.meta), ip: await getClientIp() };
+
   const { data: created, error } = await adminClient
     .from("attendance_records")
     .insert({
@@ -199,6 +245,7 @@ export async function adminCheckIn(data: {
       location_name: data.location_name ?? "",
       check_in_battery: data.battery ?? null,
       check_in_device_name: data.device_name ?? "",
+      check_in_meta: meta,
       notes: data.notes ?? "",
       created_by: user.id,
     })
@@ -240,12 +287,14 @@ export async function adminCheckOut(data: {
   }
 
   const timeStr = `${data.check_out_date}T${data.check_out_time}:00+02:00`;
+  const ip = await getClientIp();
 
   const { error } = await adminClient
     .from("attendance_records")
     .update({
       check_out_time: timeStr,
-      check_out_location_name: `registered by ${user.email ?? "admin"}`,
+      check_out_location_name: "registered by admin",
+      check_out_meta: { ip },
       notes: data.notes ?? "",
       updated_at: new Date().toISOString(),
     })

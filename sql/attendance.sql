@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS public.attendance_records (
   check_in_device_name text DEFAULT ''::text,
   check_out_battery smallint,
   check_out_device_name text DEFAULT ''::text,
+  check_in_meta jsonb NOT NULL DEFAULT '{}'::jsonb,
+  check_out_meta jsonb NOT NULL DEFAULT '{}'::jsonb,
   notes text DEFAULT ''::text,
   created_by uuid NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -39,6 +41,10 @@ ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_in_battery 
 ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_in_device_name text DEFAULT ''::text;
 ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_out_battery smallint;
 ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_out_device_name text DEFAULT ''::text;
+
+-- Add extended metadata columns (IP, network, timezone, language, OS, memory)
+ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_in_meta jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_out_meta jsonb NOT NULL DEFAULT '{}'::jsonb;
 
 -- Index for date-based queries
 CREATE INDEX IF NOT EXISTS idx_attendance_check_in_date ON public.attendance_records (check_in_date);

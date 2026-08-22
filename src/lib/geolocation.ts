@@ -25,8 +25,9 @@ function getCode(err: GeolocationPositionError): LocationErrorCode {
 /**
  * Gets the user's current location with a resilient strategy:
  * 1. Try high-accuracy GPS first (most precise).
- * 2. If it times out, retry with a faster, cached, lower-accuracy fix.
- * Rejects with a `LocationError` on failure.
+ * 2. If it times out OR the position is unavailable, retry with a faster,
+ *    cached, lower-accuracy fix (uses Wi-Fi/cell triangulation + last known).
+ * 3. If that also fails, reject with a `LocationError`.
  */
 export function getCurrentLocation(): Promise<{ latitude: number; longitude: number }> {
   if (typeof window === "undefined" || !navigator.geolocation) {
@@ -55,28 +56,32 @@ export function getCurrentLocation(): Promise<{ latitude: number; longitude: num
       settle(() => reject(new LocationError(getCode(err), err.message)));
     };
 
-    const retryWithFallback = () => {
+    const attemptLowAccuracy = () => {
       navigator.geolocation.getCurrentPosition(success, failure, {
         enableHighAccuracy: false,
         timeout: 15000,
-        maximumAge: 60000,
+        maximumAge: 120000,
       });
     };
 
-    navigator.geolocation.getCurrentPosition(
-      success,
-      (err) => {
-        if (err.code === err.TIMEOUT) {
-          retryWithFallback();
-        } else {
-          failure(err);
+    const attemptHighAccuracy = () => {
+      navigator.geolocation.getCurrentPosition(
+        success,
+        (err) => {
+          if (err.code === err.TIMEOUT || err.code === err.POSITION_UNAVAILABLE) {
+            attemptLowAccuracy();
+          } else {
+            failure(err);
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
         }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 0,
-      }
-    );
+      );
+    };
+
+    attemptHighAccuracy();
   });
 }
