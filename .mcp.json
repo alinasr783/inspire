@@ -1,0 +1,9 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/specification/main/schema/mcp.json",
+  "mcpServers": {
+    "inspire-crm-local": {
+      "url": "http://localhost:3000/api/mcp",
+      "type": "http"
+    }
+  }
+}

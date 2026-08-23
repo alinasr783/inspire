@@ -34,3 +34,87 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+---
+
+## خادم الاتصال بالذكاء الاصطناعي | MCP Server
+
+هذا المشروع يوفر خادم (MCP - Model Context Protocol) يتيح لتطبيقات الذكاء الاصطناعي البحث في بيانات النظام وإدارتها بالكامل (العقارات والعملاء).
+
+### نقطة الواجهة | Endpoint
+
+```
+POST /api/mcp
+```
+
+تعمل النقطة عبر (Streamable HTTP) بنمط الاستجابات JSON، وهي متوافقة مع بيئة النشر السحابي (بدون جلسات دائمة).
+
+### الأدوات المتاحة | Available Tools
+
+**العقارات (5 أدوات):**
+
+| الأداة | الوصف |
+|---|---|
+| `search_units` | البحث في العقارات بمرشحات متعددة (الاسم، الهاتف، الكمبوند، المنطقة، التشطيب، البيع/الإيجار، النوع، نطاق السعر، المتبقي، الموظف المسؤول، ترقيم الصفحات) |
+| `get_unit` | جلب تفاصيل عقار محدد بالكامل |
+| `create_unit` | إنشاء عقار جديد |
+| `update_unit` | تعديل عقار (تعديل جزئي) |
+| `delete_unit` | حذف عقار |
+
+**العملاء (5 أدوات):**
+
+| الأداة | الوصف |
+|---|---|
+| `search_clients` | البحث في العملاء (الأفراد افتراضيًا) بمرشحات متعددة (الاسم، الهاتف، الميزانية، طريقة الدفع، المنطقة المفضلة، النوع، الغرف، المطور، المصدر، ترقيم الصفحات) |
+| `get_client` | جلب تفاصيل عميل محدد بالكامل |
+| `create_client` | إنشاء عميل جديد |
+| `update_client` | تعديل عميل |
+| `delete_client` | حذف عميل |
+
+### متغيرات البيئة | Environment Variables
+
+| المتغير | الوصف |
+|---|---|
+| `MCP_DEFAULT_USER_ID` | معرّف حساب الخدمة المستخدم كقيمة `created_by` عند إنشاء السجلات عبر الخادم (مطلوب) |
+
+### الربط مع تطبيقات الذكاء الاصطناعي | Connecting AI Applications
+
+**كلود لسطح المكتب (Claude Desktop):** أضف إلى ملف الإعداد الخاص بالتطبيق:
+
+```json
+{
+  "mcpServers": {
+    "inspire-crm": {
+      "type": "http",
+      "url": "https://<your-domain>/api/mcp"
+    }
+  }
+}
+```
+
+**التطوير المحلي:** ملف `.mcp.json` في جذر المشروع يشير إلى `http://localhost:3000/api/mcp`.
+
+**أي تطبيق آخر:** وجّهه إلى `https://<your-domain>/api/mcp` ببروتوكول الاتصال القياسي (JSON-RPC 2.0).
+
+### هيكل الكود | Code Structure
+
+```
+src/app/api/mcp/route.ts            ← نقطة الواجهة (GET/POST/DELETE)
+src/lib/mcp/server.ts               ← إنشاء الخادم وتسجيل الأدوات
+src/lib/mcp/descriptions.ts         ← الأوصاف الثنائية (عربي/إنجليزي)
+src/lib/mcp/schemas.ts              ← مخططات التحقق من المدخلات
+src/lib/mcp/tools/units-tools.ts    ← أدوات العقارات
+src/lib/mcp/tools/clients-tools.ts  ← أدوات العملاء
+src/lib/mcp/data/units.ts           ← طبقة الوصول لبيانات العقارات
+src/lib/mcp/data/clients.ts         ← طبقة الوصول لبيانات العملاء
+```
+
+### الاختبار | Testing
+
+```bash
+npm run test -- src/__tests__/mcp-data.test.ts
+```
+
+### ملاحظة أمنية | Security Note
+
+المرحلة الحالية تعمل بدون مصادقة على نقطة الواجهة. يُنصح بإضافة حماية (رمز وصول سري) قبل الإتاحة العامة الكاملة.
