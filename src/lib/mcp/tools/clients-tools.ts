@@ -25,10 +25,13 @@ export function registerClientTools(server: McpServer) {
     },
     async (args) => {
       try {
-        const clients = await searchClients(args);
+        const { rows, total } = await searchClients(args);
         return successResult({
-          count: clients.length,
-          clients,
+          count: rows.length,
+          total,
+          offset: args.offset ?? 0,
+          limit: args.limit ?? 50,
+          clients: rows,
         });
       } catch (error) {
         return errorResult(error);

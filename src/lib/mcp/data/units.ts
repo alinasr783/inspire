@@ -9,33 +9,111 @@ import type {
 
 const TABLE = "units";
 
-export async function searchUnits(params: SearchUnitsParams): Promise<UnitRow[]> {
+export type SearchUnitsResult = {
+  rows: UnitRow[];
+  total: number;
+};
+
+function sanitizeLike(value: string): string {
+  return value.replace(/[,().%_]/g, " ").trim();
+}
+
+type Admin = ReturnType<typeof createAdminClient>;
+type FilterQuery = ReturnType<ReturnType<Admin["from"]>["select"]>;
+
+function applyFilters(
+  query: FilterQuery,
+  params: SearchUnitsParams,
+  duplicatePhones: string[] | null
+): FilterQuery {
+  let q = query;
+
+  if (params.query) {
+    const search = sanitizeLike(params.query);
+    if (search) {
+      const orFilter = ["customer_name", "phone", "compound_name", "additional_notes", "feedback"]
+        .map((col) => `${col}.ilike.%${search}%`)
+        .join(",");
+      q = q.or(orFilter);
+    }
+  }
+  if (params.customer_name) q = q.ilike("customer_name", `%${params.customer_name}%`);
+  if (params.phone) q = q.ilike("phone", `%${params.phone}%`);
+  if (params.compound_name) q = q.ilike("compound_name", `%${params.compound_name}%`);
+  if (params.area) q = q.ilike("area", `%${params.area}%`);
+  if (params.building_number) q = q.ilike("building_number", `%${params.building_number}%`);
+  if (params.finishing_status) q = q.eq("finishing_status", params.finishing_status);
+  if (params.rent_sale) q = q.eq("rent_sale", params.rent_sale);
+  if (params.unit_type) q = q.eq("unit_type", params.unit_type);
+  if (params.assigned_employee) q = q.eq("assigned_employee", params.assigned_employee);
+  if (params.created_by) q = q.eq("created_by", params.created_by);
+  if (params.cash_required_min != null) q = q.gte("cash_required", params.cash_required_min);
+  if (params.cash_required_max != null) q = q.lte("cash_required", params.cash_required_max);
+  if (params.remaining_min != null) q = q.gte("remaining", params.remaining_min);
+  if (params.remaining_max != null) q = q.lte("remaining", params.remaining_max);
+  if (params.last_contact_from) q = q.gte("last_contact_date", params.last_contact_from);
+  if (params.last_contact_to) q = q.lte("last_contact_date", params.last_contact_to);
+
+  if (params.custom_fields) {
+    for (const [key, value] of Object.entries(params.custom_fields)) {
+      const safeKey = key.replace(/[^a-zA-Z0-9_\u0600-\u06FF]/g, "_");
+      const v = sanitizeLike(value);
+      if (v) q = q.ilike(`custom_fields->>${safeKey}`, `%${v}%`);
+    }
+  }
+
+  if (duplicatePhones) {
+    q = duplicatePhones.length > 0 ? q.in("phone", duplicatePhones) : q.in("phone", ["__none__"]);
+  }
+
+  return q;
+}
+
+async function findDuplicatePhones(
+  admin: ReturnType<typeof createAdminClient>
+): Promise<string[]> {
+  const { data: phoneRows } = await admin
+    .from(TABLE)
+    .select("phone")
+    .not("phone", "is", null)
+    .not("phone", "eq", "");
+  const counts = new Map<string, number>();
+  for (const r of phoneRows ?? []) {
+    const p = String((r as { phone: unknown }).phone ?? "");
+    if (!p) continue;
+    counts.set(p, (counts.get(p) ?? 0) + 1);
+  }
+  return [...counts.entries()].filter(([, c]) => c > 1).map(([p]) => p);
+}
+
+export async function searchUnits(params: SearchUnitsParams): Promise<SearchUnitsResult> {
   const admin = createAdminClient();
-  let query = admin.from(TABLE).select("*");
 
-  if (params.customer_name) query = query.ilike("customer_name", `%${params.customer_name}%`);
-  if (params.phone) query = query.ilike("phone", `%${params.phone}%`);
-  if (params.compound_name) query = query.ilike("compound_name", `%${params.compound_name}%`);
-  if (params.area) query = query.ilike("area", `%${params.area}%`);
-  if (params.building_number) query = query.ilike("building_number", `%${params.building_number}%`);
-  if (params.finishing_status) query = query.eq("finishing_status", params.finishing_status);
-  if (params.rent_sale) query = query.eq("rent_sale", params.rent_sale);
-  if (params.unit_type) query = query.eq("unit_type", params.unit_type);
-  if (params.assigned_employee) query = query.eq("assigned_employee", params.assigned_employee);
-  if (params.cash_required_min != null) query = query.gte("cash_required", params.cash_required_min);
-  if (params.cash_required_max != null) query = query.lte("cash_required", params.cash_required_max);
-  if (params.remaining_min != null) query = query.gte("remaining", params.remaining_min);
-  if (params.remaining_max != null) query = query.lte("remaining", params.remaining_max);
+  const duplicatePhones = params.duplicate_phone
+    ? await findDuplicatePhones(admin)
+    : null;
 
-  query = query.order("created_at", { ascending: false });
+  const countBase = admin
+    .from(TABLE)
+    .select("id", { count: "exact", head: true }) as unknown as FilterQuery;
+  const countRes = await applyFilters(countBase, params, duplicatePhones);
+  const total = (countRes as unknown as { count: number | null }).count ?? 0;
+
+  const dataQuery = applyFilters(admin.from(TABLE).select("*"), params, duplicatePhones);
+  const orderCol = params.sort_by ?? "created_at";
+  dataQuery.order(orderCol, { ascending: (params.sort_order ?? "desc") === "asc" });
 
   const offset = params.offset ?? 0;
   const limit = params.limit ?? 50;
-  query = query.range(offset, offset + limit - 1);
+  dataQuery.range(offset, offset + limit - 1);
 
-  const { data, error } = await query;
+  const { data, error } = await dataQuery;
   if (error) throw new Error(error.message);
-  return (data ?? []) as UnitRow[];
+
+  return {
+    rows: (data ?? []) as UnitRow[],
+    total,
+  };
 }
 
 export async function getUnitById(id: string): Promise<UnitRow | null> {

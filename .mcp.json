@@ -3,7 +3,43 @@
   "mcpServers": {
     "inspire-crm-local": {
       "url": "http://localhost:3000/api/mcp",
-      "type": "http"
+      "type": "http",
+      "permissions": {
+        "tools": {
+          "alwaysAllow": [
+            "search_units",
+            "get_unit",
+            "create_unit",
+            "update_unit",
+            "delete_unit",
+            "search_clients",
+            "get_client",
+            "create_client",
+            "update_client",
+            "delete_client"
+          ]
+        }
+      }
+    },
+    "inspire-crm-production": {
+      "url": "https://inspire.alinasr.com/api/mcp",
+      "type": "http",
+      "permissions": {
+        "tools": {
+          "alwaysAllow": [
+            "search_units",
+            "get_unit",
+            "create_unit",
+            "update_unit",
+            "delete_unit",
+            "search_clients",
+            "get_client",
+            "create_client",
+            "update_client",
+            "delete_client"
+          ]
+        }
+      }
     }
   }
 }

@@ -8,31 +8,49 @@ const mockTables: Record<string, Row[]> = {};
 
 function createMockClient() {
   let currentTable = "";
-  let filters: Record<string, { op: "eq" | "ilike" | "gte" | "lte"; val: unknown }> = {};
+  let filters: { col: string; op: "eq" | "ilike" | "gte" | "lte"; val: unknown }[] = [];
   const orFilters: string[] = [];
   let orderBy: { column: string; asc: boolean } | null = null;
   let range_: { from: number; to: number } | null = null;
   let singleMode: "single" | "maybeSingle" | null = null;
+  let countMode = false;
   let pendingOp: { type: "insert" | "update" | "delete"; row?: Row; patch?: Row } | null = null;
+
+  function colValue(row: Row, col: string): unknown {
+    if (col.includes("->>")) {
+      const [base, key] = col.split("->>");
+      const obj = (row[base] ?? {}) as Record<string, unknown>;
+      return obj[key];
+    }
+    return row[col];
+  }
+
+  function compareValues(a: unknown, b: unknown): number {
+    if (typeof a === "number" && typeof b === "number") return a - b;
+    return String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0;
+  }
 
   function evaluate(): Row[] {
     let rows = [...(mockTables[currentTable] ?? [])];
-    for (const [col, f] of Object.entries(filters)) {
-      if (f.op === "eq") rows = rows.filter((r) => r[col] === f.val);
+    for (const f of filters) {
+      if (f.op === "eq") rows = rows.filter((r) => colValue(r, f.col) === f.val);
       if (f.op === "ilike") {
         const needle = String(f.val).replace(/%/g, "").toLowerCase();
-        rows = rows.filter((r) => String(r[col] ?? "").toLowerCase().includes(needle));
+        rows = rows.filter((r) => String(colValue(r, f.col) ?? "").toLowerCase().includes(needle));
       }
-      if (f.op === "gte") rows = rows.filter((r) => (r[col] as number) >= (f.val as number));
-      if (f.op === "lte") rows = rows.filter((r) => (r[col] as number) <= (f.val as number));
+      if (f.op === "gte") rows = rows.filter((r) => compareValues(colValue(r, f.col), f.val) >= 0);
+      if (f.op === "lte") rows = rows.filter((r) => compareValues(colValue(r, f.col), f.val) <= 0);
     }
     for (const orF of orFilters) {
       rows = rows.filter((r) =>
         orF.split(",").some((cond) => {
           const [col, op, raw] = cond.split(".");
-          const val = Number(raw);
-          if (op === "gte") return (r[col] as number) >= val;
-          if (op === "lte") return (r[col] as number) <= val;
+          if (op === "ilike") {
+            const needle = String(raw).replace(/%/g, "").toLowerCase();
+            return String(colValue(r, col) ?? "").toLowerCase().includes(needle);
+          }
+          if (op === "gte") return compareValues(colValue(r, col), Number(raw)) >= 0;
+          if (op === "lte") return compareValues(colValue(r, col), Number(raw)) <= 0;
           return true;
         })
       );
@@ -50,21 +68,24 @@ function createMockClient() {
   }
 
   const builder = {
-    select: () => builder,
+    select: (_cols?: string, opts?: { count?: string; head?: boolean }) => {
+      countMode = !!opts?.count;
+      return builder;
+    },
     eq: (col: string, val: unknown) => {
-      filters[col] = { op: "eq", val };
+      filters.push({ col, op: "eq", val });
       return builder;
     },
     ilike: (col: string, val: unknown) => {
-      filters[col] = { op: "ilike", val };
+      filters.push({ col, op: "ilike", val });
       return builder;
     },
     gte: (col: string, val: unknown) => {
-      filters[col] = { op: "gte", val };
+      filters.push({ col, op: "gte", val });
       return builder;
     },
     lte: (col: string, val: unknown) => {
-      filters[col] = { op: "lte", val };
+      filters.push({ col, op: "lte", val });
       return builder;
     },
     or: (f: string) => {
@@ -109,6 +130,11 @@ function createMockClient() {
         return;
       }
       const rows = evaluate();
+      if (countMode) {
+        countMode = false;
+        resolve({ data: null, count: rows.length, error: null });
+        return;
+      }
       if (singleMode === "single") {
         resolve(rows.length ? { data: rows[0], error: null } : { data: null, error: { message: "not found" } });
       } else if (singleMode === "maybeSingle") {
@@ -134,11 +160,12 @@ function createMockClient() {
 
   const from = (table: string) => {
     currentTable = table;
-    filters = {};
+    filters = [];
     orFilters.length = 0;
     orderBy = null;
     range_ = null;
     singleMode = null;
+    countMode = false;
     pendingOp = null;
     return builder;
   };
@@ -190,9 +217,19 @@ describe("mcp data layer — units", () => {
         { id: "u1", customer_name: "أحمد محمد", phone: "0101", rent_sale: "بيع", area: "الشيخ زايد", created_at: "2024-01-01" },
         { id: "u2", customer_name: "محمد علي", phone: "0102", rent_sale: "إيجار", area: "مدينتي", created_at: "2024-01-02" },
       ]);
-      const rows = await searchUnits({ customer_name: "محمد", rent_sale: "بيع" });
+      const { rows, total } = await searchUnits({ customer_name: "محمد", rent_sale: "بيع" });
+      expect(total).toBe(1);
       expect(rows).toHaveLength(1);
       expect(rows[0].id).toBe("u1");
+    });
+
+    test("free-text query searches across multiple fields", async () => {
+      seedUnits([
+        { id: "u1", customer_name: "أحمد محمد", phone: "0101", compound_name: "ميدتاون", additional_notes: "على الشارع", created_at: "2024-01-01" },
+        { id: "u2", customer_name: "خالد", phone: "0102", compound_name: "أكتوبر", created_at: "2024-01-02" },
+      ]);
+      const { rows } = await searchUnits({ query: "ميدتاون" });
+      expect(rows.map((r) => r.id)).toEqual(["u1"]);
     });
 
     test("applies numeric range filters", async () => {
@@ -201,18 +238,37 @@ describe("mcp data layer — units", () => {
         { id: "u2", customer_name: "ب", cash_required: 300, remaining: 200, created_at: "2024-01-02" },
         { id: "u3", customer_name: "ج", cash_required: 500, remaining: 400, created_at: "2024-01-03" },
       ]);
-      const rows = await searchUnits({ cash_required_min: 200, cash_required_max: 400, remaining_min: 150 });
+      const { rows } = await searchUnits({ cash_required_min: 200, cash_required_max: 400, remaining_min: 150 });
       expect(rows.map((r) => r.id)).toEqual(["u2"]);
     });
 
-    test("applies pagination and default ordering", async () => {
+    test("filters by last contact date range", async () => {
+      seedUnits([
+        { id: "u1", customer_name: "أ", last_contact_date: "2024-01-05", created_at: "2024-01-01" },
+        { id: "u2", customer_name: "ب", last_contact_date: "2024-03-10", created_at: "2024-01-02" },
+      ]);
+      const { rows } = await searchUnits({ last_contact_from: "2024-02-01", last_contact_to: "2024-04-01" });
+      expect(rows.map((r) => r.id)).toEqual(["u2"]);
+    });
+
+    test("filters by custom fields value", async () => {
+      seedUnits([
+        { id: "u1", customer_name: "أ", custom_fields: { balcony: "نعم" }, created_at: "2024-01-01" },
+        { id: "u2", customer_name: "ب", custom_fields: { balcony: "لا" }, created_at: "2024-01-02" },
+      ]);
+      const { rows } = await searchUnits({ custom_fields: { balcony: "نعم" } });
+      expect(rows.map((r) => r.id)).toEqual(["u1"]);
+    });
+
+    test("applies pagination and default ordering and reports total", async () => {
       seedUnits([
         { id: "u1", customer_name: "أ", created_at: "2024-01-01" },
         { id: "u2", customer_name: "ب", created_at: "2024-01-02" },
         { id: "u3", customer_name: "ج", created_at: "2024-01-03" },
       ]);
-      const rows = await searchUnits({ limit: 2, offset: 0 });
+      const { rows, total } = await searchUnits({ limit: 2, offset: 0 });
       expect(rows.map((r) => r.id)).toEqual(["u3", "u2"]);
+      expect(total).toBe(3);
     });
   });
 
@@ -284,29 +340,30 @@ describe("mcp data layer — clients", () => {
   describe("searchClients", () => {
     test("filters individual clients by default and applies budget range", async () => {
       seedClients([
-        { id: "c1", customer_name: "أ", is_company_client: false, budget_from: 100, budget_to: 200, created_at: "2024-01-01" },
+        { id: "c1", customer_name: "أ", is_company_client: false, budget_from: 200, budget_to: 250, created_at: "2024-01-01" },
         { id: "c2", customer_name: "ب", is_company_client: false, budget_from: 500, budget_to: 800, created_at: "2024-01-02" },
         { id: "c3", customer_name: "شركة", is_company_client: true, budget_from: 300, budget_to: 400, created_at: "2024-01-03" },
       ]);
-      const rows = await searchClients({ budget_min: 150, budget_max: 400 });
+      const { rows, total } = await searchClients({ budget_min: 150, budget_max: 400 });
+      expect(total).toBe(1);
       expect(rows.map((r) => r.id)).toEqual(["c1"]);
     });
 
     test("can include company clients via the flag", async () => {
       seedClients([
-        { id: "c1", customer_name: "أ", is_company_client: false, budget_from: 100, budget_to: 200, created_at: "2024-01-01" },
+        { id: "c1", customer_name: "أ", is_company_client: false, budget_from: 200, budget_to: 250, created_at: "2024-01-01" },
         { id: "c3", customer_name: "شركة", is_company_client: true, budget_from: 300, budget_to: 400, created_at: "2024-01-03" },
       ]);
-      const rows = await searchClients({ is_company_client: true, budget_min: 150, budget_max: 400 });
+      const { rows } = await searchClients({ is_company_client: true, budget_min: 150, budget_max: 400 });
       expect(rows.map((r) => r.id)).toEqual(["c3"]);
     });
 
-    test("searches by name", async () => {
+    test("searches by name and filters by seriousness range", async () => {
       seedClients([
-        { id: "c1", customer_name: "أحمد علي", is_company_client: false, created_at: "2024-01-01" },
-        { id: "c2", customer_name: "محمد حسن", is_company_client: false, created_at: "2024-01-02" },
+        { id: "c1", customer_name: "أحمد علي", is_company_client: false, seriousness_rating: 2, created_at: "2024-01-01" },
+        { id: "c2", customer_name: "محمد حسن", is_company_client: false, seriousness_rating: 8, created_at: "2024-01-02" },
       ]);
-      const rows = await searchClients({ customer_name: "محمد" });
+      const { rows } = await searchClients({ customer_name: "محمد", seriousness_min: 5 });
       expect(rows.map((r) => r.id)).toEqual(["c2"]);
     });
   });

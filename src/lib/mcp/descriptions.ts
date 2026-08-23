@@ -5,8 +5,8 @@ export const DESC = {
     "This server lets AI applications search and fully manage the CRM's properties and clients.",
 
   searchUnits:
-    "البحث عن عقارات مسجلة في النظام بمرشحات متعددة مع ترقيم الصفحات. | " +
-    "Search registered properties (units) with multiple filters and pagination.",
+    "البحث عن عقارات مسجلة في النظام وإرجاع قائمة بكل المطابقات (حتى 500 سجل) مع كل فلترز شاشة العقارات: بحث نصي عام، الاسم، الهاتف، الكمبوند، المنطقة، التشطيب، البيع/الإيجار، النوع، الموظف المسؤول، المنشئ، نطاق المبلغ النقدي، نطاق المتبقي، تاريخ آخر تواصل، الهواتف المكررة، الحقول المخصصة، الترتيب وترقيم الصفحات. | " +
+    "Search registered properties and return a list of ALL matches (up to 500) with every property-page filter: free-text query, name, phone, compound, area, finishing, rent/sale, type, assigned employee, creator, cash range, remaining range, last contact date, duplicate phones, custom fields, sorting and pagination.",
   getUnit:
     "جلب تفاصيل عقار محدد بالكامل باستخدام معرّفه، بما فيها الحقول المخصصة. | " +
     "Fetch full details of a specific property by its id, including custom fields.",
@@ -18,8 +18,8 @@ export const DESC = {
   deleteUnit:
     "حذف عقار نهائيًا من النظام. | Permanently delete a property from the system.",
   searchClients:
-    "البحث عن عملاء (الأفراد افتراضيًا) بمرشحات متعددة مع ترقيم الصفحات. | " +
-    "Search clients (individuals by default) with multiple filters and pagination.",
+    "البحث عن عملاء (الأفراد افتراضيًا) وإرجاع قائمة بكل المطابقات (حتى 500 سجل) مع كل فلترز شاشة العملاء: بحث نصي عام، الاسم، الهاتف، الهاتف البديل، طريقة الدفع، المنطقة المفضلة، النوع، الغرف، المطور المفضل، المصدر، الموظف المسؤول، المنشئ، نطاق الميزانية، تاريخ آخر تواصل، معدل الجدية، الحقول المخصصة، الترتيب وترقيم الصفحات. | " +
+    "Search clients (individuals by default) and return a list of ALL matches (up to 500) with every client-page filter: free-text query, name, phone, alt phone, payment method, preferred area, type, bedrooms, preferred developer, source, assigned employee, creator, budget range, last contact date, seriousness rating, custom fields, sorting and pagination.",
   getClient:
     "جلب تفاصيل عميل محدد بالكامل باستخدام معرّفه. | " +
     "Fetch full details of a specific client by its id.",

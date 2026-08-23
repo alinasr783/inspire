@@ -9,38 +9,85 @@ import type {
 
 const TABLE = "clients";
 
-export async function searchClients(params: SearchClientsParams): Promise<ClientRow[]> {
+export type SearchClientsResult = {
+  rows: ClientRow[];
+  total: number;
+};
+
+function sanitizeLike(value: string): string {
+  return value.replace(/[,().%_]/g, " ").trim();
+}
+
+type Admin = ReturnType<typeof createAdminClient>;
+type FilterQuery = ReturnType<ReturnType<Admin["from"]>["select"]>;
+
+function applyFilters(query: FilterQuery, params: SearchClientsParams): FilterQuery {
+  let q = query;
+
+  q = q.eq("is_company_client", params.is_company_client ?? false);
+
+  if (params.query) {
+    const search = sanitizeLike(params.query);
+    if (search) {
+      const orFilter = ["customer_name", "phone", "phone_alt", "additional_notes"]
+        .map((col) => `${col}.ilike.%${search}%`)
+        .join(",");
+      q = q.or(orFilter);
+    }
+  }
+  if (params.customer_name) q = q.ilike("customer_name", `%${params.customer_name}%`);
+  if (params.phone) q = q.ilike("phone", `%${params.phone}%`);
+  if (params.phone_alt) q = q.ilike("phone_alt", `%${params.phone_alt}%`);
+  if (params.payment_method) q = q.eq("payment_method", params.payment_method);
+  if (params.preferred_area) q = q.ilike("preferred_area", `%${params.preferred_area}%`);
+  if (params.unit_type) q = q.eq("unit_type", params.unit_type);
+  if (params.bedrooms) q = q.eq("bedrooms", params.bedrooms);
+  if (params.preferred_developer) q = q.ilike("preferred_developer", `%${params.preferred_developer}%`);
+  if (params.source) q = q.eq("source", params.source);
+  if (params.assigned_employee) q = q.eq("assigned_employee", params.assigned_employee);
+  if (params.created_by) q = q.eq("created_by", params.created_by);
+  if (params.budget_min != null) q = q.gte("budget_from", params.budget_min);
+  if (params.budget_max != null) q = q.lte("budget_from", params.budget_max);
+  if (params.last_contact_from) q = q.gte("last_contact_date", params.last_contact_from);
+  if (params.last_contact_to) q = q.lte("last_contact_date", params.last_contact_to);
+  if (params.seriousness_min != null) q = q.gte("seriousness_rating", params.seriousness_min);
+  if (params.seriousness_max != null) q = q.lte("seriousness_rating", params.seriousness_max);
+
+  if (params.custom_fields) {
+    for (const [key, value] of Object.entries(params.custom_fields)) {
+      const safeKey = key.replace(/[^a-zA-Z0-9_\u0600-\u06FF]/g, "_");
+      const v = sanitizeLike(value);
+      if (v) q = q.ilike(`custom_fields->>${safeKey}`, `%${v}%`);
+    }
+  }
+
+  return q;
+}
+
+export async function searchClients(params: SearchClientsParams): Promise<SearchClientsResult> {
   const admin = createAdminClient();
-  let query = admin.from(TABLE).select("*");
 
-  query = query.eq("is_company_client", params.is_company_client ?? false);
+  const countBase = admin
+    .from(TABLE)
+    .select("id", { count: "exact", head: true }) as unknown as FilterQuery;
+  const countRes = await applyFilters(countBase, params);
+  const total = (countRes as unknown as { count: number | null }).count ?? 0;
 
-  if (params.customer_name) query = query.ilike("customer_name", `%${params.customer_name}%`);
-  if (params.phone) query = query.ilike("phone", `%${params.phone}%`);
-  if (params.phone_alt) query = query.ilike("phone_alt", `%${params.phone_alt}%`);
-  if (params.payment_method) query = query.eq("payment_method", params.payment_method);
-  if (params.preferred_area) query = query.ilike("preferred_area", `%${params.preferred_area}%`);
-  if (params.unit_type) query = query.eq("unit_type", params.unit_type);
-  if (params.bedrooms) query = query.eq("bedrooms", params.bedrooms);
-  if (params.preferred_developer) query = query.ilike("preferred_developer", `%${params.preferred_developer}%`);
-  if (params.source) query = query.eq("source", params.source);
-  if (params.assigned_employee) query = query.eq("assigned_employee", params.assigned_employee);
-  if (params.budget_min != null) query = query.or(
-    `budget_to.gte.${params.budget_min},budget_from.gte.${params.budget_min}`
-  );
-  if (params.budget_max != null) query = query.or(
-    `budget_from.lte.${params.budget_max},budget_to.lte.${params.budget_max}`
-  );
-
-  query = query.order("created_at", { ascending: false });
+  const dataQuery = applyFilters(admin.from(TABLE).select("*"), params);
+  const orderCol = params.sort_by ?? "created_at";
+  dataQuery.order(orderCol, { ascending: (params.sort_order ?? "desc") === "asc" });
 
   const offset = params.offset ?? 0;
   const limit = params.limit ?? 50;
-  query = query.range(offset, offset + limit - 1);
+  dataQuery.range(offset, offset + limit - 1);
 
-  const { data, error } = await query;
+  const { data, error } = await dataQuery;
   if (error) throw new Error(error.message);
-  return (data ?? []) as ClientRow[];
+
+  return {
+    rows: (data ?? []) as ClientRow[],
+    total,
+  };
 }
 
 export async function getClientById(id: string): Promise<ClientRow | null> {

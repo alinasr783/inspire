@@ -25,10 +25,13 @@ export function registerUnitTools(server: McpServer) {
     },
     async (args) => {
       try {
-        const units = await searchUnits(args);
+        const { rows, total } = await searchUnits(args);
         return successResult({
-          count: units.length,
-          units,
+          count: rows.length,
+          total,
+          offset: args.offset ?? 0,
+          limit: args.limit ?? 50,
+          units: rows,
         });
       } catch (error) {
         return errorResult(error);
