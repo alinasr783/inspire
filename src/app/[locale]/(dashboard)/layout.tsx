@@ -8,6 +8,7 @@ import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { CheckInReminder } from "@/components/attendance/check-in-reminder";
 import { DashboardClientShell } from "@/components/providers/dashboard-client-shell";
 import { ThemeColorProvider } from "@/components/providers/theme-color-provider";
+import { AssistantWidget } from "@/components/assistant/assistant-widget";
 import { getCrmLogoUrl } from "@/lib/crm-actions";
 import { getActiveBan } from "@/lib/ban-actions";
 
@@ -95,6 +96,7 @@ export default async function DashboardLayout({
         </div>
         <BottomTabBar role={profile.role} />
         <CheckInReminder />
+        <AssistantWidget />
       </ThemeColorProvider>
     </DashboardClientShell>
   );
