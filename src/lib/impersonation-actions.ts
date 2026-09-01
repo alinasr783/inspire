@@ -4,8 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-export const IMPERSONATE_COOKIE = "impersonate_data";
+import { IMPERSONATE_COOKIE } from "@/lib/impersonation-constants";
 
 export type ActionResult =
   | { success: true }

@@ -13,7 +13,7 @@ import { ThemeColorProvider } from "@/components/providers/theme-color-provider"
 import { AssistantWidget } from "@/components/assistant/assistant-widget";
 import { getCrmLogoUrl } from "@/lib/crm-actions";
 import { getActiveBan } from "@/lib/ban-actions";
-import { IMPERSONATE_COOKIE } from "@/lib/impersonation-actions";
+import { IMPERSONATE_COOKIE } from "@/lib/impersonation-constants";
 
 export default async function DashboardLayout({
   children,
