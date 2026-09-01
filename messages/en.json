@@ -32,7 +32,8 @@
     "dark": "Dark",
     "search": "Search",
     "logout": "Logout",
-    "more": "More"
+    "more": "More",
+    "loading": "Loading..."
   },
   "Home": {
     "welcome": "Welcome to Inspire CRM",
@@ -660,7 +661,16 @@
     "newPendingToast": "You have {count} new registration requests",
     "viewUsers": "View users",
     "noSearchResults": "No results found",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "impersonate": "Impersonate",
+    "impersonateConfirm": "Are you sure you want to impersonate {name}?",
+    "impersonateDesc": "You will be temporarily logged in as this user. You can return to your account at any time via the Stop Impersonating button.",
+    "impersonatingAs": "You are impersonating as {name}",
+    "stopImpersonating": "Stop Impersonating",
+    "impersonateSuccess": "Impersonation started successfully",
+    "impersonateFailed": "Failed to start impersonation",
+    "stopImpersonatingSuccess": "Impersonation stopped successfully",
+    "stopImpersonatingFailed": "Failed to stop impersonation"
   },
   "Profile": {
     "title": "Profile",

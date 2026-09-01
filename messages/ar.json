@@ -32,7 +32,8 @@
     "dark": "داكن",
     "search": "بحث",
     "logout": "تسجيل الخروج",
-    "more": "المزيد"
+    "more": "المزيد",
+    "loading": "جاري التحميل..."
   },
   "Home": {
     "welcome": "مرحباً بك في نظام إنسباير",
@@ -661,7 +662,16 @@
     "newPendingToast": "لديك {count} طلبات تسجيل جديدة",
     "viewUsers": "عرض المستخدمين",
     "noSearchResults": "لا توجد نتائج مطابقة للبحث",
-    "loading": "جاري التحميل..."
+    "loading": "جاري التحميل...",
+    "impersonate": "الانتحال",
+    "impersonateConfirm": "هل أنت متأكد من رغبتك في التحويل إلى حساب {name}؟",
+    "impersonateDesc": "سيتم تسجيل دخولك بحساب المستخدم مؤقتاً. يمكنك العودة إلى حسابك في أي وقت عبر زر إنهاء الانتحال.",
+    "impersonatingAs": "أنت تتصرف بحساب {name}",
+    "stopImpersonating": "إنهاء الانتحال",
+    "impersonateSuccess": "تم بدء الانتحال بنجاح",
+    "impersonateFailed": "فشل بدء الانتحال",
+    "stopImpersonatingSuccess": "تم إنهاء الانتحال بنجاح",
+    "stopImpersonatingFailed": "فشل إنهاء الانتحال"
   },
   "Profile": {
     "title": "الملف الشخصي",

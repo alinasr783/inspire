@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { ImpersonationBanner } from "@/components/admin/impersonation-banner";
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { CheckInReminder } from "@/components/attendance/check-in-reminder";
 import { DashboardClientShell } from "@/components/providers/dashboard-client-shell";
@@ -11,6 +13,7 @@ import { ThemeColorProvider } from "@/components/providers/theme-color-provider"
 import { AssistantWidget } from "@/components/assistant/assistant-widget";
 import { getCrmLogoUrl } from "@/lib/crm-actions";
 import { getActiveBan } from "@/lib/ban-actions";
+import { IMPERSONATE_COOKIE } from "@/lib/impersonation-actions";
 
 export default async function DashboardLayout({
   children,
@@ -64,6 +67,9 @@ export default async function DashboardLayout({
     redirect(`/${locale}/auth/banned`);
   }
 
+  const cookieStore = await cookies();
+  const isImpersonating = !!cookieStore.get(IMPERSONATE_COOKIE);
+
   const shellUser = {
     id: user.id,
     firstName: profile.first_name,
@@ -91,6 +97,7 @@ export default async function DashboardLayout({
           <Sidebar role={profile.role} logoUrl={logoUrl} />
           <div className="flex h-full min-w-0 flex-col md:ps-[232px]">
             <Topbar />
+            {isImpersonating && <ImpersonationBanner />}
             <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>{children}</main>
           </div>
         </div>

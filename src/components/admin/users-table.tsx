@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import {
   ShieldCheck,
   UserCheck,
   UserX,
+  LogIn,
 } from "lucide-react";
 import {
   getUsers,
@@ -23,6 +25,7 @@ import {
   changeUserRole,
   type UserProfile,
 } from "@/lib/auth-actions";
+import { startImpersonation } from "@/lib/impersonation-actions";
 import { toast } from "sonner";
 
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
@@ -31,6 +34,7 @@ type DialogAction =
   | { type: "approve"; user: UserProfile }
   | { type: "reject"; user: UserProfile }
   | { type: "role"; user: UserProfile; newRole: "user" | "admin" }
+  | { type: "impersonate"; user: UserProfile }
   | null;
 
 const statusStyles: Record<string, string> = {
@@ -47,11 +51,13 @@ function userName(u: UserProfile) {
 
 export function UsersTable() {
   const t = useTranslations("Admin");
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [approving, setApproving] = useState<string | null>(null);
   const [roleChanging, setRoleChanging] = useState<string | null>(null);
+  const [impersonating, setImpersonating] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [dialog, setDialog] = useState<DialogAction>(null);
 
@@ -145,6 +151,20 @@ export function UsersTable() {
     });
   };
 
+  const executeImpersonate = (userId: string) => {
+    setImpersonating(userId);
+    startTransition(async () => {
+      const result = await startImpersonation(userId);
+      setImpersonating(null);
+      if (result.success) {
+        router.refresh();
+        router.push("/");
+      } else {
+        toast.error(t("impersonateFailed"));
+      }
+    });
+  };
+
   const handleDialogConfirm = () => {
     if (!dialog) return;
     if (dialog.type === "approve") {
@@ -153,6 +173,8 @@ export function UsersTable() {
       executeReject(dialog.user.id);
     } else if (dialog.type === "role") {
       executeRoleChange(dialog.user.id, dialog.newRole);
+    } else if (dialog.type === "impersonate") {
+      executeImpersonate(dialog.user.id);
     }
     setDialog(null);
   };
@@ -355,6 +377,22 @@ export function UsersTable() {
                             )}
                             <span className="ms-1">{t("changeRole")}</span>
                           </Button>
+                          {u.approval_status === "approved" && u.role !== "admin" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setDialog({ type: "impersonate", user: u })}
+                              disabled={isPending && impersonating === u.id}
+                              className="h-8 px-2.5 text-xs"
+                            >
+                              {isPending && impersonating === u.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <LogIn className="h-3.5 w-3.5" />
+                              )}
+                              <span className="ms-1">{t("impersonate")}</span>
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -384,17 +422,25 @@ export function UsersTable() {
                       dialog.newRole === "admin" ? "role_admin" : "role_user"
                     ),
                   })
-                : ""
+                : dialog?.type === "impersonate"
+                  ? t("impersonateConfirm", { name: userName(dialog.user) })
+                  : ""
         }
         description={
-          dialog?.type === "reject" ? t("rejectPermanent") : undefined
+          dialog?.type === "reject"
+            ? t("rejectPermanent")
+            : dialog?.type === "impersonate"
+              ? t("impersonateDesc")
+              : undefined
         }
         confirmLabel={
           dialog?.type === "approve"
             ? t("approve")
             : dialog?.type === "reject"
               ? t("reject")
-              : t("changeRoleReassign")
+              : dialog?.type === "impersonate"
+                ? t("impersonate")
+                : t("changeRoleReassign")
         }
         cancelLabel={t("cancel")}
         variant={dialog?.type === "reject" ? "destructive" : "default"}

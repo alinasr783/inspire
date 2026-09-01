@@ -39,6 +39,7 @@ CREATE TABLE public.units (
   compound_name text NOT NULL DEFAULT ''::text,
   assigned_employee uuid,
   share_text text,
+  highlight character varying DEFAULT NULL::character varying,
   CONSTRAINT units_pkey PRIMARY KEY (id),
   CONSTRAINT units_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
   CONSTRAINT units_assigned_employee_fkey FOREIGN KEY (assigned_employee) REFERENCES public.profiles(id)
@@ -77,6 +78,7 @@ CREATE TABLE public.clients (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   last_contact_date date,
   seriousness_rating integer CHECK (seriousness_rating >= 1 AND seriousness_rating <= 10),
+  is_company_client boolean NOT NULL DEFAULT false,
   CONSTRAINT clients_pkey PRIMARY KEY (id),
   CONSTRAINT clients_assigned_employee_fkey FOREIGN KEY (assigned_employee) REFERENCES public.profiles(id),
   CONSTRAINT clients_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
@@ -120,9 +122,15 @@ CREATE TABLE public.tasks (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   description text,
   target integer,
+  task_type text,
+  folder_id uuid,
+  file_id uuid,
+  records_target integer,
   CONSTRAINT tasks_pkey PRIMARY KEY (id),
   CONSTRAINT tasks_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES public.profiles(id),
-  CONSTRAINT tasks_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+  CONSTRAINT tasks_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
+  CONSTRAINT tasks_folder_id_fkey FOREIGN KEY (folder_id) REFERENCES public.unconfirmed_folders(id),
+  CONSTRAINT tasks_file_id_fkey FOREIGN KEY (file_id) REFERENCES public.unconfirmed_files(id)
 );
 CREATE TABLE public.unconfirmed_uploads (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -427,4 +435,54 @@ CREATE TABLE public.contract_instances (
   CONSTRAINT contract_instances_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.contract_templates(id),
   CONSTRAINT contract_instances_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
   CONSTRAINT contract_instances_client_id_fkey FOREIGN KEY (related_client_id) REFERENCES public.clients(id)
+);
+CREATE TABLE public.attendance_records (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  employee_id uuid NOT NULL,
+  check_in_date date NOT NULL DEFAULT CURRENT_DATE,
+  check_in_time timestamp with time zone NOT NULL DEFAULT now(),
+  latitude numeric,
+  longitude numeric,
+  location_name text DEFAULT ''::text,
+  notes text DEFAULT ''::text,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT attendance_records_pkey PRIMARY KEY (id),
+  CONSTRAINT attendance_records_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.profiles(id),
+  CONSTRAINT attendance_records_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.daily_work_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  employee_id uuid NOT NULL,
+  log_date date NOT NULL DEFAULT CURRENT_DATE,
+  title text NOT NULL,
+  description text,
+  hours numeric NOT NULL DEFAULT 0,
+  category text NOT NULL DEFAULT 'تطوير'::text,
+  status text NOT NULL DEFAULT 'مكتملة'::text,
+  department text,
+  attachment_paths jsonb DEFAULT '[]'::jsonb,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT daily_work_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT daily_work_logs_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.profiles(id),
+  CONSTRAINT daily_work_logs_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.user_bans (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  banned_by uuid NOT NULL,
+  reason text,
+  ban_type text NOT NULL CHECK (ban_type = ANY (ARRAY['temporary'::text, 'permanent'::text])),
+  banned_until timestamp with time zone,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  lifted_at timestamp with time zone,
+  lifted_by uuid,
+  CONSTRAINT user_bans_pkey PRIMARY KEY (id),
+  CONSTRAINT user_bans_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT user_bans_banned_by_fkey FOREIGN KEY (banned_by) REFERENCES public.profiles(id),
+  CONSTRAINT user_bans_lifted_by_fkey FOREIGN KEY (lifted_by) REFERENCES public.profiles(id)
 );
