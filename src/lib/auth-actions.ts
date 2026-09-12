@@ -326,6 +326,40 @@ export async function changeUserRole(
   return { success: true };
 }
 
+// ── Admin: reset a user's password directly (no old password needed) ──
+export async function adminResetUserPassword(
+  id: string,
+  newPassword: string
+): Promise<ActionResult> {
+  if (!id || !newPassword || newPassword.length < 6) {
+    return { success: false, error: "password-min" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: "unauthorized" };
+
+  const admin = createAdminClient();
+  const { data: me } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (!me || me.role !== "admin") return { success: false, error: "unauthorized" };
+
+  const { error } = await admin.auth.admin.updateUserById(id, {
+    password: newPassword,
+  });
+
+  if (error) return { success: false, error: "reset-failed" };
+
+  return { success: true };
+}
+
 // ── Admin: get pending users count (for badge/toast) ──
 export async function getPendingUsersCount(): Promise<number> {
   const supabase = await createClient();

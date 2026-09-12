@@ -670,7 +670,19 @@
     "impersonateSuccess": "Impersonation started successfully",
     "impersonateFailed": "Failed to start impersonation",
     "stopImpersonatingSuccess": "Impersonation stopped successfully",
-    "stopImpersonatingFailed": "Failed to stop impersonation"
+    "stopImpersonatingFailed": "Failed to stop impersonation",
+    "resetPassword": "Reset password",
+    "resetPasswordTitle": "Reset {name}'s password",
+    "resetPasswordDesc": "Enter a new password for this user. It applies immediately without needing the old password.",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "passwordMin": "Password must be at least 6 characters",
+    "passwordMismatch": "Passwords do not match",
+    "passwordResetSuccess": "{name}'s password reset successfully",
+    "passwordResetFailed": "Failed to reset password. Please try again.",
+    "saving": "Saving...",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "Profile": {
     "title": "Profile",

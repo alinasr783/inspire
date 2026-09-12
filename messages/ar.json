@@ -671,7 +671,19 @@
     "impersonateSuccess": "تم بدء الانتحال بنجاح",
     "impersonateFailed": "فشل بدء الانتحال",
     "stopImpersonatingSuccess": "تم إنهاء الانتحال بنجاح",
-    "stopImpersonatingFailed": "فشل إنهاء الانتحال"
+    "stopImpersonatingFailed": "فشل إنهاء الانتحال",
+    "resetPassword": "تغيير الباسورد",
+    "resetPasswordTitle": "تغيير باسورد {name}",
+    "resetPasswordDesc": "أدخل باسورد جديد للمستخدم وسيتم تطبيقه فوراً بدون الحاجة للباسورد القديم.",
+    "newPassword": "الباسورد الجديد",
+    "confirmPassword": "تأكيد الباسورد الجديد",
+    "passwordMin": "الباسورد لازم يكون 6 أحرف على الأقل",
+    "passwordMismatch": "الباسورد غير متطابق",
+    "passwordResetSuccess": "تم تغيير باسورد {name} بنجاح",
+    "passwordResetFailed": "فشل تغيير الباسورد. حاول مرة أخرى.",
+    "saving": "جاري الحفظ...",
+    "showPassword": "إظهار كلمة المرور",
+    "hidePassword": "إخفاء كلمة المرور"
   },
   "Profile": {
     "title": "الملف الشخصي",

@@ -18,13 +18,24 @@ import {
   UserCheck,
   UserX,
   LogIn,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import {
   getUsers,
   setApprovalReturn,
   changeUserRole,
+  adminResetUserPassword,
   type UserProfile,
 } from "@/lib/auth-actions";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { startImpersonation } from "@/lib/impersonation-actions";
 import { toast } from "sonner";
 
@@ -35,6 +46,7 @@ type DialogAction =
   | { type: "reject"; user: UserProfile }
   | { type: "role"; user: UserProfile; newRole: "user" | "admin" }
   | { type: "impersonate"; user: UserProfile }
+  | { type: "password"; user: UserProfile }
   | null;
 
 const statusStyles: Record<string, string> = {
@@ -47,6 +59,143 @@ const statusStyles: Record<string, string> = {
 
 function userName(u: UserProfile) {
   return [u.first_name, u.second_name].filter(Boolean).join(" ") || u.email;
+}
+
+function ResetPasswordDialog({
+  user,
+  open,
+  onClose,
+}: {
+  user: UserProfile;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const t = useTranslations("Admin");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const reset = () => {
+    setPassword("");
+    setConfirm("");
+    setError(null);
+    setShowPassword(false);
+    setShowConfirm(false);
+    setSaving(false);
+  };
+
+  const handleSubmit = async () => {
+    if (password.length < 6) {
+      setError(t("passwordMin"));
+      return;
+    }
+    if (password !== confirm) {
+      setError(t("passwordMismatch"));
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    const result = await adminResetUserPassword(user.id, password);
+    setSaving(false);
+    if (result.success) {
+      toast.success(t("passwordResetSuccess", { name: userName(user) }));
+      reset();
+      onClose();
+    } else {
+      setError(
+        result.error === "password-min" ? t("passwordMin") : t("passwordResetFailed")
+      );
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          reset();
+          onClose();
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("resetPasswordTitle", { name: userName(user) })}</DialogTitle>
+          <DialogDescription>{t("resetPasswordDesc")}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label htmlFor="admin-new-password" className="text-sm font-medium">
+              {t("newPassword")}
+            </label>
+            <div className="relative">
+              <Input
+                id="admin-new-password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                className="pe-10"
+                dir="ltr"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={t(showPassword ? "hidePassword" : "showPassword")}
+                className="absolute end-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="admin-confirm-password" className="text-sm font-medium">
+              {t("confirmPassword")}
+            </label>
+            <div className="relative">
+              <Input
+                id="admin-confirm-password"
+                type={showConfirm ? "text" : "password"}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                autoComplete="new-password"
+                className="pe-10"
+                dir="ltr"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirm((v) => !v)}
+                aria-label={t(showConfirm ? "hidePassword" : "showPassword")}
+                className="absolute end-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                reset();
+                onClose();
+              }}
+              disabled={saving}
+            >
+              {t("cancel")}
+            </Button>
+            <Button onClick={handleSubmit} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              {saving ? t("saving") : t("resetPassword")}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export function UsersTable() {
@@ -377,6 +526,15 @@ export function UsersTable() {
                             )}
                             <span className="ms-1">{t("changeRole")}</span>
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setDialog({ type: "password", user: u })}
+                            className="h-8 px-2.5 text-xs"
+                          >
+                            <KeyRound className="h-3.5 w-3.5" />
+                            <span className="ms-1">{t("resetPassword")}</span>
+                          </Button>
                           {u.approval_status === "approved" && u.role !== "admin" && (
                             <Button
                               size="sm"
@@ -404,9 +562,18 @@ export function UsersTable() {
         </CardContent>
       </Card>
 
+      {/* Reset password Dialog */}
+      {dialog?.type === "password" && (
+        <ResetPasswordDialog
+          user={dialog.user}
+          open
+          onClose={() => setDialog(null)}
+        />
+      )}
+
       {/* Confirm Dialog */}
       <ConfirmDialog
-        open={dialog !== null}
+        open={dialog !== null && dialog.type !== "password"}
         onOpenChange={(open) => {
           if (!open) setDialog(null);
         }}
