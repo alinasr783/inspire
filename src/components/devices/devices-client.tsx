@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
+  Check,
+  Copy,
+  ExternalLink,
   Laptop,
+  Link2,
   Loader2,
   MonitorSmartphone,
   QrCode,
@@ -15,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PwaInstallButton } from "@/components/devices/pwa-install-button";
 import { createDeviceQr, removeDevice } from "@/lib/device-actions";
@@ -70,6 +75,8 @@ export function DevicesClient({
   const [devices, setDevices] = useState<DeviceRow[]>(initialDevices);
   const [fingerprint] = useState<string | null>(getFingerprint);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [loginUrl, setLoginUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [generating, setGenerating] = useState(true);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
@@ -79,6 +86,7 @@ export function DevicesClient({
       .then((result) => {
         if (active && result.success && result.qrDataUrl) {
           setQrDataUrl(result.qrDataUrl);
+          setLoginUrl(result.loginUrl ?? null);
         }
       })
       .catch(() => undefined)
@@ -93,14 +101,34 @@ export function DevicesClient({
   const regenerate = () => {
     setGenerating(true);
     setQrDataUrl(null);
+    setLoginUrl(null);
+    setCopied(false);
     createDeviceQr(locale)
       .then((result) => {
         if (result.success && result.qrDataUrl) {
           setQrDataUrl(result.qrDataUrl);
+          setLoginUrl(result.loginUrl ?? null);
         }
       })
       .catch(() => undefined)
       .finally(() => setGenerating(false));
+  };
+
+  const copyLink = async () => {
+    if (!loginUrl) return;
+    try {
+      await navigator.clipboard.writeText(loginUrl);
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = loginUrl;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
+    setCopied(true);
+    toast.success(t("linkCopied"));
+    window.setTimeout(() => setCopied(false), 2000);
   };
 
   const handleRemove = async (id: string) => {
@@ -163,6 +191,52 @@ export function DevicesClient({
               )}
               {t("regenerate")}
             </Button>
+            {loginUrl && !generating ? (
+              <div className="w-full space-y-2 rounded-xl border bg-muted/40 p-3">
+                <p className="flex items-center gap-1.5 text-xs font-semibold">
+                  <Link2 className="h-3.5 w-3.5" />
+                  {t("linkTitle")}
+                </p>
+                <div className="flex items-center gap-2" dir="ltr">
+                  <Input
+                    readOnly
+                    value={loginUrl}
+                    onFocus={(e) => e.target.select()}
+                    className="h-9 bg-background text-left text-xs"
+                    aria-label={t("linkTitle")}
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={copyLink}
+                    aria-label={t("copyLink")}
+                    title={t("copyLink")}
+                    className="h-9 w-9 shrink-0"
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={() => window.open(loginUrl, "_blank", "noopener,noreferrer")}
+                    aria-label={t("openLink")}
+                    title={t("openLink")}
+                    className="h-9 w-9 shrink-0"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  {t("linkHint")}
+                </p>
+              </div>
+            ) : null}
             <p className="max-w-xs text-center text-xs text-muted-foreground">
               {t("qrHint")}
             </p>

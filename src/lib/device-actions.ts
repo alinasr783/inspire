@@ -62,7 +62,7 @@ export async function registerDevice(input: {
 // ── Generate a QR code with a custom device login token ──
 export async function createDeviceQr(
   locale: string
-): Promise<ActionResult & { qrDataUrl?: string }> {
+): Promise<ActionResult & { qrDataUrl?: string; loginUrl?: string }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -90,7 +90,7 @@ export async function createDeviceQr(
     errorCorrectionLevel: "M",
   });
 
-  return { success: true, qrDataUrl };
+  return { success: true, qrDataUrl, loginUrl };
 }
 
 // ── Validate a device login token and authenticate the device ──
