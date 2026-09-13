@@ -15,6 +15,10 @@ interface ExcelUploaderProps {
   onRemoveFile?: (index: number) => void;
   onClear?: () => void;
   multiple?: boolean;
+  /** ملفات مرفوضة بسبب الامتداد — لعرضها كأخطاء واضحة */
+  onRejectedFiles?: (files: File[]) => void;
+  /** مؤشرات الملفات التي فشلت معالجتها — تُميز بالأحمر */
+  errorIndices?: Set<number> | number[];
 }
 
 const isExcelFile = (file: File) =>
@@ -29,6 +33,8 @@ export function ExcelUploader({
   onRemoveFile,
   onClear,
   multiple,
+  onRejectedFiles,
+  errorIndices,
 }: ExcelUploaderProps) {
   const t = useTranslations("UnconfirmedData");
   const [dragOver, setDragOver] = useState(false);
@@ -48,7 +54,10 @@ export function ExcelUploader({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    const files = Array.from(e.dataTransfer.files).filter(isExcelFile);
+    const dropped = Array.from(e.dataTransfer.files);
+    const rejected = dropped.filter((f) => !isExcelFile(f));
+    if (rejected.length > 0) onRejectedFiles?.(rejected);
+    const files = dropped.filter(isExcelFile);
     if (files.length === 0) return;
     if (isMulti) {
       if (onFilesSelect) onFilesSelect(files);
@@ -61,7 +70,10 @@ export function ExcelUploader({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []).filter(isExcelFile);
+    const picked = Array.from(e.target.files ?? []);
+    const rejected = picked.filter((f) => !isExcelFile(f));
+    if (rejected.length > 0) onRejectedFiles?.(rejected);
+    const files = picked.filter(isExcelFile);
     if (files.length === 0) return;
     if (isMulti) {
       if (onFilesSelect) onFilesSelect(files);
@@ -130,10 +142,20 @@ export function ExcelUploader({
                 </Button>
               )}
             </div>
-            {files.map((file, i) => (
+            {files.map((file, i) => {
+              const hasError = errorIndices
+                ? Array.isArray(errorIndices)
+                  ? errorIndices.includes(i)
+                  : errorIndices.has(i)
+                : false;
+              return (
               <div
                 key={`${file.name}-${file.size}-${i}`}
-                className="flex items-center gap-3 rounded-lg border-2 border-primary/20 bg-primary/5 px-3 py-2"
+                className={`flex items-center gap-3 rounded-lg border-2 px-3 py-2 ${
+                  hasError
+                    ? "border-red-400 bg-red-50 dark:bg-red-950/30"
+                    : "border-primary/20 bg-primary/5"
+                }`}
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                   <FileSpreadsheet className="h-4 w-4 text-primary" />
@@ -159,8 +181,14 @@ export function ExcelUploader({
                     <X className="h-3.5 w-3.5" />
                   </Button>
                 )}
+                {hasError && (
+                  <span className="shrink-0 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                    {t("fileFailed")}
+                  </span>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
