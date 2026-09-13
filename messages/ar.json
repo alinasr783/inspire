@@ -651,7 +651,9 @@
     "mergedFrom": "مدمج من {count} ملفات",
     "skippedFiles": "ملفات متخطاة",
     "filesCountLabel": "عدد الملفات",
-    "multiUploadSuccess": "تم رفع {files} ملفات بنجاح — {rows} سجل"
+    "multiUploadSuccess": "تم رفع {files} ملفات بنجاح — {rows} سجل",
+    "mappedTo": "يُحفظ في: {field}",
+    "duplicateTarget": "تحذير: أكثر من عمود يُحفظ في نفس الحقل — تُؤخذ أول قيمة غير فارغة"
   },
   "Admin": {
     "title": "إدارة المستخدمين",

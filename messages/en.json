@@ -650,7 +650,9 @@
     "mergedFrom": "Merged from {count} files",
     "skippedFiles": "Skipped files",
     "filesCountLabel": "Files",
-    "multiUploadSuccess": "Uploaded {files} files — {rows} records"
+    "multiUploadSuccess": "Uploaded {files} files — {rows} records",
+    "mappedTo": "Saved to: {field}",
+    "duplicateTarget": "Warning: multiple columns save to the same field — first non-empty value wins"
   },
   "Admin": {
     "title": "User Management",

@@ -15,23 +15,50 @@ const COLUMN_ALIASES: Record<string, string[]> = {
 
 const PHONE_KEYWORDS = ["phone", "mobile", "tel", "telephone", "هاتف", "تليفون", "موبايل", "جوال", "cell", "موبيل"];
 
-export function mapExcelColumn(excelCol: string): string {
-  const cleaned = excelCol.trim().toLowerCase().replace(/[_-]/g, " ");
+/**
+ * Arabic orthography normalization so headers like "رقم الوحده"/"رقم الوحدة"
+ * or "المبني"/"المبنى" match the same alias. Applied to both the incoming
+ * header and every alias before comparing.
+ */
+export function normalizeArText(s: string): string {
+  return s
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  for (const [fixed, aliases] of Object.entries(COLUMN_ALIASES)) {
+function cleanHeader(excelCol: string): string {
+  return normalizeArText(excelCol.toLowerCase().replace(/[_-]/g, " "));
+}
+
+const NORMALIZED_ALIASES: Record<string, string[]> = Object.fromEntries(
+  Object.entries(COLUMN_ALIASES).map(([fixed, aliases]) => [
+    fixed,
+    aliases.map((a) => normalizeArText(a.toLowerCase())),
+  ])
+);
+
+const NORMALIZED_PHONE_KEYWORDS = PHONE_KEYWORDS.map((k) => normalizeArText(k.toLowerCase()));
+
+export function mapExcelColumn(excelCol: string): string {
+  const cleaned = cleanHeader(excelCol);
+
+  for (const [fixed, aliases] of Object.entries(NORMALIZED_ALIASES)) {
     if (aliases.includes(cleaned)) return fixed;
   }
 
   if (cleaned.includes("رقم")) {
-    if (cleaned.includes("مبني") || cleaned.includes("مبنى") || cleaned.includes("عمارة") || cleaned.includes("عماره")) {
+    if (cleaned.includes("مبني") || cleaned.includes("عماره")) {
       return "building_number";
     }
-    if (cleaned.includes("وحدة") || cleaned.includes("شقة") || cleaned.includes("شقه") || cleaned.includes("apartment")) {
+    if (cleaned.includes("وحده") || cleaned.includes("شقه") || cleaned.includes("apartment")) {
       return "unit_number";
     }
   }
 
-  const isPhone = PHONE_KEYWORDS.some((kw) => cleaned.includes(kw));
+  const isPhone = NORMALIZED_PHONE_KEYWORDS.some((kw) => cleaned.includes(kw));
   if (isPhone) {
     if (cleaned.includes("alt") || cleaned.includes("2") || cleaned.includes("بديل") || cleaned.includes("اخر") || cleaned.includes("ثاني")) {
       return "owner_phone_alt";
@@ -41,7 +68,7 @@ export function mapExcelColumn(excelCol: string): string {
 
   if (cleaned.includes("رقم")) return "owner_phone";
 
-  for (const [fixed, aliases] of Object.entries(COLUMN_ALIASES)) {
+  for (const [fixed, aliases] of Object.entries(NORMALIZED_ALIASES)) {
     if (aliases.some((a) => cleaned.includes(a) || a.includes(cleaned))) return fixed;
   }
 
@@ -104,8 +131,11 @@ function buildPreviewRows(jsonData: Record<string, string>[], headers: string[])
       const val = toStr(row[excelCol]);
       const fixed = mapExcelColumn(excelCol);
       if (fixed && FIXED_COLUMNS.includes(fixed)) {
+        // First non-empty value wins: two excel columns may map to the same
+        // system field (e.g. "Name" + "اسم المالك"). Overwriting silently put
+        // one column's data in the other's place.
         if (val) {
-          mapped[fixed] = val;
+          if (!(fixed in mapped) || !mapped[fixed]) mapped[fixed] = val;
         } else if (!(fixed in mapped)) {
           mapped[fixed] = "";
         }
@@ -169,7 +199,7 @@ export function parseExcelBuffer(data: ArrayBuffer | Uint8Array, fileName: strin
   }
 
   const columnMap = new Map<string, string>();
-  const columns: Array<{ key: string; label: string; type: "text" }> = [];
+  const columns: Array<{ key: string; label: string; type: "text"; target: string; targetDuplicate: boolean }> = [];
   for (const key of headers) {
     const fixed = mapExcelColumn(key);
     const colKey = fixed && FIXED_COLUMNS.includes(fixed) ? fixed : key;
@@ -179,7 +209,14 @@ export function parseExcelBuffer(data: ArrayBuffer | Uint8Array, fileName: strin
         key: colKey,
         label: key.replace(/[_-]/g, " ").split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
         type: "text" as const,
+        target: fixed || "",
+        targetDuplicate: false,
       });
+    } else if (fixed) {
+      // A second excel column maps to the same system field — flag the
+      // existing column so the preview can warn about the merge.
+      const existing = columns.find((c) => c.key === colKey);
+      if (existing) existing.targetDuplicate = true;
     }
   }
 

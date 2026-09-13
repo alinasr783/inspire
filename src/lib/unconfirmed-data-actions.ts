@@ -45,7 +45,7 @@ export interface PreviewRow {
 export interface PreviewResult {
   totalRows: number;
   warningsCount: number;
-  columns: Array<{ key: string; label: string; type: string }>;
+  columns: Array<{ key: string; label: string; type: string; target?: string; targetDuplicate?: boolean }>;
   rows: PreviewRow[];
   headers: string[];
   sourceFile?: string;

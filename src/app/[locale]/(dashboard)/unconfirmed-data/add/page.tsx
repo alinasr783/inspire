@@ -31,7 +31,7 @@ type MergedRow = PreviewRow & { _sourceFile: string };
 interface MergedPreview {
   totalRows: number;
   warningsCount: number;
-  columns: Array<{ key: string; label: string; type: string }>;
+  columns: Array<{ key: string; label: string; type: string; target: string; targetDuplicate: boolean }>;
   rows: MergedRow[];
   headersByFile: Record<string, string[]>;
   filesIncluded: string[];
@@ -196,10 +196,15 @@ export default function AddUnconfirmedDataPage() {
     }
 
     // Merge: union columns (preserve order), tag rows with source file
-    const colMap = new Map<string, { key: string; label: string; type: string }>();
+    const colMap = new Map<string, { key: string; label: string; type: string; target: string; targetDuplicate: boolean }>();
     for (const r of results) {
       for (const c of r.columns) {
-        if (!colMap.has(c.key)) colMap.set(c.key, c);
+        const prev = colMap.get(c.key);
+        if (!prev) {
+          colMap.set(c.key, { key: c.key, label: c.label, type: c.type, target: c.target ?? "", targetDuplicate: c.targetDuplicate ?? false });
+        } else if (c.targetDuplicate) {
+          prev.targetDuplicate = true;
+        }
       }
     }
     const taggedRows: MergedRow[] = results.flatMap((r, ri) => {
@@ -275,8 +280,7 @@ export default function AddUnconfirmedDataPage() {
     if (!previewData) return;
     const num = parseInt(selectToInput, 10);
     if (isNaN(num) || num < 1) return;
-    const max = Math.min(num, previewData.rows.length);
-    setSelectedIndices(Array.from({ length: max }, (_, i) => i));
+    setSelectedIndices(visibleGlobalIndices.slice(0, Math.max(num, 0)));
   };
 
   const deleteSelected = () => {
@@ -442,6 +446,7 @@ export default function AddUnconfirmedDataPage() {
                   locale="ar"
                   selectedIndices={visibleSelectedPositions}
                   onToggleSelect={toggleSelect}
+                  showMapping
                 />
               </CardContent>
             </Card>

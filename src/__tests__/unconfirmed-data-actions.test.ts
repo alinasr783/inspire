@@ -217,6 +217,31 @@ describe("unconfirmed-data-actions", () => {
       const buf = makeWorkbook([]);
       expect(() => parseExcelBuffer(buf, "empty.xlsx")).toThrow("excel-empty");
     });
+
+    test("normalizes Arabic orthography (ه/ة, ي/ى)", () => {
+      // "رقم الوحده" (with ه) must map to unit_number like "رقم الوحدة"
+      const buf = makeWorkbook([
+        ["رقم الوحده", "رقم المبني"],
+        ["12", "5"],
+      ]);
+      const preview = parseExcelBuffer(buf, "test.xlsx");
+
+      expect(preview.rows[0].mapped.unit_number).toBe("12");
+      expect(preview.rows[0].mapped.building_number).toBe("5");
+    });
+
+    test("first non-empty value wins on duplicate mapping", () => {
+      const buf = makeWorkbook([
+        ["Name", "اسم المالك"],
+        ["John", "أحمد"],
+      ]);
+      const preview = parseExcelBuffer(buf, "test.xlsx");
+
+      expect(preview.rows[0].mapped.owner_name).toBe("John");
+      const nameCol = preview.columns.find((c) => c.key === "owner_name");
+      expect(nameCol?.target).toBe("owner_name");
+      expect(nameCol?.targetDuplicate).toBe(true);
+    });
   });
 
   describe("deleteRecords", () => {
