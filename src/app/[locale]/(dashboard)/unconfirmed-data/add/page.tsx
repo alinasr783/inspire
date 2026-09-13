@@ -18,7 +18,7 @@ export default function AddUnconfirmedDataPage() {
   const t = useTranslations("UnconfirmedData");
 
   const [currentStep, setCurrentStep] = useState<Step>("upload");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewData, setPreviewData] = useState<PreviewResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -28,6 +28,7 @@ export default function AddUnconfirmedDataPage() {
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [selectToInput, setSelectToInput] = useState("");
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [processedFileNames, setProcessedFileNames] = useState<string[]>([]);
 
   const selectedSet = useMemo(() => new Set(selectedIndices), [selectedIndices]);
 
@@ -36,18 +37,27 @@ export default function AddUnconfirmedDataPage() {
     return previewData.rows.filter((_, i) => !selectedSet.has(i));
   }, [previewData, selectedSet]);
 
-  const handleFileSelect = useCallback((file: File) => {
-    setSelectedFile(file);
+  const handleFilesSelect = useCallback((files: File[]) => {
+    setSelectedFiles((prev) => {
+      const existing = new Set(prev.map((f) => `${f.name}-${f.size}-${f.lastModified}`));
+      const fresh = files.filter((f) => !existing.has(`${f.name}-${f.size}-${f.lastModified}`));
+      return [...prev, ...fresh];
+    });
+    setError(null);
+  }, []);
+
+  const handleRemoveFile = useCallback((index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
     setError(null);
   }, []);
 
   const handleClear = useCallback(() => {
-    setSelectedFile(null);
+    setSelectedFiles([]);
     setError(null);
   }, []);
 
   const handleStartProcessing = async () => {
-    if (!selectedFile) return;
+    if (selectedFiles.length === 0) return;
 
     setProcessing(true);
     setError(null);
@@ -57,33 +67,76 @@ export default function AddUnconfirmedDataPage() {
     await new Promise((r) => setTimeout(r, 300));
 
     try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error("file-read-failed"));
-        reader.readAsDataURL(selectedFile);
-      });
+      const totalFiles = selectedFiles.length;
+      const mergedRows: PreviewResult["rows"] = [];
+      const columnMap = new Map<string, PreviewResult["columns"][number]>();
+      const headersSet = new Set<string>();
+      let warningsTotal = 0;
+
+      // Loop: استخراج البيانات من كل ملف على حدة ثم الدمج (union)
+      // أي فشل يوقف العملية كلها حسب المطلوب
+      for (let i = 0; i < totalFiles; i++) {
+        const file = selectedFiles[i];
+        setProcessingDetails((prev) => [
+          ...prev,
+          t("processingFileName", { name: file.name, current: i + 1, total: totalFiles }),
+        ]);
+
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error("file-read-failed"));
+          reader.readAsDataURL(file);
+        });
+
+        let result: PreviewResult;
+        try {
+          result = await processExcelFile(base64, file.name);
+        } catch (err: any) {
+          throw new Error(`${file.name}: ${err?.message || "processing-failed"}`);
+        }
+
+        // وسم الصفوف باسم ملف المصدر (للمعاينة فقط)
+        const taggedRows = result.rows.map((row) => ({ ...row, sourceFile: file.name }));
+        mergedRows.push(...taggedRows);
+
+        for (const col of result.columns) {
+          if (!columnMap.has(col.key)) columnMap.set(col.key, col);
+        }
+        for (const h of result.headers) headersSet.add(h);
+        warningsTotal += result.warningsCount;
+
+        setProcessingDetails((prev) => [
+          ...prev,
+          t("processingFileDone", { name: file.name, rows: result.totalRows }),
+        ]);
+
+        await new Promise((r) => setTimeout(r, 200));
+      }
+
+      const merged: PreviewResult = {
+        totalRows: mergedRows.length,
+        warningsCount: warningsTotal,
+        columns: Array.from(columnMap.values()),
+        headers: Array.from(headersSet),
+        rows: mergedRows,
+      };
 
       setProcessingDetails((prev) => [
         ...prev,
-        t("processingColumns", { cols: "?", rows: "?" }),
-      ]);
-
-      const result = await processExcelFile(base64, selectedFile.name);
-
-      setProcessingDetails((prev) => [
-        ...prev,
+        t("processingColumns", { cols: merged.columns.length, rows: merged.totalRows }),
         t("processingPhonesDone", {
-          egyptian: result.totalRows,
+          egyptian: merged.totalRows,
           international: 0,
-          warnings: result.warningsCount,
+          warnings: merged.warningsCount,
         }),
         t("processingDone"),
       ]);
 
       await new Promise((r) => setTimeout(r, 300));
 
-      setPreviewData(result);
+      setPreviewData(merged);
+      setProcessedFileNames(selectedFiles.map((f) => f.name));
       setSelectedIndices([]);
       setSelectToInput("");
       setCurrentStep("review");
@@ -127,14 +180,20 @@ export default function AddUnconfirmedDataPage() {
   };
 
   const handleConfirm = async () => {
-    if (!previewData || !selectedFile) return;
+    if (!previewData || selectedFiles.length === 0) return;
     setConfirming(true);
 
     try {
+      const combinedFileName =
+        selectedFiles.length === 1
+          ? selectedFiles[0].name
+          : selectedFiles.map((f) => f.name).join(" + ");
+      // sourceFile للمُعاينة فقط — لا يُحفظ في قاعدة البيانات
+      const rowsToSave = remainingRows.map(({ sourceFile: _omit, ...row }) => row);
       await confirmUpload({
-        fileName: selectedFile.name,
+        fileName: combinedFileName,
         headers: previewData.headers,
-        rows: remainingRows,
+        rows: rowsToSave,
         fileId: selectedFileId,
       });
       setCurrentStep("confirm");
@@ -192,12 +251,26 @@ export default function AddUnconfirmedDataPage() {
                 </div>
               </CardHeader>
               <CardContent>
+                {processedFileNames.length > 0 && (
+                  <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">{t("sourceFiles")}:</span>
+                    {processedFileNames.map((name) => (
+                      <span key={name} className="inline-flex max-w-60 items-center truncate rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary" title={name}>
+                        <span className="truncate">{name}</span>
+                        <span className="ms-1 shrink-0 text-primary/60">
+                          ({previewData.rows.filter((r) => r.sourceFile === name).length})
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <DataPreviewTable
                   columns={previewData.columns}
                   rows={previewData.rows}
                   locale="ar"
                   selectedIndices={selectedIndices}
                   onToggleSelect={toggleSelect}
+                  showSourceFile
                 />
               </CardContent>
             </Card>
@@ -249,7 +322,7 @@ export default function AddUnconfirmedDataPage() {
             </Card>
 
             <div className="flex items-center justify-end gap-3">
-              <Button variant="outline" onClick={() => { setPreviewData(null); setCurrentStep("upload"); setSelectedFile(null); setSelectedIndices([]); }}>
+              <Button variant="outline" onClick={() => { setPreviewData(null); setCurrentStep("upload"); setSelectedFiles([]); setProcessedFileNames([]); setSelectedIndices([]); }}>
                 {t("backToUploads")}
               </Button>
               <Button onClick={() => setShowConfirm(true)} disabled={remainingRows.length === 0}>
@@ -294,7 +367,7 @@ export default function AddUnconfirmedDataPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t("addData")}</h1>
-          <p className="text-sm text-muted-foreground">{t("uploadExcel")}</p>
+          <p className="text-sm text-muted-foreground">{t("uploadExcelMultiple")}</p>
         </div>
       </div>
 
@@ -311,12 +384,14 @@ export default function AddUnconfirmedDataPage() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">{t("uploadExcel")}</CardTitle>
+          <CardTitle className="text-base">{t("uploadExcelMultiple")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <ExcelUploader
-            onFileSelect={handleFileSelect}
-            selectedFile={selectedFile}
+            multiple
+            selectedFiles={selectedFiles}
+            onFilesSelect={handleFilesSelect}
+            onRemoveFile={handleRemoveFile}
             onClear={handleClear}
           />
 
@@ -339,8 +414,10 @@ export default function AddUnconfirmedDataPage() {
           )}
 
           <div className="flex justify-end">
-            <Button onClick={handleStartProcessing} disabled={!selectedFile || processing}>
-              {processing ? t("processing") : t("startProcessing")}
+            <Button onClick={handleStartProcessing} disabled={selectedFiles.length === 0 || processing}>
+              {processing
+                ? t("processingFiles", { current: processingDetails.length, total: selectedFiles.length })
+                : t("startProcessing")}
             </Button>
           </div>
         </CardContent>

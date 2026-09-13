@@ -626,7 +626,16 @@
     "edit": "تعديل",
     "assignedEmployee": "الموظف المسؤول",
     "selectEmployee": "اختر موظف...",
-    "updatedBy": "آخر تحديث بواسطة"
+    "updatedBy": "آخر تحديث بواسطة",
+    "uploadExcelMultiple": "رفع ملفات Excel (يمكن اختيار أكثر من ملف)",
+    "dragDropMultiple": "اسحب وأفلت ملفات متعددة أو اضغط للاختيار",
+    "filesSelected": "تم اختيار {count} ملف",
+    "clearAll": "مسح الكل",
+    "sourceFile": "ملف المصدر",
+    "sourceFiles": "الملفات المصدر",
+    "processingFileName": "جاري قراءة {name} ({current}/{total})...",
+    "processingFileDone": "تم استخراج {rows} صف من {name}",
+    "processingFiles": "جاري المعالجة..."
   },
   "Admin": {
     "title": "إدارة المستخدمين",

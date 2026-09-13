@@ -17,9 +17,11 @@ interface DataPreviewTableProps {
   selectedIndices?: number[];
   onToggleSelect?: (index: number) => void;
   standardKeys?: string[];
+  /** عرض عمود اسم ملف المصدر (للمعاينة فقط) */
+  showSourceFile?: boolean;
 }
 
-export function DataPreviewTable({ columns, rows, locale, selectedIndices, onToggleSelect, standardKeys }: DataPreviewTableProps) {
+export function DataPreviewTable({ columns, rows, locale, selectedIndices, onToggleSelect, standardKeys, showSourceFile }: DataPreviewTableProps) {
   const t = useTranslations("UnconfirmedData");
   const warningsCount = rows.filter((r) => r.ai_notes).length;
 
@@ -109,6 +111,11 @@ export function DataPreviewTable({ columns, rows, locale, selectedIndices, onTog
                 </th>
               )}
               <th className="px-3 py-2 text-start font-medium whitespace-nowrap">#</th>
+              {showSourceFile && (
+                <th className="px-3 py-2 text-start font-medium whitespace-nowrap">
+                  {t("sourceFile")}
+                </th>
+              )}
               {columns.map((col) => (
                 <th key={col.key} className="px-3 py-2 text-start font-medium whitespace-nowrap">
                   {col.label}
@@ -143,6 +150,13 @@ export function DataPreviewTable({ columns, rows, locale, selectedIndices, onTog
                     </td>
                   )}
                   <td className="px-3 py-2 text-xs text-muted-foreground">{idx + 1}</td>
+                  {showSourceFile && (
+                    <td className="max-w-40 truncate px-3 py-2 text-xs" title={row.sourceFile ?? ""}>
+                      <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                        <span className="truncate">{row.sourceFile ?? "—"}</span>
+                      </span>
+                    </td>
+                  )}
                   {columns.map((col) => (
                     <td key={col.key} className="max-w-40 truncate px-3 py-2 text-xs">
                       {renderCellValue(col, row)}

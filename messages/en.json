@@ -625,7 +625,16 @@
     "edit": "Edit",
     "assignedEmployee": "Assigned To",
     "selectEmployee": "Select employee...",
-    "updatedBy": "Last updated by"
+    "updatedBy": "Last updated by",
+    "uploadExcelMultiple": "Upload Excel files (multiple allowed)",
+    "dragDropMultiple": "Drag & drop multiple files or click to select",
+    "filesSelected": "{count} file(s) selected",
+    "clearAll": "Clear all",
+    "sourceFile": "Source File",
+    "sourceFiles": "Source files",
+    "processingFileName": "Reading {name} ({current}/{total})...",
+    "processingFileDone": "Extracted {rows} rows from {name}",
+    "processingFiles": "Processing..."
   },
   "Admin": {
     "title": "User Management",

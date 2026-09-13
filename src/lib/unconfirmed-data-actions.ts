@@ -39,6 +39,8 @@ export interface PreviewRow {
   phone_normalized: string;
   phone_alt_normalized: string;
   ai_notes: string;
+  /** اسم ملف المصدر — للعرض في المعاينة فقط، لا يُحفظ في قاعدة البيانات */
+  sourceFile?: string;
 }
 
 export interface PreviewResult {
