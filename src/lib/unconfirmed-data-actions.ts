@@ -39,8 +39,6 @@ export interface PreviewRow {
   phone_normalized: string;
   phone_alt_normalized: string;
   ai_notes: string;
-  /** اسم ملف المصدر — للعرض في المعاينة فقط، لا يُحفظ في قاعدة البيانات */
-  sourceFile?: string;
 }
 
 export interface PreviewResult {
@@ -49,15 +47,6 @@ export interface PreviewResult {
   columns: Array<{ key: string; label: string; type: string }>;
   rows: PreviewRow[];
   headers: string[];
-  /** تشخيص إضافي لعرض أسباب واضحة في الواجهة */
-  diagnostics?: {
-    sheetsCount: number;
-    sheetsUsed: string[];
-    unmappedHeaders: string[];
-    mappedKeys: string[];
-    missingCritical: string[];
-    emptyRowsSkipped: number;
-  };
 }
 
 const COLUMN_ALIASES: Record<string, string[]> = {
@@ -193,39 +182,16 @@ export async function processExcelFile(fileBase64: string, fileName: string) {
   if (!user || userError) throw new Error("unauthorized");
 
   const base64Data = fileBase64.split(",")[1] || fileBase64;
-  let buffer: Buffer;
-  try {
-    buffer = Buffer.from(base64Data, "base64");
-    if (buffer.length === 0) throw new Error("empty-buffer");
-  } catch {
-    throw new Error("invalid-base64");
-  }
-
-  let workbook: XLSX.WorkBook;
-  try {
-    workbook = XLSX.read(buffer, { type: "buffer" });
-  } catch {
-    throw new Error("corrupt-file");
-  }
-
-  if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-    throw new Error("no-sheets");
-  }
+  const buffer = Buffer.from(base64Data, "base64");
+  const workbook = XLSX.read(buffer, { type: "buffer" });
 
   let allRows: Record<string, string>[] = [];
-  const sheetsUsed: string[] = [];
 
   for (const sheetName of workbook.SheetNames) {
     const worksheet = workbook.Sheets[sheetName];
-    let sheetRows: Record<string, string>[] = [];
-    try {
-      sheetRows = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, { defval: "" });
-    } catch {
-      throw new Error(`unreadable-sheet:${sheetName}`);
-    }
+    const sheetRows = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, { defval: "" });
     if (sheetRows.length > 0) {
       allRows = allRows.concat(sheetRows);
-      sheetsUsed.push(sheetName);
     }
   }
 
@@ -233,19 +199,12 @@ export async function processExcelFile(fileBase64: string, fileName: string) {
     throw new Error("excel-empty");
   }
 
-  let headers = Object.keys(allRows[0] ?? {});
+  let headers = Object.keys(allRows[0]);
 
   const nonEmptyColumns = headers.filter((col) =>
     allRows.some((row) => (row[col] ?? "").toString().trim() !== "")
   );
-
-  const emptyHeadersRemoved = headers.length - nonEmptyColumns.length;
-  void emptyHeadersRemoved;
   headers = nonEmptyColumns;
-
-  if (headers.length === 0) {
-    throw new Error("no-headers");
-  }
 
   const columnMap = new Map<string, string>();
   const columns: Array<{ key: string; label: string; type: "text" }> = [];
@@ -270,15 +229,9 @@ export async function processExcelFile(fileBase64: string, fileName: string) {
     return record;
   });
 
-  const rowsBeforeFilter = cleanRows.length;
   cleanRows = cleanRows.filter((row) =>
     headers.some((col) => (row[col] ?? "").toString().trim() !== "")
   );
-  const emptyRowsSkipped = rowsBeforeFilter - cleanRows.length;
-
-  if (cleanRows.length === 0) {
-    throw new Error("only-empty-rows");
-  }
 
   const previewRows = buildPreviewRows(cleanRows, headers);
 
@@ -287,36 +240,12 @@ export async function processExcelFile(fileBase64: string, fileName: string) {
     return orig && row.phone_normalized !== orig;
   }).length;
 
-  // تشخيص الأعمدة: أي عمود لم يُطابق أي حقل معروف + الحقول الحرجة الناقصة
-  const unmappedHeaders = headers.filter((h) => {
-    const fixed = mapExcelColumn(h);
-    return !fixed || !FIXED_COLUMNS.includes(fixed);
-  });
-  const mappedKeys = Array.from(
-    new Set(
-      headers
-        .map((h) => mapExcelColumn(h))
-        .filter((k) => k && FIXED_COLUMNS.includes(k))
-    )
-  );
-  const missingCritical: string[] = [];
-  if (!mappedKeys.includes("owner_phone")) missingCritical.push("owner_phone");
-  if (!mappedKeys.includes("owner_name")) missingCritical.push("owner_name");
-
   return {
     totalRows: previewRows.length,
     warningsCount,
     columns,
     headers,
     rows: previewRows,
-    diagnostics: {
-      sheetsCount: workbook.SheetNames.length,
-      sheetsUsed,
-      unmappedHeaders,
-      mappedKeys,
-      missingCritical,
-      emptyRowsSkipped,
-    },
   } satisfies PreviewResult;
 }
 
