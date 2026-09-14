@@ -266,6 +266,49 @@ describe("unconfirmed-data-actions", () => {
       expect(nameCol?.target).toBe("owner_name");
       expect(nameCol?.targetDuplicate).toBe(true);
     });
+
+    test("duplicate target preserves the losing value in extra_data", () => {
+      const buf = makeWorkbook([
+        ["Name", "اسم المالك"],
+        ["John", "أحمد"],
+      ]);
+      const preview = parseExcelBuffer(buf, "test.xlsx");
+
+      // No silent data loss: the second column's value survives under its
+      // original header so the final table can display it.
+      expect(preview.rows[0].extra_data["اسم المالك"]).toBe("أحمد");
+    });
+
+    test("fully-empty blank header is kept as a phone slot", () => {
+      const buf = makeWorkbook([
+        ["اسم المالك", ""],
+        ["أحمد", ""],
+        ["محمد", ""],
+      ]);
+      const preview = parseExcelBuffer(buf, "test.xlsx");
+
+      expect(preview.totalRows).toBe(2);
+      expect(preview.rows[0].mapped.owner_phone).toBe("");
+      const phoneCol = preview.columns.find((c) => c.key === "owner_phone");
+      expect(phoneCol?.label).toBe("رقم الهاتف");
+    });
+
+    test("third blank header overflows to extra_data with a phone label", () => {
+      const buf = makeWorkbook([
+        ["اسم المالك", "", "", ""],
+        ["أحمد", "1149030170", "1256789012", "1001234567"],
+      ]);
+      const preview = parseExcelBuffer(buf, "test.xlsx");
+
+      expect(preview.rows[0].mapped.owner_phone).toBe("1149030170");
+      expect(preview.rows[0].mapped.owner_phone_alt).toBe("1256789012");
+      const extraVals = Object.values(preview.rows[0].extra_data).map(String);
+      expect(extraVals).toContain("1001234567");
+      const overflowCol = preview.columns.find(
+        (c) => c.key !== "owner_phone" && c.key !== "owner_phone_alt" && c.target === ""
+      );
+      expect(overflowCol?.label).toBe("رقم الهاتف");
+    });
   });
 
   describe("deleteRecords", () => {

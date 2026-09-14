@@ -18,7 +18,7 @@ import { useCellNavigation } from "@/hooks/use-cell-navigation";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { showSuccess, showError } from "@/lib/toast-utils";
 
-interface Columns { key: string; label: string; type: string }
+interface Columns { key: string; label: string; type: string; extra?: boolean }
 
 const COL_WIDTHS: Record<string, number> = {
   owner_name: 160,
@@ -93,8 +93,15 @@ const CellDisplay = memo(({ col, record, locale, onEdit, onSave, employees }: { 
     const text = val ? new Date(val).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" }) : "";
     return <span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate">{text || "\u00A0"}</span>;
   }
-  const v = (record as Record<string, unknown>)[col.key];
+  // Extra (dynamic) columns are read-only and live in record.extra_data.
+  const v = col.extra
+    ? (record.extra_data as Record<string, unknown> | undefined)?.[col.key]
+    : (record as Record<string, unknown>)[col.key];
   const dv = v == null || v === "" ? "" : String(v);
+  if (col.extra) {
+    if (!dv) return <span className="px-0 py-0 block truncate min-h-[1.25rem]">&nbsp;</span>;
+    return <Tooltip><TooltipTrigger><span className="px-0 py-0 block truncate">{dv}</span></TooltipTrigger><TooltipContent side="bottom" align="start" className="max-w-sm whitespace-pre-wrap break-words">{dv}</TooltipContent></Tooltip>;
+  }
   if (!dv) return <span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate min-h-[1.25rem]">&nbsp;</span>;
   return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate">{dv}</span></TooltipTrigger><TooltipContent side="bottom" align="start" className="max-w-sm whitespace-pre-wrap break-words">{dv}</TooltipContent></Tooltip>;
 });
@@ -210,8 +217,9 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
 
   const onEditCell = useCallback((rowId: string, colKey: string) => {
     if (colKey === "whatsapp_state" || colKey === "assigned_employee") return;
+    if (columns.some((c) => c.key === colKey && c.extra)) return;
     setEditing({ rid: rowId, key: colKey });
-  }, []);
+  }, [columns]);
 
   const { activeRowId, activeColKey, handleRowMouseEnter, handleCellMouseEnter } = useCellNavigation(records, columns, onEditCell);
 
@@ -307,7 +315,11 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
     setDeleting(false);
     setDeleteOneDialog(null);
   }, [deleteOneDialog]);
-  const cellEdit = useCallback((rid: string, key: string) => setEditing({ rid, key }), []);
+  const cellEdit = useCallback((rid: string, key: string) => {
+    // Dynamic extra columns are read-only by design.
+    if (columns.some((c) => c.key === key && c.extra)) return;
+    setEditing({ rid, key });
+  }, [columns]);
   const cellSave = useCallback((rid: string, key: string, val: string) => {
     setEditing(null);
     const rec = recordsRef.current.find((r) => r.id === rid);

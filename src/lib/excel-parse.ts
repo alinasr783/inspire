@@ -138,6 +138,21 @@ export function isBlankHeader(header: string): boolean {
 /** System phone slots that blank headers can claim, in order. */
 const PHONE_FALLBACK_SLOTS = ["owner_phone", "owner_phone_alt"];
 
+/**
+ * Display label for an `extra_data` key in the final tables.
+ * Blank Excel headers (`""`, `"_1"`, `"__EMPTY..."`) hold phone numbers, so
+ * they are shown as "رقم الهاتف" instead of the raw technical key.
+ * `blankIndex` is the 0-based position among blank keys; callers pass it so
+ * multiple blank columns are disambiguated ("رقم الهاتف", "رقم الهاتف 2"...).
+ */
+export function extraDataColumnLabel(key: string, blankIndex?: number): string {
+  if (isBlankHeader(key)) {
+    if (blankIndex != null && blankIndex > 0) return `رقم الهاتف ${blankIndex + 1}`;
+    return "رقم الهاتف";
+  }
+  return key;
+}
+
 function buildPreviewRows(
   jsonData: Record<string, string>[],
   headers: string[],
@@ -154,7 +169,15 @@ function buildPreviewRows(
         // system field (e.g. "Name" + "اسم المالك"). Overwriting silently put
         // one column's data in the other's place.
         if (val) {
-          if (!(fixed in mapped) || !mapped[fixed]) mapped[fixed] = val;
+          if (!(fixed in mapped) || !mapped[fixed]) {
+            mapped[fixed] = val;
+          } else if (mapped[fixed] !== val) {
+            // Duplicate target with a *different* value: preserve the losing
+            // value under its original excel header so the final table shows
+            // every column instead of silently dropping it. The preview keeps
+            // showing the merged column (with the duplicate badge).
+            if (!(excelCol in extraData)) extraData[excelCol] = val;
+          }
         } else if (!(fixed in mapped)) {
           mapped[fixed] = "";
         }
@@ -206,12 +229,34 @@ export function parseExcelBuffer(data: ArrayBuffer | Uint8Array, fileName: strin
     throw new Error("excel-empty");
   }
 
-  let headers = Object.keys(allRows[0]);
+  const rawHeaders = Object.keys(allRows[0]);
+  const isNonEmpty = (col: string) =>
+    allRows.some((row) => (row[col] ?? "").toString().trim() !== "");
 
-  const nonEmptyColumns = headers.filter((col) =>
-    allRows.some((row) => (row[col] ?? "").toString().trim() !== "")
-  );
-  headers = nonEmptyColumns;
+  // Named phone columns that actually hold data claim their slot, so blank
+  // headers skip them. (Fully-empty named columns are dropped below and must
+  // not consume a slot.)
+  const namedPhoneClaimed = new Set<string>();
+  for (const key of rawHeaders) {
+    if (isBlankHeader(key) || !isNonEmpty(key)) continue;
+    const fixed = mapExcelColumn(key);
+    if (fixed === "owner_phone" || fixed === "owner_phone_alt") {
+      namedPhoneClaimed.add(fixed);
+    }
+  }
+  const freeBlankSlots = PHONE_FALLBACK_SLOTS.filter((s) => !namedPhoneClaimed.has(s)).length;
+
+  // Drop fully-empty columns — except blank-header columns while phone slots
+  // remain free. Those are kept even when empty so they still appear as a
+  // "رقم الهاتف" column in the preview and in the final table.
+  let blanksSeen = 0;
+  const headers = rawHeaders.filter((col) => {
+    if (isBlankHeader(col)) {
+      blanksSeen++;
+      if (blanksSeen <= freeBlankSlots) return true;
+    }
+    return isNonEmpty(col);
+  });
 
   if (headers.length === 0) {
     throw new Error("no-valid-columns");
@@ -244,17 +289,23 @@ export function parseExcelBuffer(data: ArrayBuffer | Uint8Array, fileName: strin
 
   const columnMap = new Map<string, string>();
   const columns: Array<{ key: string; label: string; type: "text"; target: string; targetDuplicate: boolean }> = [];
+  let blankOverflowSeen = 0;
   for (const key of headers) {
     const fixed = fixedOf(key);
     const colKey = fixed && FIXED_COLUMNS.includes(fixed) ? fixed : key;
     if (!columnMap.has(colKey)) {
       columnMap.set(colKey, key);
-      const blankPhoneLabel =
-        isBlankHeader(key) && fixed === "owner_phone_alt"
-          ? "رقم هاتف بديل"
-          : isBlankHeader(key) && fixed === "owner_phone"
-            ? "رقم الهاتف"
-            : null;
+      let blankPhoneLabel: string | null = null;
+      if (isBlankHeader(key)) {
+        if (fixed === "owner_phone_alt") blankPhoneLabel = "رقم هاتف بديل";
+        else if (fixed === "owner_phone") blankPhoneLabel = "رقم الهاتف";
+        else {
+          // Blank header with no free phone slot (third blank and beyond):
+          // kept as an extra column, still labelled as a phone column.
+          blankPhoneLabel = extraDataColumnLabel(key, blankOverflowSeen);
+          blankOverflowSeen++;
+        }
+      }
       columns.push({
         key: colKey,
         label: blankPhoneLabel ?? key.replace(/[_-]/g, " ").split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
