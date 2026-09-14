@@ -33,9 +33,11 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
 
   const [syncCount, setSyncCount] = useState(0);
   const handlePendingChange = useCallback((c: number) => setSyncCount(c), []);
+  const [synced, setSynced] = useState(false);
 
   useEffect(() => {
     setInitialData(initialRecords);
+    setSynced(true);
   }, [initialRecords, setInitialData]);
 
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
@@ -51,7 +53,10 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
 
   const currentFiles = folders.find((f) => f.id === folderId)?.files ?? [];
 
-  const dataSource = liveRecords.length > 0 ? liveRecords : initialRecords;
+  // NOTE: don't fall back on `liveRecords.length > 0` — after the initial
+  // sync an empty live list is valid (e.g. all rows deleted) and falling
+  // back to the stale `initialRecords` would resurrect deleted rows.
+  const dataSource = synced ? liveRecords : initialRecords;
 
   const filteredRecords = useMemo(() => {
     let result = dataSource;
@@ -145,8 +150,16 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
 
       <Card className="flex max-h-[calc(100vh-180px)] flex-col">
         <CardHeader className="shrink-0 pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle className="flex flex-wrap items-center gap-2 text-base">
             <span>{t("allUploads")}</span>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+              {filteredRecords.length}
+            </span>
+            {showCount < filteredRecords.length && (
+              <span className="text-xs font-normal tabular-nums text-muted-foreground">
+                ({Math.min(showCount, filteredRecords.length)} / {filteredRecords.length})
+              </span>
+            )}
             {syncCount > 0 ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary" title={t("syncingTitle")}>
                 <span className="h-2 w-2 animate-spin rounded-full border-2 border-primary border-t-transparent" />

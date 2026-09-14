@@ -39,6 +39,7 @@ function createMockClient() {
     or: (_filter: string) => q,
     order: (col: string, opts: { ascending: boolean }) => { orderBy = { column: col, asc: opts.ascending }; return q; },
     limit: (_n?: number) => q,
+    range: (_from: number, _to: number) => q,
     single: () => { isSingle = true; return q; },
     then: (resolve: (val: { data: unknown; error: unknown }) => void) => {
       let rows = [...(mockTables[currentTable] ?? [])];

@@ -306,15 +306,22 @@ export async function getUploads() {
   if (!user || userError) throw new Error("unauthorized");
 
   const admin = createAdminClient();
-  const { data: uploads, error } = await admin
-    .from("unconfirmed_uploads")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(5000);
+  const uploads: Array<{ id: string; created_by: string; [key: string]: unknown }> = [];
+  const UPLOAD_PAGE = 1000;
+  for (let offset = 0; ; offset += UPLOAD_PAGE) {
+    const { data: page, error: pageError } = await admin
+      .from("unconfirmed_uploads")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(offset, offset + UPLOAD_PAGE - 1);
+    if (pageError) throw new Error("fetch-failed");
+    uploads.push(...((page ?? []) as Array<{ id: string; created_by: string; [key: string]: unknown }>));
+    if (!page || page.length < UPLOAD_PAGE) break;
+    if (uploads.length >= 5000) break;
+  }
 
-  if (error) throw new Error("fetch-failed");
-
-  const userIds = Array.from(new Set((uploads ?? []).map((u) => u.created_by)));
+  const userIds = Array.from(new Set(uploads.map((u) => u.created_by)));
   const { data: profiles } = await admin
     .from("profiles")
     .select("id, full_name")
@@ -322,7 +329,7 @@ export async function getUploads() {
 
   const creatorMap = new Map((profiles ?? []).map((p) => [p.id, p.full_name || p.id]));
 
-  return (uploads ?? []).map((u) => ({
+  return uploads.map((u) => ({
     ...u,
     creator_name: creatorMap.get(u.created_by) || "Unknown",
   }));
@@ -337,23 +344,53 @@ export async function getRecords(options?: { uploadId?: string; status?: string;
 
   let fileIds: string[] | undefined;
   if (options?.folderId) {
-    const { data: files } = await admin
-      .from("unconfirmed_files")
-      .select("id")
-      .eq("folder_id", options.folderId);
-    fileIds = (files ?? []).map((f) => f.id);
+    // Paginate the file lookup too: a single PostgREST response is capped
+    // by the server's max-rows setting (Supabase default 1000), so one
+    // `.select()` without `.range()` silently drops files beyond the cap.
+    fileIds = [];
+    const FILE_PAGE = 1000;
+    for (let offset = 0; ; offset += FILE_PAGE) {
+      const { data: files, error: filesError } = await admin
+        .from("unconfirmed_files")
+        .select("id")
+        .eq("folder_id", options.folderId)
+        .order("id", { ascending: true })
+        .range(offset, offset + FILE_PAGE - 1);
+      if (filesError) throw new Error("fetch-failed");
+      const page = (files ?? []) as Array<{ id: string }>;
+      fileIds.push(...page.map((f) => f.id));
+      if (page.length < FILE_PAGE) break;
+    }
     if (fileIds.length === 0) return [];
   }
 
-  let query = admin.from("unconfirmed_records").select("*");
+  // NOTE: PostgREST caps a single response at the server's max-rows setting
+  // (Supabase default is 1000). The old code used a single
+  // `.limit(10000)` query, so any file/folder with more rows than the cap
+  // was silently truncated in the "all data" table even though the rows
+  // existed in the DB. Paginate with `.range()` to fetch everything.
+  const PAGE_SIZE = 1000;
+  const allRecords: UnconfirmedRecord[] = [];
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    let query = admin.from("unconfirmed_records").select("*");
 
-  if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
-  if (options?.status) query = query.eq("status", options.status);
-  if (options?.fileId) query = query.eq("file_id", options.fileId);
-  if (fileIds) query = query.in("file_id", fileIds);
+    if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
+    if (options?.status) query = query.eq("status", options.status);
+    if (options?.fileId) query = query.eq("file_id", options.fileId);
+    if (fileIds) query = query.in("file_id", fileIds);
 
-  const { data: records, error } = await query.order("row_number", { ascending: true }).limit(10000);
-  if (error) throw new Error("fetch-failed");
+    const { data: page, error } = await query
+      .order("row_number", { ascending: true })
+      .order("id", { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (error) throw new Error("fetch-failed");
+
+    const rows = (page ?? []) as UnconfirmedRecord[];
+    allRecords.push(...rows);
+    if (rows.length < PAGE_SIZE) break;
+  }
+
+  const records = allRecords;
 
   const sorted = (list: UnconfirmedRecord[]) => [...list].sort((a, b) => {
     const nameA = (a.owner_name || "").trim();
