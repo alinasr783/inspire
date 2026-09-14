@@ -45,6 +45,10 @@ const NORMALIZED_PHONE_KEYWORDS = PHONE_KEYWORDS.map((k) => normalizeArText(k.to
 export function mapExcelColumn(excelCol: string): string {
   const cleaned = cleanHeader(excelCol);
 
+  // Never let an empty header match via substring quirks
+  // (`"".includes` / `alias.includes("")` is always true).
+  if (!cleaned) return "";
+
   for (const [fixed, aliases] of Object.entries(NORMALIZED_ALIASES)) {
     if (aliases.includes(cleaned)) return fixed;
   }
@@ -123,13 +127,28 @@ function toStr(v: unknown): string {
   return String(v);
 }
 
-function buildPreviewRows(jsonData: Record<string, string>[], headers: string[]): PreviewRow[] {
+/**
+ * Blank headers arrive as `""`, `"  "`, `"_1"`, `"_2"` (xlsx dedupes repeated
+ * blanks by suffixing `_N`), or `__EMPTY...` on other xlsx versions.
+ */
+export function isBlankHeader(header: string): boolean {
+  return /^(\s*__EMPTY(_\d+)?\s*|\s*_\d+\s*|\s*)$/.test(header);
+}
+
+/** System phone slots that blank headers can claim, in order. */
+const PHONE_FALLBACK_SLOTS = ["owner_phone", "owner_phone_alt"];
+
+function buildPreviewRows(
+  jsonData: Record<string, string>[],
+  headers: string[],
+  fixedOf: (header: string) => string = mapExcelColumn
+): PreviewRow[] {
   return jsonData.map((row) => {
     const mapped: Record<string, string> = {};
     const extraData: Record<string, unknown> = {};
     for (const excelCol of headers) {
       const val = toStr(row[excelCol]);
-      const fixed = mapExcelColumn(excelCol);
+      const fixed = fixedOf(excelCol);
       if (fixed && FIXED_COLUMNS.includes(fixed)) {
         // First non-empty value wins: two excel columns may map to the same
         // system field (e.g. "Name" + "اسم المالك"). Overwriting silently put
@@ -198,16 +217,47 @@ export function parseExcelBuffer(data: ArrayBuffer | Uint8Array, fileName: strin
     throw new Error("no-valid-columns");
   }
 
+  // Resolve every header to a system field in two passes:
+  //  1. named columns use the normal mapping,
+  //  2. blank headers claim the phone slots in order
+  //     (first blank -> owner_phone, next -> owner_phone_alt),
+  //     skipping slots already claimed by named columns.
+  const fixedByHeader = new Map<string, string>();
+  const claimedFixed = new Set<string>();
+  for (const key of headers) {
+    if (isBlankHeader(key)) continue;
+    const fixed = mapExcelColumn(key);
+    if (fixed && FIXED_COLUMNS.includes(fixed)) {
+      fixedByHeader.set(key, fixed);
+      claimedFixed.add(fixed);
+    }
+  }
+  for (const key of headers) {
+    if (!isBlankHeader(key)) continue;
+    const slot = PHONE_FALLBACK_SLOTS.find((s) => !claimedFixed.has(s));
+    if (slot) {
+      fixedByHeader.set(key, slot);
+      claimedFixed.add(slot);
+    }
+  }
+  const fixedOf = (h: string) => fixedByHeader.get(h) ?? "";
+
   const columnMap = new Map<string, string>();
   const columns: Array<{ key: string; label: string; type: "text"; target: string; targetDuplicate: boolean }> = [];
   for (const key of headers) {
-    const fixed = mapExcelColumn(key);
+    const fixed = fixedOf(key);
     const colKey = fixed && FIXED_COLUMNS.includes(fixed) ? fixed : key;
     if (!columnMap.has(colKey)) {
       columnMap.set(colKey, key);
+      const blankPhoneLabel =
+        isBlankHeader(key) && fixed === "owner_phone_alt"
+          ? "رقم هاتف بديل"
+          : isBlankHeader(key) && fixed === "owner_phone"
+            ? "رقم الهاتف"
+            : null;
       columns.push({
         key: colKey,
-        label: key.replace(/[_-]/g, " ").split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+        label: blankPhoneLabel ?? key.replace(/[_-]/g, " ").split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
         type: "text" as const,
         target: fixed || "",
         targetDuplicate: false,
@@ -232,7 +282,7 @@ export function parseExcelBuffer(data: ArrayBuffer | Uint8Array, fileName: strin
     headers.some((col) => (row[col] ?? "").toString().trim() !== "")
   );
 
-  const previewRows = buildPreviewRows(cleanRows, headers);
+  const previewRows = buildPreviewRows(cleanRows, headers, fixedOf);
 
   const warningsCount = previewRows.filter((row) => {
     const orig = row.mapped.owner_phone || "";

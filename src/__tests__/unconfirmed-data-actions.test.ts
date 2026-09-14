@@ -230,6 +230,30 @@ describe("unconfirmed-data-actions", () => {
       expect(preview.rows[0].mapped.building_number).toBe("5");
     });
 
+    test("blank headers fall back to phone slots in order", () => {
+      const buf = makeWorkbook([
+        ["اسم المالك", "", ""],
+        ["أحمد", "1149030170", "1256789012"],
+      ]);
+      const preview = parseExcelBuffer(buf, "test.xlsx");
+
+      expect(preview.rows[0].mapped.owner_phone).toBe("1149030170");
+      expect(preview.rows[0].phone_normalized).toBe("01149030170");
+      expect(preview.rows[0].mapped.owner_phone_alt).toBe("1256789012");
+      expect(preview.rows[0].phone_alt_normalized).toBe("01256789012");
+    });
+
+    test("blank header takes the second slot when the first is claimed", () => {
+      const buf = makeWorkbook([
+        ["رقم الهاتف", ""],
+        ["1149030170", "1256789012"],
+      ]);
+      const preview = parseExcelBuffer(buf, "test.xlsx");
+
+      expect(preview.rows[0].mapped.owner_phone).toBe("1149030170");
+      expect(preview.rows[0].mapped.owner_phone_alt).toBe("1256789012");
+    });
+
     test("first non-empty value wins on duplicate mapping", () => {
       const buf = makeWorkbook([
         ["Name", "اسم المالك"],
