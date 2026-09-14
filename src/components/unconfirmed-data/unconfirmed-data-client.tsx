@@ -12,7 +12,6 @@ import { CampaignActions } from "@/components/unconfirmed-data/campaign-actions"
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ShortcutsHelp } from "@/components/units/shortcuts-help";
 import { type UnconfirmedRecord } from "@/lib/unconfirmed-data-actions";
-import { extraDataColumnLabel } from "@/lib/excel-parse";
 import { getFolders, type Folder } from "@/lib/unconfirmed-folder-actions";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { Link } from "@/i18n/navigation";
@@ -33,11 +32,9 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
 
   const [syncCount, setSyncCount] = useState(0);
   const handlePendingChange = useCallback((c: number) => setSyncCount(c), []);
-  const [synced, setSynced] = useState(false);
 
   useEffect(() => {
     setInitialData(initialRecords);
-    setSynced(true);
   }, [initialRecords, setInitialData]);
 
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
@@ -53,10 +50,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
 
   const currentFiles = folders.find((f) => f.id === folderId)?.files ?? [];
 
-  // NOTE: don't fall back on `liveRecords.length > 0` — after the initial
-  // sync an empty live list is valid (e.g. all rows deleted) and falling
-  // back to the stale `initialRecords` would resurrect deleted rows.
-  const dataSource = synced ? liveRecords : initialRecords;
+  const dataSource = liveRecords.length > 0 ? liveRecords : initialRecords;
 
   const filteredRecords = useMemo(() => {
     let result = dataSource;
@@ -77,7 +71,6 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
           r.owner_name, r.unit_area, r.building_number, r.unit_number,
           r.owner_phone, r.owner_phone_alt, r.affiliated_company,
           r.last_feedback, r.last_contact_date,
-          JSON.stringify(r.extra_data || {}),
         ].some((v) => (v ?? "").toLowerCase().includes(term));
       });
     }
@@ -87,7 +80,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
     return result;
   }, [dataSource, folderId, fileId, search, folders, feedbackOnly]);
 
-  const columns = useMemo(() => [
+  const columns = [
     { key: "owner_name", label: t("ownerName"), type: "text" },
     { key: "unit_area", label: t("unitArea"), type: "text" },
     { key: "building_number", label: t("buildingNumber"), type: "text" },
@@ -99,36 +92,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
     { key: "last_contact_date", label: t("lastContactDate"), type: "date" },
     { key: "whatsapp_state", label: t("whatsappState"), type: "text" },
     { key: "assigned_employee", label: t("assignedEmployee"), type: "select" },
-  ], [t]);
-
-  // Dynamic extra columns: every key stored in extra_data appears as a
-  // read-only column so no preview column is ever hidden in the final table.
-  // Blank-header keys (phone overflow / duplicates) are labelled رقم الهاتف.
-  const extraColumns = useMemo(() => {
-    const seen = new Set<string>();
-    const ordered: string[] = [];
-    for (const r of filteredRecords) {
-      const ed = (r.extra_data || {}) as Record<string, unknown>;
-      for (const k of Object.keys(ed)) {
-        if (!seen.has(k)) {
-          seen.add(k);
-          ordered.push(k);
-        }
-      }
-    }
-    let blankIndex = -1;
-    return ordered.map((k) => {
-      let label = k;
-      if (/^(\s*__EMPTY(_\d+)?\s*|\s*_\d+\s*|\s*)$/.test(k)) {
-        blankIndex++;
-        const base = extraDataColumnLabel(k, 0);
-        label = blankIndex === 0 ? base : `${base} ${blankIndex + 1}`;
-      }
-      return { key: k, label, type: "text", extra: true as const };
-    });
-  }, [filteredRecords]);
-
-  const allColumns = useMemo(() => [...columns, ...extraColumns], [columns, extraColumns]);
+  ];
 
   const selectClass = "appearance-none flex h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -150,16 +114,8 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
 
       <Card className="flex max-h-[calc(100vh-180px)] flex-col">
         <CardHeader className="shrink-0 pb-3">
-          <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+          <CardTitle className="flex items-center gap-2 text-base">
             <span>{t("allUploads")}</span>
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
-              {filteredRecords.length}
-            </span>
-            {showCount < filteredRecords.length && (
-              <span className="text-xs font-normal tabular-nums text-muted-foreground">
-                ({Math.min(showCount, filteredRecords.length)} / {filteredRecords.length})
-              </span>
-            )}
             {syncCount > 0 ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary" title={t("syncingTitle")}>
                 <span className="h-2 w-2 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -243,7 +199,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
             </div>
           </div>
 
-          <UploadsTable records={filteredRecords.slice(0, showCount)} columns={allColumns} locale={locale} selectable={true} userId={userId} employees={employees} onPendingChange={handlePendingChange} />
+          <UploadsTable records={filteredRecords.slice(0, showCount)} columns={columns} locale={locale} selectable={true} userId={userId} employees={employees} onPendingChange={handlePendingChange} />
           {showCount < filteredRecords.length && (
             <div className="flex justify-center pt-4">
               <Button variant="outline" onClick={() => setShowCount((c) => c + 100)}>

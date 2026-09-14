@@ -58,8 +58,7 @@ function createMockClient() {
     insert: (row: Row | Row[]) => {
       const list = Array.isArray(row) ? row : [row];
       for (const r of list) {
-        const table = (mockTables[currentTable] ??= []);
-        table.push({ id: `mock-${currentTable}-${table.length + 1}`, ...r });
+        (mockTables[currentTable] ??= []).push(r);
       }
       return { ...q, select: (_cols?: string) => q };
     },
@@ -95,9 +94,7 @@ function createMockClient() {
 vi.mock("@/lib/supabase/server", () => ({ createClient: () => createMockClient() }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => createMockClient() }));
 
-import * as XLSX from "xlsx";
-import { parseExcelBuffer } from "@/lib/excel-parse";
-import { confirmUpload, createConfirmedUpload, appendConfirmedRecords, deleteConfirmedUpload, deleteRecords, getRecords } from "@/lib/unconfirmed-data-actions";
+import { confirmUpload, deleteRecords, getRecords } from "@/lib/unconfirmed-data-actions";
 
 describe("unconfirmed-data-actions", () => {
   beforeEach(() => {
@@ -139,176 +136,6 @@ describe("unconfirmed-data-actions", () => {
     test("throws when user is not authenticated", async () => {
       mockCurrentUser = null;
       await expect(confirmUpload({ fileName: "x.xlsx", headers: [], rows: [{ mapped: { owner_name: "x" } as any, extra_data: {}, phone_normalized: "", phone_alt_normalized: "", ai_notes: "" }] })).rejects.toThrow("unauthorized");
-    });
-  });
-
-  describe("chunked confirm (create + append + delete)", () => {
-    const row = (name: string) => ({
-      mapped: { owner_name: name, owner_phone: "01149030170", unit_area: "", building_number: "", unit_number: "", owner_phone_alt: "", affiliated_company: "", last_feedback: "", last_contact_date: "" },
-      extra_data: {},
-      phone_normalized: "01149030170",
-      phone_alt_normalized: "",
-      ai_notes: "",
-    });
-
-    test("saves a file in chunks with continuous row numbers", async () => {
-      const { uploadId } = await createConfirmedUpload({ fileName: "big.xlsx", totalRows: 3 });
-      expect(uploadId).toBeDefined();
-
-      await appendConfirmedRecords({ uploadId, rows: [row("أحمد"), row("محمد")], startRow: 0 });
-      await appendConfirmedRecords({ uploadId, rows: [row("علي")], startRow: 2 });
-
-      expect(mockTables.unconfirmed_records).toHaveLength(3);
-      const numbers = mockTables.unconfirmed_records.map((r) => r.row_number);
-      expect(numbers).toEqual([1, 2, 3]);
-      for (const r of mockTables.unconfirmed_records) {
-        expect(r.upload_id).toBe(uploadId);
-        expect(r.status).toBe("approved");
-      }
-    });
-
-    test("rejects chunks larger than the limit", async () => {
-      const { uploadId } = await createConfirmedUpload({ fileName: "big.xlsx", totalRows: 600 });
-      await expect(
-        appendConfirmedRecords({ uploadId, rows: Array.from({ length: 501 }, () => row("x")), startRow: 0 })
-      ).rejects.toThrow("chunk-too-large");
-    });
-
-    test("delete rolls back the upload and its records", async () => {
-      const { uploadId } = await createConfirmedUpload({ fileName: "bad.xlsx", totalRows: 1 });
-      await appendConfirmedRecords({ uploadId, rows: [row("x")], startRow: 0 });
-      await deleteConfirmedUpload(uploadId);
-
-      expect(mockTables.unconfirmed_uploads).toHaveLength(0);
-      expect(mockTables.unconfirmed_records).toHaveLength(0);
-    });
-
-    test("create throws without rows", async () => {
-      await expect(createConfirmedUpload({ fileName: "empty.xlsx", totalRows: 0 })).rejects.toThrow("no-rows-to-confirm");
-    });
-
-    test("throws when user is not authenticated", async () => {
-      mockCurrentUser = null;
-      await expect(createConfirmedUpload({ fileName: "a.xlsx", totalRows: 1 })).rejects.toThrow("unauthorized");
-    });
-  });
-
-  describe("parseExcelBuffer", () => {
-    function makeWorkbook(rows: string[][]): ArrayBuffer {
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.aoa_to_sheet(rows);
-      XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-      return XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
-    }
-
-    test("maps Arabic headers and normalizes phones", () => {
-      const buf = makeWorkbook([
-        ["اسم المالك", "رقم الهاتف"],
-        ["أحمد", "1149030170"],
-      ]);
-      const preview = parseExcelBuffer(buf, "test.xlsx");
-
-      expect(preview.totalRows).toBe(1);
-      expect(preview.sourceFile).toBe("test.xlsx");
-      expect(preview.rows[0].mapped.owner_name).toBe("أحمد");
-      expect(preview.rows[0].phone_normalized).toBe("01149030170");
-    });
-
-    test("throws excel-empty for an empty sheet", () => {
-      const buf = makeWorkbook([]);
-      expect(() => parseExcelBuffer(buf, "empty.xlsx")).toThrow("excel-empty");
-    });
-
-    test("normalizes Arabic orthography (ه/ة, ي/ى)", () => {
-      // "رقم الوحده" (with ه) must map to unit_number like "رقم الوحدة"
-      const buf = makeWorkbook([
-        ["رقم الوحده", "رقم المبني"],
-        ["12", "5"],
-      ]);
-      const preview = parseExcelBuffer(buf, "test.xlsx");
-
-      expect(preview.rows[0].mapped.unit_number).toBe("12");
-      expect(preview.rows[0].mapped.building_number).toBe("5");
-    });
-
-    test("blank headers fall back to phone slots in order", () => {
-      const buf = makeWorkbook([
-        ["اسم المالك", "", ""],
-        ["أحمد", "1149030170", "1256789012"],
-      ]);
-      const preview = parseExcelBuffer(buf, "test.xlsx");
-
-      expect(preview.rows[0].mapped.owner_phone).toBe("1149030170");
-      expect(preview.rows[0].phone_normalized).toBe("01149030170");
-      expect(preview.rows[0].mapped.owner_phone_alt).toBe("1256789012");
-      expect(preview.rows[0].phone_alt_normalized).toBe("01256789012");
-    });
-
-    test("blank header takes the second slot when the first is claimed", () => {
-      const buf = makeWorkbook([
-        ["رقم الهاتف", ""],
-        ["1149030170", "1256789012"],
-      ]);
-      const preview = parseExcelBuffer(buf, "test.xlsx");
-
-      expect(preview.rows[0].mapped.owner_phone).toBe("1149030170");
-      expect(preview.rows[0].mapped.owner_phone_alt).toBe("1256789012");
-    });
-
-    test("first non-empty value wins on duplicate mapping", () => {
-      const buf = makeWorkbook([
-        ["Name", "اسم المالك"],
-        ["John", "أحمد"],
-      ]);
-      const preview = parseExcelBuffer(buf, "test.xlsx");
-
-      expect(preview.rows[0].mapped.owner_name).toBe("John");
-      const nameCol = preview.columns.find((c) => c.key === "owner_name");
-      expect(nameCol?.target).toBe("owner_name");
-      expect(nameCol?.targetDuplicate).toBe(true);
-    });
-
-    test("duplicate target preserves the losing value in extra_data", () => {
-      const buf = makeWorkbook([
-        ["Name", "اسم المالك"],
-        ["John", "أحمد"],
-      ]);
-      const preview = parseExcelBuffer(buf, "test.xlsx");
-
-      // No silent data loss: the second column's value survives under its
-      // original header so the final table can display it.
-      expect(preview.rows[0].extra_data["اسم المالك"]).toBe("أحمد");
-    });
-
-    test("fully-empty blank header is kept as a phone slot", () => {
-      const buf = makeWorkbook([
-        ["اسم المالك", ""],
-        ["أحمد", ""],
-        ["محمد", ""],
-      ]);
-      const preview = parseExcelBuffer(buf, "test.xlsx");
-
-      expect(preview.totalRows).toBe(2);
-      expect(preview.rows[0].mapped.owner_phone).toBe("");
-      const phoneCol = preview.columns.find((c) => c.key === "owner_phone");
-      expect(phoneCol?.label).toBe("رقم الهاتف");
-    });
-
-    test("third blank header overflows to extra_data with a phone label", () => {
-      const buf = makeWorkbook([
-        ["اسم المالك", "", "", ""],
-        ["أحمد", "1149030170", "1256789012", "1001234567"],
-      ]);
-      const preview = parseExcelBuffer(buf, "test.xlsx");
-
-      expect(preview.rows[0].mapped.owner_phone).toBe("1149030170");
-      expect(preview.rows[0].mapped.owner_phone_alt).toBe("1256789012");
-      const extraVals = Object.values(preview.rows[0].extra_data).map(String);
-      expect(extraVals).toContain("1001234567");
-      const overflowCol = preview.columns.find(
-        (c) => c.key !== "owner_phone" && c.key !== "owner_phone_alt" && c.target === ""
-      );
-      expect(overflowCol?.label).toBe("رقم الهاتف");
     });
   });
 

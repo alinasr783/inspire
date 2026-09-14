@@ -33,6 +33,50 @@ export type UnitRow = {
   highlight: string | null;
 };
 
+type CustomColumnDef = { key: string; type: string; options: unknown };
+
+async function validateCustomFields(
+  admin: ReturnType<typeof createAdminClient>,
+  customFields: Record<string, unknown>
+): Promise<{ valid: Record<string, unknown>; error?: string }> {
+  const { data: cols } = await admin.from("unit_column_config").select("key, type, options");
+  const defs = new Map(((cols ?? []) as CustomColumnDef[]).map((c) => [c.key, c]));
+  const valid: Record<string, unknown> = {};
+  for (const [key, raw] of Object.entries(customFields)) {
+    const def = defs.get(key);
+    if (!def || def.type === "text" || def.type === "textarea" || def.type === "number" || def.type === "date") {
+      valid[key] = raw;
+      continue;
+    }
+    const opts = Array.isArray(def.options) ? def.options.map((o) => String(o)) : [];
+    if (def.type === "select") {
+      const v = String(raw ?? "").trim();
+      if (v !== "" && !opts.includes(v)) return { valid, error: `invalid-option:${key}` };
+      if (v !== "") valid[key] = v;
+    } else if (def.type === "multi_select") {
+      const list = Array.isArray(raw)
+        ? raw.map((v) => String(v ?? "").trim()).filter(Boolean)
+        : String(raw ?? "").trim()
+          ? String(raw).split(/[,،\n]+/).map((v) => v.trim()).filter(Boolean)
+          : [];
+      if (list.some((v) => !opts.includes(v))) return { valid, error: `invalid-option:${key}` };
+      if (list.length > 0) valid[key] = [...new Set(list)];
+    } else if (def.type === "checkbox") {
+      if (raw == null || raw === "") continue;
+      if (typeof raw === "boolean") valid[key] = raw;
+      else {
+        const t = String(raw).trim().toLowerCase();
+        if (["true", "1", "نعم", "yes"].includes(t)) valid[key] = true;
+        else if (["false", "0", "لا", "no"].includes(t)) valid[key] = false;
+        else return { valid, error: `invalid-option:${key}` };
+      }
+    } else {
+      valid[key] = raw;
+    }
+  }
+  return { valid };
+}
+
 const unitSchema = z.object({
   customer_name: z.string().trim().min(1, "customer-name-required"),
   phone: z.string().trim().min(1, "phone-required"),
@@ -90,6 +134,13 @@ export async function createUnit(formData: FormData) {
 
   const admin = createAdminClient();
 
+  const cfCheck = await validateCustomFields(admin, parsed.data.custom_fields ?? {});
+  if (cfCheck.error) {
+    console.error("[createUnit] Invalid custom option:", cfCheck.error);
+    throw new Error("validation");
+  }
+  parsed.data.custom_fields = cfCheck.valid;
+
   console.log("[createUnit] Step 4: Inserting into DB...");
   const { data: inserted, error } = await admin.from("units").insert({
     ...parsed.data,
@@ -137,6 +188,15 @@ export async function updateUnit(id: string, formData: FormData) {
   const parsed = unitSchema.safeParse({ ...raw, custom_fields: customFields });
   if (!parsed.success) {
     redirect(`/${locale}/properties/${id}?error=validation`);
+  }
+
+  {
+    const adminCheck = createAdminClient();
+    const cfCheck = await validateCustomFields(adminCheck, parsed.data.custom_fields ?? {});
+    if (cfCheck.error) {
+      redirect(`/${locale}/properties/${id}?error=validation`);
+    }
+    parsed.data.custom_fields = cfCheck.valid;
   }
 
   const { data: existing } = await supabase
@@ -215,7 +275,7 @@ export async function deleteUnit(id: string) {
   return { success: true };
 }
 
-export async function updateUnitField(unitId: string, field: string, value: string) {
+export async function updateUnitField(unitId: string, field: string, value: string | string[] | boolean) {
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (!user || userError) throw new Error("unauthorized");
@@ -245,9 +305,53 @@ export async function updateUnitField(unitId: string, field: string, value: stri
   }
 
   if (!allowedFields.includes(field)) {
+    // Strict validation against the column definition: option columns only
+    // accept values from their configured options list. Anything else is
+    // rejected outright ("invalid-option") — no free text, from any surface.
+    const { data: colDef } = await admin
+      .from("unit_column_config")
+      .select("type, options")
+      .eq("key", field)
+      .single();
+    const colType = (colDef as { type?: string } | null)?.type;
+    const colOptions = Array.isArray((colDef as { options?: unknown } | null)?.options)
+      ? ((colDef as { options: unknown[] }).options.map((o) => String(o)).filter(Boolean))
+      : [];
+
+    let stored: unknown;
+    if (colType === "select") {
+      const v = String(value ?? "").trim();
+      if (v !== "" && !colOptions.includes(v)) throw new Error("invalid-option");
+      stored = v || null;
+    } else if (colType === "multi_select") {
+      const list = Array.isArray(value)
+        ? value.map((v) => String(v ?? "").trim()).filter(Boolean)
+        : String(value ?? "").trim()
+          ? String(value).split(/[,،\n]+/).map((v) => v.trim()).filter(Boolean)
+          : [];
+      const bad = list.filter((v) => !colOptions.includes(v));
+      if (bad.length > 0) throw new Error("invalid-option");
+      stored = [...new Set(list)];
+    } else if (colType === "checkbox") {
+      if (value === "" || value == null) {
+        stored = null;
+      } else if (typeof value === "boolean") {
+        stored = value;
+      } else {
+        const t = String(value).trim().toLowerCase();
+        if (["true", "1", "نعم", "yes"].includes(t)) stored = true;
+        else if (["false", "0", "لا", "no"].includes(t)) stored = false;
+        else throw new Error("invalid-option");
+      }
+    } else if (typeof value === "string") {
+      stored = value.trim() || null;
+    } else {
+      stored = value;
+    }
+
     const { data: current } = await admin.from("units").select("custom_fields").eq("id", unitId).single();
     const customFields = (current?.custom_fields ?? {}) as Record<string, unknown>;
-    customFields[field] = value.trim() || null;
+    customFields[field] = stored;
     const { error: cfError } = await admin
       .from("units")
       .update({ custom_fields: customFields, updated_at: new Date().toISOString() })
@@ -256,14 +360,15 @@ export async function updateUnitField(unitId: string, field: string, value: stri
     return { success: true };
   }
 
+  const strValue = String(value ?? "");
   const numericFields = ["cash_required", "remaining"];
   let updateValue: unknown = value;
   if (numericFields.includes(field)) {
-    const trimmed = value.trim();
+    const trimmed = strValue.trim();
     updateValue = trimmed ? Number(trimmed) : null;
     if (trimmed && isNaN(updateValue as number)) updateValue = value;
   } else if (field === "last_contact_date") {
-    updateValue = value.trim() || null;
+    updateValue = strValue.trim() || null;
   }
 
   const { error } = await admin

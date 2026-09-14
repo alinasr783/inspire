@@ -2,11 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
+import * as XLSX from "xlsx";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { UNCONFIRMED_UPLOAD_LIMITS } from "@/lib/unconfirmed-upload-limits";
-import { parseExcelBuffer } from "@/lib/excel-parse";
 
 export interface UnconfirmedRecord {
   [key: string]: unknown;
@@ -40,15 +39,153 @@ export interface PreviewRow {
   phone_normalized: string;
   phone_alt_normalized: string;
   ai_notes: string;
+  /** اسم ملف المصدر — للعرض في المعاينة فقط، لا يُحفظ في قاعدة البيانات */
+  sourceFile?: string;
 }
 
 export interface PreviewResult {
   totalRows: number;
   warningsCount: number;
-  columns: Array<{ key: string; label: string; type: string; target?: string; targetDuplicate?: boolean }>;
+  columns: Array<{ key: string; label: string; type: string }>;
   rows: PreviewRow[];
   headers: string[];
   sourceFile?: string;
+  /** تشخيص إضافي لعرض أسباب واضحة في الواجهة */
+  diagnostics?: {
+    sheetsCount: number;
+    sheetsUsed: string[];
+    unmappedHeaders: string[];
+    mappedKeys: string[];
+    missingCritical: string[];
+    emptyRowsSkipped: number;
+  };
+}
+
+const COLUMN_ALIASES: Record<string, string[]> = {
+  owner_name: ["owner name", "owner", "customer name", "customer", "client name", "client", "المالك", "اسم المالك", "العميل", "اسم العميل", "name", "full name", "الاسم", "owner"],
+  unit_area: ["unit area", "area", "area sqm", "property area", "المساحة", "مساحة الوحدة", "area (sqm)", "sqm", "size"],
+  building_number: ["building number", "building no", "building", "block", "رقم المبنى", "رقم المبني", "رقم العمارة", "رقم العماره", "المبنى", "المبني", "block number", "building #", "bldg"],
+  unit_number: ["unit number", "unit no", "unit", "apartment number", "apartment no", "flat no", "رقم الوحدة", "الوحدة", "رقم الشقة", "رقم الشقه", "apartment", "flat", "apt"],
+  owner_phone: ["owner phone", "phone", "phone number", "mobile", "mobile number", "tel", "telephone", "هاتف", "رقم الهاتف", "رقم التليفون", "رقم الموبايل", "تليفون", "موبايل", "cell", "cell phone", "mobile no", "phone no", "رقم التواصل", "جوال", "رقم الجوال", "phone 1", "موبيل"],
+  owner_phone_alt: ["alt phone", "phone 2", "phone alt", "alternative phone", "secondary phone", "هاتف بديل", "تليفون بديل", "phone2", "other phone", "second phone", "mobile 2", "alt mobile", "رقم بديل", "هاتف اخر", "تليفون اخر"],
+  affiliated_company: ["affiliated company", "company", "developer", "شركة", "الشركة التابعة", "المطور", "company name", "شركة المطور"],
+  last_contact_date: ["last contact date", "contact date", "date", "last contacted", "تاريخ", "آخر تاريخ تواصل", "تاريخ الاتصال", "contacted", "last call", "اخر تواصل"],
+};
+
+const PHONE_KEYWORDS = ["phone", "mobile", "tel", "telephone", "هاتف", "تليفون", "موبايل", "جوال", "cell", "موبيل"];
+
+function mapExcelColumn(excelCol: string): string {
+  const cleaned = excelCol.trim().toLowerCase().replace(/[_-]/g, " ");
+
+  for (const [fixed, aliases] of Object.entries(COLUMN_ALIASES)) {
+    if (aliases.includes(cleaned)) return fixed;
+  }
+
+  if (cleaned.includes("رقم")) {
+    if (cleaned.includes("مبني") || cleaned.includes("مبنى") || cleaned.includes("عمارة") || cleaned.includes("عماره")) {
+      return "building_number";
+    }
+    if (cleaned.includes("وحدة") || cleaned.includes("شقة") || cleaned.includes("شقه") || cleaned.includes("apartment")) {
+      return "unit_number";
+    }
+  }
+
+  const isPhone = PHONE_KEYWORDS.some((kw) => cleaned.includes(kw));
+  if (isPhone) {
+    if (cleaned.includes("alt") || cleaned.includes("2") || cleaned.includes("بديل") || cleaned.includes("اخر") || cleaned.includes("ثاني")) {
+      return "owner_phone_alt";
+    }
+    return "owner_phone";
+  }
+
+  if (cleaned.includes("رقم")) return "owner_phone";
+
+  for (const [fixed, aliases] of Object.entries(COLUMN_ALIASES)) {
+    if (aliases.some((a) => cleaned.includes(a) || a.includes(cleaned))) return fixed;
+  }
+
+  return "";
+}
+
+const FIXED_COLUMNS = [
+  "owner_name",
+  "unit_area",
+  "building_number",
+  "unit_number",
+  "owner_phone",
+  "owner_phone_alt",
+  "affiliated_company",
+  "last_feedback",
+  "last_contact_date",
+];
+
+function normalizeEgyptianPhone(phone: unknown): string {
+  const str = String(phone ?? "");
+  if (!str) return "";
+  const digits = str.replace(/\D/g, "");
+  if (digits.length === 0) return "";
+
+  const prefixes = ["10", "11", "12", "15"];
+
+  if (digits.length === 10 && prefixes.some((p) => digits.startsWith(p))) {
+    return "0" + digits;
+  }
+  if (digits.length === 11 && digits.startsWith("0") && prefixes.some((p) => digits.slice(1).startsWith(p))) {
+    return digits;
+  }
+  if (digits.length === 12 && digits.startsWith("20") && prefixes.some((p) => digits.slice(2).startsWith(p))) {
+    return "0" + digits.slice(2);
+  }
+  if (digits.length === 14 && digits.startsWith("0020") && prefixes.some((p) => digits.slice(4).startsWith(p))) {
+    return "0" + digits.slice(4);
+  }
+  if (digits.length >= 9 && digits.length <= 10 && prefixes.some((p) => digits.startsWith(p))) {
+    return "0" + digits;
+  }
+  if (digits.length >= 11 && digits.startsWith("2")) return digits;
+
+  return str;
+}
+
+function toStr(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "number") {
+    return v >= 1e12 ? String(v) : String(v);
+  }
+  return String(v);
+}
+
+function buildPreviewRows(jsonData: Record<string, string>[], headers: string[]): PreviewRow[] {
+  return jsonData.map((row) => {
+    const mapped: Record<string, string> = {};
+    const extraData: Record<string, unknown> = {};
+    for (const excelCol of headers) {
+      const val = toStr(row[excelCol]);
+      const fixed = mapExcelColumn(excelCol);
+      if (fixed && FIXED_COLUMNS.includes(fixed)) {
+        if (val) {
+          mapped[fixed] = val;
+        } else if (!(fixed in mapped)) {
+          mapped[fixed] = "";
+        }
+      } else {
+        extraData[excelCol] = val;
+      }
+    }
+    for (const col of FIXED_COLUMNS) {
+      if (!(col in mapped)) mapped[col] = "";
+    }
+    mapped["last_feedback"] = "";
+    const phone = mapped.owner_phone || "";
+    const phoneAlt = mapped.owner_phone_alt || "";
+    return {
+      mapped,
+      extra_data: extraData,
+      phone_normalized: normalizeEgyptianPhone(phone),
+      phone_alt_normalized: normalizeEgyptianPhone(phoneAlt),
+      ai_notes: "",
+    };
+  });
 }
 
 export async function processExcelFile(fileBase64: string, fileName: string) {
@@ -57,99 +194,131 @@ export async function processExcelFile(fileBase64: string, fileName: string) {
   if (!user || userError) throw new Error("unauthorized");
 
   const base64Data = fileBase64.split(",")[1] || fileBase64;
-  const buffer = Buffer.from(base64Data, "base64");
-
-  if (buffer.length > UNCONFIRMED_UPLOAD_LIMITS.maxBytesPerFile) {
-    throw new Error("file-too-large");
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(base64Data, "base64");
+    if (buffer.length === 0) throw new Error("empty-buffer");
+  } catch {
+    throw new Error("invalid-base64");
   }
 
-  return parseExcelBuffer(new Uint8Array(buffer), fileName);
-}
-
-/**
- * Chunked multi-file confirm.
- *
- * Large previews are saved in small batches (see UNCONFIRMED_UPLOAD_LIMITS.confirmChunkSize)
- * so no single Server Action request/response carries a giant nested array.
- * The client orchestrates: createConfirmedUpload -> appendConfirmedRecords x N.
- * On any chunk failure the client calls deleteConfirmedUpload to roll back.
- */
-export async function createConfirmedUpload(data: {
-  fileName: string;
-  totalRows: number;
-  fileId?: string | null;
-}): Promise<{ uploadId: string }> {
-  const supabase = await createClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (!user || userError) throw new Error("unauthorized");
-
-  if (!data.fileName || !data.totalRows || data.totalRows <= 0) throw new Error("no-rows-to-confirm");
-
-  const admin = createAdminClient();
-  const { data: upload, error: uploadError } = await admin
-    .from("unconfirmed_uploads")
-    .insert({
-      original_filename: data.fileName,
-      status: "confirmed",
-      total_rows: data.totalRows,
-      created_by: user.id,
-    })
-    .select()
-    .single();
-
-  if (uploadError || !upload) {
-    throw new Error(`upload-create-failed: ${uploadError?.message || "unknown"}`);
+  let workbook: XLSX.WorkBook;
+  try {
+    workbook = XLSX.read(buffer, { type: "buffer" });
+  } catch {
+    throw new Error("corrupt-file");
   }
 
-  return { uploadId: (upload as { id: string }).id };
-}
+  if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+    throw new Error("no-sheets");
+  }
 
-export async function appendConfirmedRecords(data: {
-  uploadId: string;
-  rows: PreviewRow[];
-  startRow: number;
-  fileId?: string | null;
-}): Promise<{ inserted: number }> {
-  const supabase = await createClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (!user || userError) throw new Error("unauthorized");
+  let allRows: Record<string, string>[] = [];
+  const sheetsUsed: string[] = [];
 
-  if (!data.uploadId) throw new Error("no-upload-id");
-  if (!data.rows || data.rows.length === 0) return { inserted: 0 };
-  if (data.rows.length > UNCONFIRMED_UPLOAD_LIMITS.confirmChunkSize) throw new Error("chunk-too-large");
+  for (const sheetName of workbook.SheetNames) {
+    const worksheet = workbook.Sheets[sheetName];
+    let sheetRows: Record<string, string>[] = [];
+    try {
+      sheetRows = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, { defval: "" });
+    } catch {
+      throw new Error(`unreadable-sheet:${sheetName}`);
+    }
+    if (sheetRows.length > 0) {
+      allRows = allRows.concat(sheetRows);
+      sheetsUsed.push(sheetName);
+    }
+  }
 
-  const admin = createAdminClient();
-  const { error: recordsError } = await admin.from("unconfirmed_records").insert(
-    data.rows.map((row, index) => ({
-      upload_id: data.uploadId,
-      row_number: data.startRow + index + 1,
-      ...row.mapped,
-      extra_data: row.extra_data,
-      phone_normalized: row.phone_normalized,
-      phone_alt_normalized: row.phone_alt_normalized,
-      ai_notes: row.ai_notes,
-      status: "approved",
-      file_id: data.fileId || null,
-    }))
+  if (allRows.length === 0) {
+    throw new Error("excel-empty");
+  }
+
+  let headers = Object.keys(allRows[0] ?? {});
+
+  const nonEmptyColumns = headers.filter((col) =>
+    allRows.some((row) => (row[col] ?? "").toString().trim() !== "")
   );
 
-  if (recordsError) {
-    throw new Error(`records-create-failed: ${recordsError.message}`);
+  const emptyHeadersRemoved = headers.length - nonEmptyColumns.length;
+  void emptyHeadersRemoved;
+  headers = nonEmptyColumns;
+
+  if (headers.length === 0) {
+    throw new Error("no-headers");
   }
 
-  return { inserted: data.rows.length };
-}
+  const columnMap = new Map<string, string>();
+  const columns: Array<{ key: string; label: string; type: "text" }> = [];
+  for (const key of headers) {
+    const fixed = mapExcelColumn(key);
+    const colKey = fixed && FIXED_COLUMNS.includes(fixed) ? fixed : key;
+    if (!columnMap.has(colKey)) {
+      columnMap.set(colKey, key);
+      columns.push({
+        key: colKey,
+        label: key.replace(/[_-]/g, " ").split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+        type: "text" as const,
+      });
+    }
+  }
 
-export async function deleteConfirmedUpload(uploadId: string): Promise<void> {
-  const supabase = await createClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (!user || userError) throw new Error("unauthorized");
+  let cleanRows = allRows.map((row) => {
+    const record: Record<string, string> = {};
+    for (const col of headers) {
+      record[col] = row[col] ?? "";
+    }
+    return record;
+  });
 
-  if (!uploadId) return;
+  const rowsBeforeFilter = cleanRows.length;
+  cleanRows = cleanRows.filter((row) =>
+    headers.some((col) => (row[col] ?? "").toString().trim() !== "")
+  );
+  const emptyRowsSkipped = rowsBeforeFilter - cleanRows.length;
 
-  const admin = createAdminClient();
-  await admin.from("unconfirmed_records").delete().eq("upload_id", uploadId);
-  await admin.from("unconfirmed_uploads").delete().eq("id", uploadId);
+  if (cleanRows.length === 0) {
+    throw new Error("only-empty-rows");
+  }
+
+  const previewRows = buildPreviewRows(cleanRows, headers);
+
+  const warningsCount = previewRows.filter((row) => {
+    const orig = row.mapped.owner_phone || "";
+    return orig && row.phone_normalized !== orig;
+  }).length;
+
+  // تشخيص الأعمدة: أي عمود لم يُطابق أي حقل معروف + الحقول الحرجة الناقصة
+  const unmappedHeaders = headers.filter((h) => {
+    const fixed = mapExcelColumn(h);
+    return !fixed || !FIXED_COLUMNS.includes(fixed);
+  });
+  const mappedKeys = Array.from(
+    new Set(
+      headers
+        .map((h) => mapExcelColumn(h))
+        .filter((k) => k && FIXED_COLUMNS.includes(k))
+    )
+  );
+  const missingCritical: string[] = [];
+  if (!mappedKeys.includes("owner_phone")) missingCritical.push("owner_phone");
+  if (!mappedKeys.includes("owner_name")) missingCritical.push("owner_name");
+
+  return {
+    totalRows: previewRows.length,
+    warningsCount,
+    columns,
+    headers,
+    rows: previewRows,
+    diagnostics: {
+      sheetsCount: workbook.SheetNames.length,
+      sheetsUsed,
+      unmappedHeaders,
+      mappedKeys,
+      missingCritical,
+      emptyRowsSkipped,
+    },
+  } satisfies PreviewResult;
 }
 
 export async function confirmUpload(data: {
@@ -306,22 +475,15 @@ export async function getUploads() {
   if (!user || userError) throw new Error("unauthorized");
 
   const admin = createAdminClient();
-  const uploads: Array<{ id: string; created_by: string; [key: string]: unknown }> = [];
-  const UPLOAD_PAGE = 1000;
-  for (let offset = 0; ; offset += UPLOAD_PAGE) {
-    const { data: page, error: pageError } = await admin
-      .from("unconfirmed_uploads")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false })
-      .range(offset, offset + UPLOAD_PAGE - 1);
-    if (pageError) throw new Error("fetch-failed");
-    uploads.push(...((page ?? []) as Array<{ id: string; created_by: string; [key: string]: unknown }>));
-    if (!page || page.length < UPLOAD_PAGE) break;
-    if (uploads.length >= 5000) break;
-  }
+  const { data: uploads, error } = await admin
+    .from("unconfirmed_uploads")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(5000);
 
-  const userIds = Array.from(new Set(uploads.map((u) => u.created_by)));
+  if (error) throw new Error("fetch-failed");
+
+  const userIds = Array.from(new Set((uploads ?? []).map((u) => u.created_by)));
   const { data: profiles } = await admin
     .from("profiles")
     .select("id, full_name")
@@ -329,7 +491,7 @@ export async function getUploads() {
 
   const creatorMap = new Map((profiles ?? []).map((p) => [p.id, p.full_name || p.id]));
 
-  return uploads.map((u) => ({
+  return (uploads ?? []).map((u) => ({
     ...u,
     creator_name: creatorMap.get(u.created_by) || "Unknown",
   }));
@@ -344,53 +506,23 @@ export async function getRecords(options?: { uploadId?: string; status?: string;
 
   let fileIds: string[] | undefined;
   if (options?.folderId) {
-    // Paginate the file lookup too: a single PostgREST response is capped
-    // by the server's max-rows setting (Supabase default 1000), so one
-    // `.select()` without `.range()` silently drops files beyond the cap.
-    fileIds = [];
-    const FILE_PAGE = 1000;
-    for (let offset = 0; ; offset += FILE_PAGE) {
-      const { data: files, error: filesError } = await admin
-        .from("unconfirmed_files")
-        .select("id")
-        .eq("folder_id", options.folderId)
-        .order("id", { ascending: true })
-        .range(offset, offset + FILE_PAGE - 1);
-      if (filesError) throw new Error("fetch-failed");
-      const page = (files ?? []) as Array<{ id: string }>;
-      fileIds.push(...page.map((f) => f.id));
-      if (page.length < FILE_PAGE) break;
-    }
+    const { data: files } = await admin
+      .from("unconfirmed_files")
+      .select("id")
+      .eq("folder_id", options.folderId);
+    fileIds = (files ?? []).map((f) => f.id);
     if (fileIds.length === 0) return [];
   }
 
-  // NOTE: PostgREST caps a single response at the server's max-rows setting
-  // (Supabase default is 1000). The old code used a single
-  // `.limit(10000)` query, so any file/folder with more rows than the cap
-  // was silently truncated in the "all data" table even though the rows
-  // existed in the DB. Paginate with `.range()` to fetch everything.
-  const PAGE_SIZE = 1000;
-  const allRecords: UnconfirmedRecord[] = [];
-  for (let offset = 0; ; offset += PAGE_SIZE) {
-    let query = admin.from("unconfirmed_records").select("*");
+  let query = admin.from("unconfirmed_records").select("*");
 
-    if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
-    if (options?.status) query = query.eq("status", options.status);
-    if (options?.fileId) query = query.eq("file_id", options.fileId);
-    if (fileIds) query = query.in("file_id", fileIds);
+  if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
+  if (options?.status) query = query.eq("status", options.status);
+  if (options?.fileId) query = query.eq("file_id", options.fileId);
+  if (fileIds) query = query.in("file_id", fileIds);
 
-    const { data: page, error } = await query
-      .order("row_number", { ascending: true })
-      .order("id", { ascending: true })
-      .range(offset, offset + PAGE_SIZE - 1);
-    if (error) throw new Error("fetch-failed");
-
-    const rows = (page ?? []) as UnconfirmedRecord[];
-    allRecords.push(...rows);
-    if (rows.length < PAGE_SIZE) break;
-  }
-
-  const records = allRecords;
+  const { data: records, error } = await query.order("row_number", { ascending: true }).limit(10000);
+  if (error) throw new Error("fetch-failed");
 
   const sorted = (list: UnconfirmedRecord[]) => [...list].sort((a, b) => {
     const nameA = (a.owner_name || "").trim();

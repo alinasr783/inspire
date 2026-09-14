@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { UnitFilters } from "@/components/units/unit-filters";
 import { UnitTable } from "@/components/units/unit-table";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
-import type { ColumnConfig } from "@/lib/unit-config-actions";
+import type { ColumnConfig } from "@/lib/unit-config";
 import type { UnitRow } from "@/lib/unit-actions";
 
 interface PropertiesClientProps {
@@ -139,7 +139,14 @@ function applyFilters(
       const term = val.toLowerCase();
       result = result.filter((u) => {
         const cv = (u.custom_fields as Record<string, unknown>)?.[col.key];
-        return cv ? String(cv).toLowerCase().includes(term) : false;
+        if (cv == null || cv === "") return false;
+        if (typeof cv === "boolean") {
+          return (cv ? "نعم" : "لا").toLowerCase().includes(term) || String(cv).toLowerCase().includes(term);
+        }
+        const text = Array.isArray(cv)
+          ? cv.map((v) => String(v)).join(" ")
+          : String(cv);
+        return text.toLowerCase().includes(term);
       });
     }
   }
@@ -251,15 +258,18 @@ export function PropertiesClient({
     if (!hasActiveFilters) return undefined;
 
     const options: Record<string, string[]> = {};
-    const allDropdownKeys = [...BUILTIN_DROPDOWN_KEYS, "assigned_employee", ...customColumns.filter((c) => c.type === "select").map((c) => c.key)];
+    const allDropdownKeys = [...BUILTIN_DROPDOWN_KEYS, "assigned_employee", ...customColumns.filter((c) => c.type === "select" || c.type === "multi_select").map((c) => c.key)];
 
     for (const key of allDropdownKeys) {
       const subset = applyFilters(unitsData, filters, deferredSearch, customColumns, duplicatePhones, key);
       const vals = subset
-        .map((u) => {
-          if (key === "assigned_employee") return (u as any).assigned_employee;
-          if (BUILTIN_DROPDOWN_KEYS.includes(key)) return u[key as keyof UnitRow];
-          return (u.custom_fields as Record<string, unknown>)?.[key];
+        .flatMap((u) => {
+          if (key === "assigned_employee") return [(u as any).assigned_employee];
+          if (BUILTIN_DROPDOWN_KEYS.includes(key)) return [u[key as keyof UnitRow]];
+          const cv = (u.custom_fields as Record<string, unknown>)?.[key];
+          if (Array.isArray(cv)) return cv.map((v) => String(v));
+          if (typeof cv === "boolean") return [cv ? "نعم" : "لا"];
+          return [cv];
         })
         .filter((v): v is string => !!v);
       const unique = [...new Set(vals)].sort();

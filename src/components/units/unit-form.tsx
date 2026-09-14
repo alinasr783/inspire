@@ -12,7 +12,7 @@ import { createUnit, updateUnit } from "@/lib/unit-actions";
 import { getUnitDropdownOptions } from "@/lib/unit-dropdown-actions";
 import { getAllEmployees } from "@/lib/client-dropdown-actions";
 import { UnitDynamicSelect } from "@/components/units/unit-dynamic-select";
-import type { ColumnConfig } from "@/lib/unit-config-actions";
+import type { ColumnConfig } from "@/lib/unit-config";
 
 const maybeNum = (inner: z.ZodTypeAny) =>
   z.preprocess((v) => (v === "" ? undefined : v), inner);
@@ -100,20 +100,33 @@ export function UnitForm({ mode, defaultValues, unitId, allColumns, customFieldV
       }
     });
 
-    if (formRef.current) {
-      const native = new FormData(formRef.current);
-      for (const col of customColumns) {
-        const val = native.get(col.key);
-        if (val && typeof val === "string" && val.length > 0) {
-          fd.append(col.key, val);
-        }
+    const native = formRef.current ? new FormData(formRef.current) : new FormData();
+    for (const col of customColumns) {
+      if (col.type === "multi_select" || col.type === "checkbox") continue;
+      const val = native.get(col.key);
+      if (val && typeof val === "string" && val.length > 0) {
+        fd.append(col.key, val);
       }
     }
 
     const customFields: Record<string, unknown> = {};
     for (const col of customColumns) {
-      const val = fd.get(col.key);
+      if (col.type === "multi_select") {
+        // Strict: only values from the native checkboxes (which mirror col.options).
+        const picked = native.getAll(`${col.key}__multi`).filter((v): v is string => typeof v === "string" && v.length > 0);
+        const allowed = new Set(col.options ?? []);
+        const clean = [...new Set(picked.filter((v) => allowed.has(v)))];
+        if (clean.length > 0) customFields[col.key] = clean;
+        continue;
+      }
+      if (col.type === "checkbox") {
+        const val = native.get(col.key);
+        if (val === "true" || val === "on") customFields[col.key] = true;
+        continue;
+      }
+      const val = fd.get(col.key) ?? native.get(col.key);
       if (val && typeof val === "string" && val.length > 0) {
+        if (col.type === "select" && !(col.options ?? []).includes(val)) continue;
         customFields[col.key] = col.type === "number" ? Number(val) : val;
       }
     }
@@ -262,6 +275,11 @@ export function UnitForm({ mode, defaultValues, unitId, allColumns, customFieldV
       }
     }
 
+    const storedMulti: string[] = Array.isArray(customFieldValues?.[key])
+      ? (customFieldValues?.[key] as unknown[]).map((v) => String(v))
+      : [];
+    const storedCheck = customFieldValues?.[key] === true || customFieldValues?.[key] === "true";
+
     return (
       <div key={key} className="space-y-2">
         <Label htmlFor={key}>{col.label_ar}</Label>
@@ -272,6 +290,36 @@ export function UnitForm({ mode, defaultValues, unitId, allColumns, customFieldV
               <option key={opt} value={opt}>{opt}</option>
             ))}
           </select>
+        ) : col.type === "multi_select" ? (
+          <div className="space-y-1.5 rounded-lg border border-input p-2.5">
+            {(col.options ?? []).map((opt) => (
+              <label key={opt} className="flex cursor-pointer items-center gap-2 text-sm select-none">
+                <input
+                  type="checkbox"
+                  name={`${key}__multi`}
+                  value={opt}
+                  defaultChecked={storedMulti.includes(opt)}
+                  className="h-4 w-4"
+                />
+                <span>{opt}</span>
+              </label>
+            ))}
+            {(col.options ?? []).length === 0 && (
+              <p className="text-xs text-muted-foreground">لا توجد اختيارات معرفة لهذا العمود</p>
+            )}
+          </div>
+        ) : col.type === "checkbox" ? (
+          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-input px-2.5 py-2 text-sm select-none">
+            <input
+              type="checkbox"
+              id={key}
+              name={key}
+              value="true"
+              defaultChecked={storedCheck}
+              className="h-4 w-4"
+            />
+            <span className="text-muted-foreground">نعم</span>
+          </label>
         ) : col.type === "textarea" ? (
           <textarea id={key} name={key} className="flex min-h-20 w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm" defaultValue={String(customFieldValues?.[key] ?? "")} />
         ) : (

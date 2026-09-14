@@ -8,21 +8,7 @@ interface PreviewColumn {
   key: string;
   label: string;
   type: string;
-  target?: string;
-  targetDuplicate?: boolean;
 }
-
-const TARGET_LABEL_KEYS: Record<string, string> = {
-  owner_name: "ownerName",
-  unit_area: "unitArea",
-  building_number: "buildingNumber",
-  unit_number: "unitNumber",
-  owner_phone: "phone",
-  owner_phone_alt: "phoneAlt",
-  affiliated_company: "affiliatedCompany",
-  last_feedback: "lastFeedback",
-  last_contact_date: "lastContactDate",
-};
 
 interface DataPreviewTableProps {
   columns: PreviewColumn[];
@@ -31,10 +17,11 @@ interface DataPreviewTableProps {
   selectedIndices?: number[];
   onToggleSelect?: (index: number) => void;
   standardKeys?: string[];
-  showMapping?: boolean;
+  /** عرض عمود اسم ملف المصدر (للمعاينة فقط) */
+  showSourceFile?: boolean;
 }
 
-export function DataPreviewTable({ columns, rows, locale, selectedIndices, onToggleSelect, standardKeys, showMapping }: DataPreviewTableProps) {
+export function DataPreviewTable({ columns, rows, locale, selectedIndices, onToggleSelect, standardKeys, showSourceFile }: DataPreviewTableProps) {
   const t = useTranslations("UnconfirmedData");
   const warningsCount = rows.filter((r) => r.ai_notes).length;
 
@@ -124,22 +111,14 @@ export function DataPreviewTable({ columns, rows, locale, selectedIndices, onTog
                 </th>
               )}
               <th className="px-3 py-2 text-start font-medium whitespace-nowrap">#</th>
+              {showSourceFile && (
+                <th className="px-3 py-2 text-start font-medium whitespace-nowrap">
+                  {t("sourceFile")}
+                </th>
+              )}
               {columns.map((col) => (
                 <th key={col.key} className="px-3 py-2 text-start font-medium whitespace-nowrap">
-                  <span className="block">{col.label}</span>
-                  {showMapping && (
-                    <span
-                      className={`mt-0.5 inline-block rounded-full px-1.5 py-px text-[10px] font-normal ${
-                        !col.target || col.targetDuplicate
-                          ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-                          : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
-                      }`}
-                      title={col.targetDuplicate ? t("duplicateTarget") : col.target ? t("mappedTo", { field: t(TARGET_LABEL_KEYS[col.target] ?? "extraColumns") }) : t("extraColumns")}
-                    >
-                      → {col.target ? t(TARGET_LABEL_KEYS[col.target] ?? "extraColumns") : t("extraColumns")}
-                      {col.targetDuplicate ? " ⚠" : ""}
-                    </span>
-                  )}
+                  {col.label}
                 </th>
               ))}
               {rows.some((r) => r.ai_notes) && (
@@ -171,6 +150,13 @@ export function DataPreviewTable({ columns, rows, locale, selectedIndices, onTog
                     </td>
                   )}
                   <td className="px-3 py-2 text-xs text-muted-foreground">{idx + 1}</td>
+                  {showSourceFile && (
+                    <td className="max-w-40 truncate px-3 py-2 text-xs" title={row.sourceFile ?? ""}>
+                      <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                        <span className="truncate">{row.sourceFile ?? "—"}</span>
+                      </span>
+                    </td>
+                  )}
                   {columns.map((col) => (
                     <td key={col.key} className="max-w-40 truncate px-3 py-2 text-xs">
                       {renderCellValue(col, row)}

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { saveColumnConfig } from "@/lib/unit-config-actions";
+import type { ColumnType } from "@/lib/unit-config";
 import { UnauthorizedDialog } from "@/components/ui/unauthorized-dialog";
 import { showSuccess, showError } from "@/lib/toast-utils";
 
@@ -30,7 +31,7 @@ export function QuickColumnModal({ isAdmin }: QuickColumnModalProps) {
   const [formKey, setFormKey] = useState("");
   const [formLabelAr, setFormLabelAr] = useState("");
   const [formLabelEn, setFormLabelEn] = useState("");
-  const [formType, setFormType] = useState<"text" | "number" | "date" | "select" | "textarea">("text");
+  const [formType, setFormType] = useState<ColumnType>("text");
   const [formOptions, setFormOptions] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -117,14 +118,16 @@ export function QuickColumnModal({ isAdmin }: QuickColumnModalProps) {
                 onChange={(e) => setFormType(e.target.value as typeof formType)}
                 className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs text-foreground [&>option]:text-foreground [&>option]:bg-background"
               >
-                <option value="text">Text</option>
-                <option value="number">Number</option>
-                <option value="date">Date</option>
-                <option value="select">Select</option>
-                <option value="textarea">Textarea</option>
+                <option value="text">نص (Text)</option>
+                <option value="number">رقم (Number)</option>
+                <option value="date">تاريخ (Date)</option>
+                <option value="select">اختيار واحد (Select)</option>
+                <option value="multi_select">اختيار متعدد (Multi-select)</option>
+                <option value="checkbox">نعم / لا (Checkbox)</option>
+                <option value="textarea">نص طويل (Textarea)</option>
               </select>
             </div>
-            {formType === "select" && (
+            {(formType === "select" || formType === "multi_select") && (
               <div className="space-y-1">
                 <Label className="text-xs font-medium">{t("columnOptions")}</Label>
                 <textarea

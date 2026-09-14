@@ -7,7 +7,9 @@ import { Link } from "@/i18n/navigation";
 import { Building2, Trash2, Eye, Pencil, AlertTriangle } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { updateColumnOrder, renameColumnConfig, type ColumnConfig } from "@/lib/unit-config-actions";
+import { updateColumnOrder, renameColumnConfig } from "@/lib/unit-config-actions";
+import type { ColumnConfig } from "@/lib/unit-config";
+import { CellOptionModal } from "@/components/units/cell-option-modal";
 import { updateUnitField, quickCreateUnit, deleteUnit, highlightRow, type UnitRow } from "@/lib/unit-actions";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { PresenceTd } from "@/components/realtime/presence-td";
@@ -51,6 +53,48 @@ const ACTIONS_COL_WIDTH = 130;
 
 function defaultColWidth(key: string) {
   return COLUMN_WIDTHS[key] ?? DEFAULT_COL_WIDTH;
+}
+
+/** Normalize a stored multi_select value (array | JSON string | comma string) to string[]. */
+function normalizeMultiValue(v: unknown): string[] {
+  if (Array.isArray(v)) return v.map((x) => String(x ?? "").trim()).filter(Boolean);
+  if (v == null || v === "") return [];
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (t.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(t);
+        if (Array.isArray(parsed)) return parsed.map((x) => String(x ?? "").trim()).filter(Boolean);
+      } catch { /* fall through to comma split */ }
+    }
+    return t.split(/[,،\n]+/).map((x) => x.trim()).filter(Boolean);
+  }
+  return [String(v)];
+}
+
+function normalizeCheckboxValue(v: unknown): boolean {
+  if (v === true) return true;
+  if (typeof v === "string") {
+    const t = v.trim().toLowerCase();
+    return t === "true" || t === "1" || t === "نعم" || t === "yes";
+  }
+  if (typeof v === "number") return v === 1;
+  return false;
+}
+
+/** Display text for a custom column value (strict types included). */
+function customDisplayText(col: ColumnConfig, rawValue: unknown): string {
+  if (col.type === "multi_select") {
+    return normalizeMultiValue(rawValue).join("، ");
+  }
+  if (col.type === "checkbox") {
+    const on = normalizeCheckboxValue(rawValue);
+    return rawValue == null || rawValue === "" ? "" : on ? "نعم" : "لا";
+  }
+  if (col.type === "date") {
+    return toDateValue(String(rawValue ?? ""));
+  }
+  return String(rawValue ?? "");
 }
 
 interface UnitTableProps {
@@ -147,7 +191,7 @@ interface TableRowProps {
   unit: UnitRow;
   columns: ColumnConfig[];
   index: number;
-  onCellSave: (uid: string, field: string, value: string) => void;
+  onCellSave: (uid: string, field: string, value: string | string[] | boolean) => void;
   isAdmin: boolean;
   onDelete: (uid: string) => void;
   userId: string;
@@ -162,6 +206,9 @@ interface TableRowProps {
     raw: string; editValue: string; cellValue: string;
     options?: { value: string; label: string }[];
     editType: string; ltr: boolean; right: boolean; canEdit: boolean;
+    strictOption: boolean; multi: boolean;
+    validValue: string | string[] | boolean; invalidValue: string | string[] | null;
+    isInvalid: boolean; checkboxValue?: boolean | null;
   };
   locale: string;
   duplicatePhones: Set<string>;
@@ -227,6 +274,11 @@ const TableRowComponent = memo(function TableRowComponent({
                     }
                   }}
                 />
+                {info.isInvalid && (
+                  <span className="absolute end-1 top-1/2 -translate-y-1/2 text-amber-500" title={locale === "ar" ? "قيمة قديمة غير موجودة في الاختيارات — اضغط لاختيار قيمة صحيحة" : "Legacy value not in options — click to pick a valid one"}>
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                  </span>
+                )}
                 {key === "phone" && (!unit.phone || isDuplicatePhone) && (
                   <span className="absolute end-1 top-1/2 -translate-y-1/2 text-red-500" title={locale === "ar" ? "رقم مكرر" : "Duplicate number"}>
                     <AlertTriangle className="h-3.5 w-3.5" />
@@ -274,8 +326,31 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   const editRef = useRef<HTMLInputElement>(null);
 
   const [editing, setEditing] = useState<{ uid: string; colId: string } | null>(null);
-  const cellEdit = useCallback((uid: string, colId: string) => setEditing({ uid, colId }), []);
+  const [optionModal, setOptionModal] = useState<{ uid: string; colId: string } | null>(null);
   const editCancel = useCallback(() => setEditing(null), []);
+  const localColsRef = useRef(localCols);
+  localColsRef.current = localCols;
+  const localUnitsRef = useRef(localUnits);
+  localUnitsRef.current = localUnits;
+  const cellSaveRef = useRef<(uid: string, key: string, value: string | string[] | boolean) => void>(() => {});
+
+  const cellEdit = useCallback((uid: string, colId: string) => {
+    const col = localColsRef.current.find((c) => c.id === colId);
+    if (col && !col.is_builtin && (col.type === "select" || col.type === "multi_select")) {
+      setOptionModal({ uid, colId });
+      return;
+    }
+    if (col && !col.is_builtin && col.type === "checkbox") {
+      // Strict toggle: only true/false, no free text possible.
+      const unit = localUnitsRef.current.find((u) => u.id === uid);
+      const stored = (unit?.custom_fields as Record<string, unknown> | undefined)?.[col.key];
+      const hasValue = stored != null && stored !== "";
+      const current = normalizeCheckboxValue(stored);
+      cellSaveRef.current(uid, col.key, hasValue && current ? false : true);
+      return;
+    }
+    setEditing({ uid, colId });
+  }, []);
 
   const onEditCell = useCallback((rowId: string, colKey: string) => {
     const col = localCols.find((c) => c.key === colKey);
@@ -439,13 +514,18 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
     "last_contact_date","additional_notes","feedback","assigned_employee",
   ]));
 
-  const cellSave = useCallback((uid: string, key: string, value: string) => {
+  const cellSave = useCallback((uid: string, key: string, value: string | string[] | boolean) => {
     setEditing(null);
     const prevUnits = srvRef.current;
+    const normalized: unknown = Array.isArray(value)
+      ? [...value]
+      : typeof value === "boolean"
+        ? value
+        : value.trim() || null;
     setLocalUnits((prev) => prev.map((u) => {
       if (u.id !== uid) return u;
       if (unitsBuiltin.current.has(key)) return { ...u, [key]: value } as UnitRow;
-      const cf = { ...(u.custom_fields as Record<string, unknown>), [key]: value.trim() || null };
+      const cf = { ...(u.custom_fields as Record<string, unknown>), [key]: normalized };
       return { ...u, custom_fields: cf } as UnitRow;
     }));
     notifyCellEdit({ table: "units", rowId: uid, field: key, action: "update" });
@@ -457,6 +537,8 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
           setLocalUnits(prevUnits);
           if (e.message === "unauthorized") {
             showError("ليس لديك صلاحية لتعديل هذا العقار. يمكنك فقط تعديل العقارات التي قمت بإنشائها أو التي تم تعيينك كموظف مسؤول عنها.");
+          } else if (e.message === "invalid-option") {
+            showError("هذه القيمة غير موجودة في اختيارات العمود — اختر من القائمة فقط");
           } else {
             showError(e?.message || "Update failed");
           }
@@ -464,6 +546,10 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
         .finally(() => bgSaveRef.current.delete(tag));
     }
   }, [notifyCellEdit]);
+
+  useEffect(() => {
+    cellSaveRef.current = cellSave;
+  }, [cellSave]);
 
   const handleDelete = useCallback(async (uid: string) => {
     const unit = localUnits.find((u) => u.id === uid);
@@ -530,22 +616,67 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
     const key = col.key;
     const isOwner = unit.created_by === userId || unit.assigned_employee === userId;
     const canEdit = isAdmin || isOwner;
-    const rawVal = col.is_builtin ? String((unit as Record<string, unknown>)[key] ?? "") : String((unit.custom_fields as Record<string, unknown>)?.[key] ?? "");
+
+    // Custom option/checkbox columns: strict handling, invalid legacy values flagged.
+    if (!col.is_builtin && (col.type === "select" || col.type === "multi_select" || col.type === "checkbox")) {
+      const stored = (unit.custom_fields as Record<string, unknown>)?.[key];
+      const opts = col.options ?? [];
+      if (col.type === "select") {
+        const rawVal = String(stored ?? "");
+        const isInvalid = rawVal !== "" && !opts.includes(rawVal);
+        return {
+          raw: rawVal, editValue: rawVal, cellValue: rawVal,
+          options: opts.map((o) => ({ value: o, label: o })),
+          editType: "option-modal", ltr: false, right: false, canEdit,
+          strictOption: true as const, multi: false,
+          validValue: isInvalid ? "" : rawVal,
+          invalidValue: isInvalid ? rawVal : null as string | null,
+          isInvalid,
+        };
+      }
+      if (col.type === "multi_select") {
+        const vals = normalizeMultiValue(stored);
+        const invalid = vals.filter((v) => !opts.includes(v));
+        const valid = vals.filter((v) => opts.includes(v));
+        return {
+          raw: vals.join("، "), editValue: vals.join("، "), cellValue: vals.join("، "),
+          options: opts.map((o) => ({ value: o, label: o })),
+          editType: "option-modal", ltr: false, right: false, canEdit,
+          strictOption: true as const, multi: true,
+          validValue: valid as string[],
+          invalidValue: (invalid.length > 0 ? invalid : null) as string[] | null,
+          isInvalid: invalid.length > 0,
+        };
+      }
+      const on = normalizeCheckboxValue(stored);
+      const empty = stored == null || stored === "";
+      return {
+        raw: empty ? "" : on ? "نعم" : "لا", editValue: empty ? "" : String(on),
+        cellValue: empty ? "" : String(on),
+        options: undefined, editType: "checkbox", ltr: false, right: false, canEdit,
+        strictOption: true as const, multi: false,
+        validValue: empty ? "" : on,
+        invalidValue: null as string | null,
+        isInvalid: false,
+        checkboxValue: empty ? null : on,
+      };
+    }
+
+    const rawVal = col.is_builtin ? String((unit as Record<string, unknown>)[key] ?? "") : customDisplayText(col, (unit.custom_fields as Record<string, unknown>)?.[key]);
     const raw = key === "assigned_employee" ? (employeeMap.get(rawVal) || "—") : rawVal;
-    const editValue = key === "assigned_employee" ? rawVal : raw;
+    const editValue = key === "assigned_employee" ? rawVal : col.is_builtin ? raw : String((unit.custom_fields as Record<string, unknown>)?.[key] ?? "");
     const options =
       key === "assigned_employee" ? Array.from(employeeMap.entries()).map(([id, name]) => ({ value: id, label: name })) :
       key === "finishing_status" ? (uniqueValues.finishing_status || []).map((v) => ({ value: v, label: v })) :
       key === "rent_sale" ? (uniqueValues.rent_sale || []).map((v) => ({ value: v, label: v })) :
       key === "unit_type" ? (uniqueValues.unit_type || []).map((v) => ({ value: v, label: v })) :
-      col.type === "select" && col.options && col.options.length > 0 ? col.options.map((o) => ({ value: o, label: o })) :
       undefined;
-    const editType = options ? "select" : (key === "cash_required" || key === "remaining" ? "number" : key === "last_contact_date" || col.type === "date" ? "date" : "text");
+    const editType = options ? "select" : (key === "cash_required" || key === "remaining" ? "number" : key === "last_contact_date" || col.type === "date" ? "date" : col.type === "number" ? "number" : "text");
     const ltr = key === "phone" || key === "cash_required" || key === "remaining" || key === "last_contact_date";
     const right = key === "cash_required" || key === "remaining";
-    const cellValue = key === "last_contact_date" ? toDateValue(editValue) : editValue;
+    const cellValue = key === "last_contact_date" ? toDateValue(editValue) : col.type === "date" && !col.is_builtin ? toDateValue(editValue) : editValue;
 
-    return { raw, editValue, cellValue, options, editType, ltr, right, canEdit };
+    return { raw, editValue, cellValue, options, editType, ltr, right, canEdit, strictOption: false as const, multi: false, validValue: editValue as string, invalidValue: null as string | null, isInvalid: false };
   }, [isAdmin, userId, employeeMap, uniqueValues]);
 
   // Pre-compute stale status for all units
@@ -634,6 +765,29 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
       </div>
       <TableCellContextMenu info={ctxMenu?.info ?? null} position={ctxMenu?.pos ?? null} shortcut={ctxMenu?.shortcut ?? null} onClose={() => setCtxMenu(null)} />
       <ConfirmDialog open={!!deleteDialog} onOpenChange={(o) => { if (!o) setDeleteDialog(null); }} title="Confirm Delete" description={`Delete "${deleteDialog?.name}"? This cannot be undone.`} confirmLabel={deleting ? "Deleting..." : "Delete"} cancelLabel="Cancel" variant="destructive" loading={deleting} onConfirm={confirmDelete} />
+      {(() => {
+        if (!optionModal) return null;
+        const col = localCols.find((c) => c.id === optionModal.colId);
+        const unit = localUnits.find((u) => u.id === optionModal.uid);
+        if (!col || !unit) return null;
+        const info = getCellInfo(col, unit);
+        const opts = (col.options ?? []).filter(Boolean);
+        return (
+          <CellOptionModal
+            open={!!optionModal}
+            onOpenChange={(o) => { if (!o) setOptionModal(null); }}
+            title={locale === "ar" ? col.label_ar : col.label_en}
+            options={opts}
+            multi={col.type === "multi_select"}
+            initialValue={(info.validValue as string | string[]) ?? (col.type === "multi_select" ? [] : "")}
+            invalidValue={info.invalidValue}
+            onSave={(v) => {
+              cellSave(optionModal.uid, col.key, v);
+              setOptionModal(null);
+            }}
+          />
+        );
+      })()}
     </TooltipProvider>
   );
 }

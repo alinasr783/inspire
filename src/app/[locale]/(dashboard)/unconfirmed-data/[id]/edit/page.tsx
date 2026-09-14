@@ -122,32 +122,17 @@ export default function EditRecordPage({ params }: { params: Promise<{ locale: s
             <div className="mt-6 pt-6 border-t">
               <h3 className="text-sm font-medium mb-3">{t("extraColumns")}</h3>
               <div className="grid gap-3 sm:grid-cols-2">
-                {(() => {
-                  const entries = Object.entries(record.extra_data);
-                  const blankCount = entries.filter(([k]) =>
-                    /^(\s*__EMPTY(_\d+)?\s*|\s*_\d+\s*|\s*)$/.test(k)
-                  ).length;
-                  let blankSeen = 0;
-                  return entries.map(([key, value]) => {
-                    let label = key;
-                    if (/^(\s*__EMPTY(_\d+)?\s*|\s*_\d+\s*|\s*)$/.test(key)) {
-                      blankSeen++;
-                      label = t("phone");
-                      if (blankCount > 1) label += ` ${blankSeen}`;
-                    }
-                    return (
-                      <div key={key} className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">{label}</Label>
-                        <Input
-                          type="text"
-                          value={String(value ?? "")}
-                          className="text-sm bg-muted/30"
-                          disabled
-                        />
-                      </div>
-                    );
-                  });
-                })()}
+                {Object.entries(record.extra_data).map(([key, value]) => (
+                  <div key={key} className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">{key}</Label>
+                    <Input
+                      type="text"
+                      value={String(value ?? "")}
+                      className="text-sm bg-muted/30"
+                      disabled
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           )}

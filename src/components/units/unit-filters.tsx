@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Search, X, Calendar, AlertTriangle, Filter } from "lucide-react";
-import type { ColumnConfig } from "@/lib/unit-config-actions";
+import type { ColumnConfig } from "@/lib/unit-config";
 
 interface UnitFiltersProps {
   filters: Record<string, string>;
@@ -169,7 +169,7 @@ export function UnitFilters({
       </div>
 
       {customColumns
-        .filter((c) => c.enabled && c.type === "select")
+        .filter((c) => c.enabled && (c.type === "select" || c.type === "multi_select"))
         .map((col) => (
           <div key={col.key}>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{col.label_en}</label>
@@ -294,7 +294,7 @@ export function UnitFilters({
         )}
 
         {customColumns
-          .filter((c) => c.enabled && c.type === "select")
+          .filter((c) => c.enabled && (c.type === "select" || c.type === "multi_select"))
           .map((col) => (
             <select key={col.key} value={val(col.key)} onChange={(e) => setFilter(col.key, e.target.value)} className={selectClass}>
               <option value="all">{col.label_en}</option>

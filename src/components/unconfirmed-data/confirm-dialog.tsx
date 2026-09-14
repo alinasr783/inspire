@@ -11,47 +11,9 @@ interface ConfirmDialogProps {
   totalRows: number;
   totalColumns: number;
   warningsCount: number;
-  filesCount?: number;
-  skippedFiles?: string[];
   onConfirm: () => void;
   onCancel: () => void;
   loading?: boolean;
-}
-
-function SummaryRows({ totalRows, totalColumns, warningsCount, filesCount, skippedFiles }: Pick<ConfirmDialogProps, "totalRows" | "totalColumns" | "warningsCount" | "filesCount" | "skippedFiles">) {
-  const t = useTranslations("UnconfirmedData");
-  return (
-    <div className="mb-4 space-y-2 rounded-lg border bg-muted/30 p-3">
-      {typeof filesCount === "number" && filesCount > 1 && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">{t("filesCountLabel")}</span>
-          <span className="font-medium">{filesCount}</span>
-        </div>
-      )}
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">{t("totalRecords")}</span>
-        <span className="font-medium">{totalRows}</span>
-      </div>
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">{t("columnsCount")}</span>
-        <span className="font-medium">{totalColumns}</span>
-      </div>
-      {warningsCount > 0 && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="flex items-center gap-1 text-muted-foreground">
-            <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
-            {t("warnings")}
-          </span>
-          <span className="font-medium text-amber-600 dark:text-amber-400">{warningsCount}</span>
-        </div>
-      )}
-      {skippedFiles && skippedFiles.length > 0 && (
-        <div className="pt-1 text-xs text-muted-foreground">
-          {t("skippedFiles")}: {skippedFiles.join("، ")}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function DesktopConfirmDialog({
@@ -59,8 +21,6 @@ function DesktopConfirmDialog({
   totalRows,
   totalColumns,
   warningsCount,
-  filesCount,
-  skippedFiles,
   onConfirm,
   onCancel,
   loading = false,
@@ -84,13 +44,25 @@ function DesktopConfirmDialog({
           </div>
         </div>
 
-        <SummaryRows
-          totalRows={totalRows}
-          totalColumns={totalColumns}
-          warningsCount={warningsCount}
-          filesCount={filesCount}
-          skippedFiles={skippedFiles}
-        />
+        <div className="mb-4 space-y-2 rounded-lg border bg-muted/30 p-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">{t("totalRecords")}</span>
+            <span className="font-medium">{totalRows}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">{t("columnsCount")}</span>
+            <span className="font-medium">{totalColumns}</span>
+          </div>
+          {warningsCount > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-1 text-muted-foreground">
+                <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                {t("warnings")}
+              </span>
+              <span className="font-medium text-amber-600 dark:text-amber-400">{warningsCount}</span>
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center gap-3">
           <Button
@@ -121,8 +93,6 @@ function MobileConfirmDrawer({
   totalRows,
   totalColumns,
   warningsCount,
-  filesCount,
-  skippedFiles,
   onConfirm,
   onCancel,
   loading = false,
@@ -150,13 +120,25 @@ function MobileConfirmDrawer({
             </div>
           </div>
 
-          <SummaryRows
-            totalRows={totalRows}
-            totalColumns={totalColumns}
-            warningsCount={warningsCount}
-            filesCount={filesCount}
-            skippedFiles={skippedFiles}
-          />
+          <div className="mb-4 space-y-2 rounded-lg border bg-muted/30 p-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{t("totalRecords")}</span>
+              <span className="font-medium">{totalRows}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{t("columnsCount")}</span>
+              <span className="font-medium">{totalColumns}</span>
+            </div>
+            {warningsCount > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                  {t("warnings")}
+                </span>
+                <span className="font-medium text-amber-600 dark:text-amber-400">{warningsCount}</span>
+              </div>
+            )}
+          </div>
 
           <div className="flex items-center gap-3">
             <Button

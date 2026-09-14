@@ -161,28 +161,12 @@ export default async function RecordDetailPage({
                 <CardTitle className="text-base">{t("extraColumns")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {(() => {
-                  const entries = Object.entries(record.extra_data);
-                  const blankCount = entries.filter(([k]) =>
-                    /^(\s*__EMPTY(_\d+)?\s*|\s*_\d+\s*|\s*)$/.test(k)
-                  ).length;
-                  let blankSeen = 0;
-                  return entries.map(([key, value]) => {
-                    let label = key;
-                    if (/^(\s*__EMPTY(_\d+)?\s*|\s*_\d+\s*|\s*)$/.test(key)) {
-                      blankSeen++;
-                      // Blank Excel headers hold phone numbers: show رقم الهاتف.
-                      label = t("phone");
-                      if (blankCount > 1) label += ` ${blankSeen}`;
-                    }
-                    return (
-                      <div key={key}>
-                        <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-                        <p className="text-sm">{String(value ?? "—")}</p>
-                      </div>
-                    );
-                  });
-                })()}
+                {Object.entries(record.extra_data).map(([key, value]) => (
+                  <div key={key}>
+                    <p className="text-xs text-muted-foreground mb-0.5">{key}</p>
+                    <p className="text-sm">{String(value ?? "—")}</p>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           )}
