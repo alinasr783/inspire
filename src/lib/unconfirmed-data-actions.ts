@@ -490,7 +490,7 @@ export async function getUploads() {
     allUploads.push(...(uploads as Record<string, unknown>[]));
     if (uploads.length < PAGE_SIZE) break;
   }
-  const uploads = allUploads as { created_by: string }[];
+  const uploads = allUploads as unknown as { created_by: string }[];
 
   const userIds = Array.from(new Set((uploads ?? []).map((u) => u.created_by)));
   let profiles: { id: string; full_name: string }[] | null = [];

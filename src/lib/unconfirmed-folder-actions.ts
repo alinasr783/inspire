@@ -41,7 +41,7 @@ export async function getFolders(): Promise<Folder[]> {
     allFoldersRaw.push(...(folders as Record<string, unknown>[]));
     if (folders.length < PAGE_SIZE) break;
   }
-  const folders = allFoldersRaw as { id: string; name: string; created_by: string; created_at: string }[];
+  const folders = allFoldersRaw as unknown as { id: string; name: string; created_by: string; created_at: string }[];
 
   const allFilesRaw: Record<string, unknown>[] = [];
   for (let page = 0; page < 100; page++) {
@@ -56,7 +56,7 @@ export async function getFolders(): Promise<Folder[]> {
     allFilesRaw.push(...(files as Record<string, unknown>[]));
     if (files.length < PAGE_SIZE) break;
   }
-  const files = allFilesRaw as FileItem[];
+  const files = allFilesRaw as unknown as FileItem[];
 
   const filesByFolder = new Map<string, FileItem[]>();
   for (const f of files ?? []) {
