@@ -618,6 +618,7 @@
     "delete": "Delete",
     "showMore": "Show More",
     "remaining": "remaining",
+    "showingOf": "Showing {shown} of {total}",
     "delayRangeHint": "A random delay between the min and max seconds is chosen for each message",
     "recordInfo": "Record Info",
     "manageColumns": "Manage Columns",

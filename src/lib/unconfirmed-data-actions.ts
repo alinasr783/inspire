@@ -475,19 +475,32 @@ export async function getUploads() {
   if (!user || userError) throw new Error("unauthorized");
 
   const admin = createAdminClient();
-  const { data: uploads, error } = await admin
-    .from("unconfirmed_uploads")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(5000);
-
-  if (error) throw new Error("fetch-failed");
+  // جلب كل الرفعات عبر pagination حتى لا يُقطع عند حد PostgREST الافتراضي (1000 صف)
+  const PAGE_SIZE = 1000;
+  const MAX_PAGES = 100;
+  const allUploads: Record<string, unknown>[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const { data: uploads, error } = await admin
+      .from("unconfirmed_uploads")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+    if (error) throw new Error("fetch-failed");
+    if (!uploads || uploads.length === 0) break;
+    allUploads.push(...(uploads as Record<string, unknown>[]));
+    if (uploads.length < PAGE_SIZE) break;
+  }
+  const uploads = allUploads as { created_by: string }[];
 
   const userIds = Array.from(new Set((uploads ?? []).map((u) => u.created_by)));
-  const { data: profiles } = await admin
-    .from("profiles")
-    .select("id, full_name")
-    .in("id", userIds);
+  let profiles: { id: string; full_name: string }[] | null = [];
+  if (userIds.length > 0) {
+    const { data } = await admin
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", userIds);
+    profiles = data as { id: string; full_name: string }[] | null;
+  }
 
   const creatorMap = new Map((profiles ?? []).map((p) => [p.id, p.full_name || p.id]));
 
@@ -506,23 +519,49 @@ export async function getRecords(options?: { uploadId?: string; status?: string;
 
   let fileIds: string[] | undefined;
   if (options?.folderId) {
-    const { data: files } = await admin
-      .from("unconfirmed_files")
-      .select("id")
-      .eq("folder_id", options.folderId);
-    fileIds = (files ?? []).map((f) => f.id);
+    // جلب كل ملفات الفولدر عبر pagination (تجنب قطع القائمة عند 1000 ملف)
+    const PAGE_FILES = 1000;
+    const collected: string[] = [];
+    for (let page = 0; page < 100; page++) {
+      const { data: files, error: filesError } = await admin
+        .from("unconfirmed_files")
+        .select("id")
+        .eq("folder_id", options.folderId)
+        .range(page * PAGE_FILES, page * PAGE_FILES + PAGE_FILES - 1);
+      if (filesError) throw new Error("fetch-failed");
+      if (!files || files.length === 0) break;
+      collected.push(...(files as { id: string }[]).map((f) => f.id));
+      if (files.length < PAGE_FILES) break;
+    }
+    fileIds = collected;
     if (fileIds.length === 0) return [];
   }
 
-  let query = admin.from("unconfirmed_records").select("*");
+  // السبب الجذري السابق: استعلام واحد مع .limit(10000) يُقطع عند حد
+  // PostgREST الافتراضي (~1000 صف لكل طلب)، فيظهر الجدول أقل من قاعدة البيانات.
+  // الحل الجذري: جلب كل الصفحات عبر .range() بترتيب ثابت حتى نفاد البيانات.
+  const PAGE_SIZE = 1000;
+  const MAX_PAGES = 200; // سقف أمان: حتى 200 ألف سجل
+  const allRecords: UnconfirmedRecord[] = [];
 
-  if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
-  if (options?.status) query = query.eq("status", options.status);
-  if (options?.fileId) query = query.eq("file_id", options.fileId);
-  if (fileIds) query = query.in("file_id", fileIds);
+  for (let page = 0; page < MAX_PAGES; page++) {
+    let query = admin.from("unconfirmed_records").select("*");
 
-  const { data: records, error } = await query.order("row_number", { ascending: true }).limit(10000);
-  if (error) throw new Error("fetch-failed");
+    if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
+    if (options?.status) query = query.eq("status", options.status);
+    if (options?.fileId) query = query.eq("file_id", options.fileId);
+    if (fileIds) query = query.in("file_id", fileIds);
+
+    const { data: records, error } = await query
+      .order("created_at", { ascending: true })
+      .order("row_number", { ascending: true })
+      .order("id", { ascending: true })
+      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+    if (error) throw new Error("fetch-failed");
+    const batch = (records ?? []) as UnconfirmedRecord[];
+    allRecords.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+  }
 
   const sorted = (list: UnconfirmedRecord[]) => [...list].sort((a, b) => {
     const nameA = (a.owner_name || "").trim();
@@ -539,7 +578,7 @@ export async function getRecords(options?: { uploadId?: string; status?: string;
 
   if (options?.q) {
     const searchTerm = options.q.toLowerCase();
-    const filtered = (records ?? []).filter((r) => {
+    const filtered = allRecords.filter((r) => {
       const searchable = [
         r.owner_name,
         r.unit_area,
@@ -556,5 +595,5 @@ export async function getRecords(options?: { uploadId?: string; status?: string;
     return sorted(filtered);
   }
 
-  return sorted(records ?? []);
+  return sorted(allRecords);
 }

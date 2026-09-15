@@ -619,6 +619,7 @@
     "delete": "حذف",
     "showMore": "عرض المزيد",
     "remaining": "متبقي",
+    "showingOf": "عرض {shown} من {total}",
     "delayRangeHint": "يتم اختيار تأخير عشوائي بين القيمة الدنيا والقصوى لكل رسالة",
     "recordInfo": "معلومات السجل",
     "manageColumns": "إدارة الأعمدة",

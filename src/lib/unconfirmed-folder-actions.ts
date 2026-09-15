@@ -26,19 +26,37 @@ export async function getFolders(): Promise<Folder[]> {
 
   const admin = createAdminClient();
 
-  const { data: folders, error: foldersError } = await admin
-    .from("unconfirmed_folders")
-    .select("*")
-    .order("name", { ascending: true });
+  // جلب كل المجلدات والملفات عبر pagination حتى لا تُقطع عند حد PostgREST الافتراضي
+  const PAGE_SIZE = 1000;
+  const allFoldersRaw: Record<string, unknown>[] = [];
+  for (let page = 0; page < 100; page++) {
+    const { data: folders, error: foldersError } = await admin
+      .from("unconfirmed_folders")
+      .select("*")
+      .order("name", { ascending: true })
+      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
 
-  if (foldersError) throw new Error("folders-fetch-failed");
+    if (foldersError) throw new Error("folders-fetch-failed");
+    if (!folders || folders.length === 0) break;
+    allFoldersRaw.push(...(folders as Record<string, unknown>[]));
+    if (folders.length < PAGE_SIZE) break;
+  }
+  const folders = allFoldersRaw as { id: string; name: string; created_by: string; created_at: string }[];
 
-  const { data: files, error: filesError } = await admin
-    .from("unconfirmed_files")
-    .select("*")
-    .order("name", { ascending: true });
+  const allFilesRaw: Record<string, unknown>[] = [];
+  for (let page = 0; page < 100; page++) {
+    const { data: files, error: filesError } = await admin
+      .from("unconfirmed_files")
+      .select("*")
+      .order("name", { ascending: true })
+      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
 
-  if (filesError) throw new Error("files-fetch-failed");
+    if (filesError) throw new Error("files-fetch-failed");
+    if (!files || files.length === 0) break;
+    allFilesRaw.push(...(files as Record<string, unknown>[]));
+    if (files.length < PAGE_SIZE) break;
+  }
+  const files = allFilesRaw as FileItem[];
 
   const filesByFolder = new Map<string, FileItem[]>();
   for (const f of files ?? []) {
