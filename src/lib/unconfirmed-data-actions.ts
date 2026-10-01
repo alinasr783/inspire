@@ -510,7 +510,7 @@ export async function getUploads() {
   }));
 }
 
-export async function getRecords(options?: { uploadId?: string; status?: string; q?: string; folderId?: string; fileId?: string }) {
+export async function getRecords(options?: { uploadId?: string; status?: string; q?: string; folderId?: string; fileId?: string; limit?: number; offset?: number }) {
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (!user || userError) throw new Error("unauthorized");
@@ -537,6 +537,10 @@ export async function getRecords(options?: { uploadId?: string; status?: string;
     if (fileIds.length === 0) return [];
   }
 
+  // دعم التحميل التدريجي (infinite scroll) بـ limit و offset
+  const limit = options?.limit ?? 1000;
+  const offset = options?.offset ?? 0;
+
   // السبب الجذري السابق: استعلام واحد مع .limit(10000) يُقطع عند حد
   // PostgREST الافتراضي (~1000 صف لكل طلب)، فيظهر الجدول أقل من قاعدة البيانات.
   // الحل الجذري: جلب كل الصفحات عبر .range() بترتيب ثابت حتى نفاد البيانات.
@@ -544,7 +548,14 @@ export async function getRecords(options?: { uploadId?: string; status?: string;
   const MAX_PAGES = 200; // سقف أمان: حتى 200 ألف سجل
   const allRecords: UnconfirmedRecord[] = [];
 
+  const targetEnd = offset + limit;
+
   for (let page = 0; page < MAX_PAGES; page++) {
+    const pageStart = page * PAGE_SIZE;
+    const pageEnd = page * PAGE_SIZE + PAGE_SIZE - 1;
+
+    if (pageStart >= targetEnd) break;
+
     let query = admin.from("unconfirmed_records").select("*");
 
     if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
@@ -556,11 +567,12 @@ export async function getRecords(options?: { uploadId?: string; status?: string;
       .order("created_at", { ascending: true })
       .order("row_number", { ascending: true })
       .order("id", { ascending: true })
-      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+      .range(pageStart, Math.min(pageEnd, targetEnd - 1));
     if (error) throw new Error("fetch-failed");
     const batch = (records ?? []) as UnconfirmedRecord[];
     allRecords.push(...batch);
     if (batch.length < PAGE_SIZE) break;
+    if (pageStart + PAGE_SIZE >= targetEnd) break;
   }
 
   const sorted = (list: UnconfirmedRecord[]) => [...list].sort((a, b) => {
@@ -576,9 +588,11 @@ export async function getRecords(options?: { uploadId?: string; status?: string;
     return nameA.localeCompare(nameB, "ar", { sensitivity: "base" });
   });
 
+  const finalRecords = allRecords.slice(0, limit);
+
   if (options?.q) {
     const searchTerm = options.q.toLowerCase();
-    const filtered = allRecords.filter((r) => {
+    const filtered = finalRecords.filter((r) => {
       const searchable = [
         r.owner_name,
         r.unit_area,
@@ -595,5 +609,5 @@ export async function getRecords(options?: { uploadId?: string; status?: string;
     return sorted(filtered);
   }
 
-  return sorted(allRecords);
+  return sorted(finalRecords);
 }

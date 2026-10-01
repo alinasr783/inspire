@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,10 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
   const [folderId, setFolderId] = useState(searchParams.get("folder") ?? "");
   const [fileId, setFileId] = useState(searchParams.get("file") ?? "");
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [showCount, setShowCount] = useState(100);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentLimit, setCurrentLimit] = useState(40);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const [feedbackOnly, setFeedbackOnly] = useState(false);
 
   useEffect(() => {
@@ -82,6 +85,8 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
     }
     return result;
   }, [dataSource, folderId, fileId, search, folders, feedbackOnly]);
+
+  const limitedRecords = filteredRecords.slice(0, currentLimit);
 
   const columns = [
     { key: "owner_name", label: t("ownerName"), type: "text" },
@@ -147,7 +152,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
               <Input
                 type="search"
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setShowCount(100); }}
+                onChange={(e) => { setSearch(e.target.value); }}
                 placeholder={t("filterSearch")}
                 className="ps-9"
               />
@@ -157,7 +162,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
               <div className="relative">
                 <select
                   value={folderId}
-                  onChange={(e) => { setFolderId(e.target.value); setFileId(""); setShowCount(100); }}
+                  onChange={(e) => { setFolderId(e.target.value); setFileId(""); }}
                   className={`${selectClass} pr-7`}
                 >
                   <option value="">{t("allFolders")}</option>
@@ -171,7 +176,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
               <div className="relative">
                 <select
                   value={fileId}
-                  onChange={(e) => { setFileId(e.target.value); setShowCount(100); }}
+                  onChange={(e) => { setFileId(e.target.value); }}
                   className={`${selectClass} pr-7`}
                   disabled={!folderId}
                 >
@@ -187,7 +192,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
                 <input
                   type="checkbox"
                   checked={feedbackOnly}
-                  onChange={(e) => { setFeedbackOnly(e.target.checked); setShowCount(100); }}
+                  onChange={(e) => { setFeedbackOnly(e.target.checked); }}
                   className="sr-only"
                 />
                 <span className={`relative inline-flex h-4 w-8 shrink-0 items-center rounded-full transition-colors ${feedbackOnly ? "bg-primary" : "bg-muted-foreground/30"}`}>
@@ -200,7 +205,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
                 <Button
                   variant="ghost"
                   size="sm"
-                    onClick={() => { setSearch(""); setFolderId(""); setFileId(""); setFeedbackOnly(false); setShowCount(100); }}
+                    onClick={() => { setSearch(""); setFolderId(""); setFileId(""); setFeedbackOnly(false); }}
                   className="h-8 gap-1 text-xs"
                 >
                   <X className="h-3 w-3" />
@@ -210,17 +215,28 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
             </div>
           </div>
 
-          <UploadsTable records={filteredRecords.slice(0, showCount)} columns={columns} locale={locale} selectable={true} userId={userId} employees={employees} onPendingChange={handlePendingChange} />
+          <UploadsTable records={limitedRecords} columns={columns} locale={locale} selectable={true} userId={userId} employees={employees} onPendingChange={handlePendingChange} />
           <div className="flex flex-col items-center gap-2 pt-4">
             <p className="text-xs text-muted-foreground tabular-nums">
-              {t("showingOf", { shown: Math.min(showCount, filteredRecords.length), total: filteredRecords.length })}
+              {t("showingOf", { shown: Math.min(currentLimit, filteredRecords.length), total: filteredRecords.length })}
             </p>
-          {showCount < filteredRecords.length && (
-            <div className="flex justify-center">
-              <Button variant="outline" onClick={() => setShowCount((c) => c + 500)}>
-                {t("showMore")} ({filteredRecords.length - showCount} {t("remaining")})
+          {currentLimit < filteredRecords.length && !isLoading && (
+            <div className="flex justify-center mt-2">
+              <Button variant="outline" onClick={() => setCurrentLimit((c) => Math.min(c + 40, filteredRecords.length))}>
+                {t("showMore")} ({filteredRecords.length - currentLimit} {t("remaining")})
               </Button>
             </div>
+          )}
+          {isLoading && hasMore && (
+            <div className="flex justify-center my-8">
+              <span className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full"></span>
+            </div>
+          )}
+          {loadMoreRef.current && !isLoading && hasMore && (
+            <div
+              ref={loadMoreRef}
+              className="h-8 w-full my-8 border-t border-muted/20"
+            />
           )}
           </div>
         </CardContent>
