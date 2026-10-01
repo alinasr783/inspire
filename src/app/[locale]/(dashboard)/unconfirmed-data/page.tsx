@@ -3,7 +3,8 @@ import { Suspense } from "react";
 import { setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { UNCONFIRMED_PAGE_SIZE, getRecords, getUnconfirmedRecordsCount } from "@/lib/unconfirmed-data-actions";
+import { getRecords, getUnconfirmedRecordsCount } from "@/lib/unconfirmed-data-actions";
+import { UNCONFIRMED_PAGE_SIZE } from "@/lib/unconfirmed-constants";
 import { UnconfirmedDataClient } from "@/components/unconfirmed-data/unconfirmed-data-client";
 
 export default async function UnconfirmedDataPage({

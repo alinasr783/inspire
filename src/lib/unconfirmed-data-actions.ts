@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { UNCONFIRMED_PAGE_SIZE } from "@/lib/unconfirmed-constants";
 
 export interface UnconfirmedRecord {
   [key: string]: unknown;
@@ -522,9 +523,6 @@ export interface GetRecordsOptions {
   hasFeedback?: boolean;
 }
 
-/** حجم الدفعة الواحدة للتحميل التدريجي من الواجهة */
-export const UNCONFIRMED_PAGE_SIZE = 200;
-
 async function resolveFolderFileIds(admin: ReturnType<typeof createAdminClient>, folderId: string): Promise<string[]> {
   // جلب كل ملفات الفولدر عبر pagination (تجنب قطع القائمة عند 1000 ملف)
   const PAGE_FILES = 1000;
@@ -547,13 +545,8 @@ function escapeLike(term: string): string {
   return term.replace(/[%_,()]/g, (c) => `\\${c}`).replace(/,/g, "");
 }
 
-function applyRecordFilters(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  query: any,
-  options: GetRecordsOptions | undefined,
-  fileIds: string[] | undefined,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): any {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyRecordFilters(query: any, options: GetRecordsOptions | undefined, fileIds: string[] | undefined): any {
   if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
   if (options?.status) query = query.eq("status", options.status);
   if (options?.fileId) query = query.eq("file_id", options.fileId);
