@@ -510,7 +510,81 @@ export async function getUploads() {
   }));
 }
 
-export async function getRecords(options?: { uploadId?: string; status?: string; q?: string; folderId?: string; fileId?: string; limit?: number; offset?: number }) {
+export interface GetRecordsOptions {
+  uploadId?: string;
+  status?: string;
+  q?: string;
+  folderId?: string;
+  fileId?: string;
+  limit?: number;
+  offset?: number;
+  /** فلترة السجلات التي لديها feedback فقط — تُطبق على السيرفر */
+  hasFeedback?: boolean;
+}
+
+/** حجم الدفعة الواحدة للتحميل التدريجي من الواجهة */
+export const UNCONFIRMED_PAGE_SIZE = 200;
+
+async function resolveFolderFileIds(admin: ReturnType<typeof createAdminClient>, folderId: string): Promise<string[]> {
+  // جلب كل ملفات الفولدر عبر pagination (تجنب قطع القائمة عند 1000 ملف)
+  const PAGE_FILES = 1000;
+  const collected: string[] = [];
+  for (let page = 0; page < 100; page++) {
+    const { data: files, error: filesError } = await admin
+      .from("unconfirmed_files")
+      .select("id")
+      .eq("folder_id", folderId)
+      .range(page * PAGE_FILES, page * PAGE_FILES + PAGE_FILES - 1);
+    if (filesError) throw new Error("fetch-failed");
+    if (!files || files.length === 0) break;
+    collected.push(...(files as { id: string }[]).map((f) => f.id));
+    if (files.length < PAGE_FILES) break;
+  }
+  return collected;
+}
+
+function escapeLike(term: string): string {
+  return term.replace(/[%_,()]/g, (c) => `\\${c}`).replace(/,/g, "");
+}
+
+function applyRecordFilters(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  query: any,
+  options: GetRecordsOptions | undefined,
+  fileIds: string[] | undefined,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any {
+  if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
+  if (options?.status) query = query.eq("status", options.status);
+  if (options?.fileId) query = query.eq("file_id", options.fileId);
+  if (fileIds) query = query.in("file_id", fileIds);
+  if (options?.hasFeedback) {
+    // last_feedback غير فارغ (يستبعد "" — والقيم null تُستبعد في فلترة العميل أيضاً)
+    query = query.neq("last_feedback", "");
+  }
+  const q = options?.q?.trim();
+  if (q) {
+    const like = `%${escapeLike(q)}%`;
+    // بحث نصي على السيرفر حتى يعمل مع كل الـ 18000+ صف وليس فقط المحمّل منها
+    query = query.or(
+      [
+        `owner_name.ilike.${like}`,
+        `owner_phone.ilike.${like}`,
+        `owner_phone_alt.ilike.${like}`,
+        `building_number.ilike.${like}`,
+        `unit_number.ilike.${like}`,
+        `unit_area.ilike.${like}`,
+        `affiliated_company.ilike.${like}`,
+        `last_feedback.ilike.${like}`,
+        `phone_normalized.ilike.${like}`,
+        `phone_alt_normalized.ilike.${like}`,
+      ].join(",")
+    );
+  }
+  return query;
+}
+
+export async function getRecords(options?: GetRecordsOptions) {
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (!user || userError) throw new Error("unauthorized");
@@ -519,95 +593,56 @@ export async function getRecords(options?: { uploadId?: string; status?: string;
 
   let fileIds: string[] | undefined;
   if (options?.folderId) {
-    // جلب كل ملفات الفولدر عبر pagination (تجنب قطع القائمة عند 1000 ملف)
-    const PAGE_FILES = 1000;
-    const collected: string[] = [];
-    for (let page = 0; page < 100; page++) {
-      const { data: files, error: filesError } = await admin
-        .from("unconfirmed_files")
-        .select("id")
-        .eq("folder_id", options.folderId)
-        .range(page * PAGE_FILES, page * PAGE_FILES + PAGE_FILES - 1);
-      if (filesError) throw new Error("fetch-failed");
-      if (!files || files.length === 0) break;
-      collected.push(...(files as { id: string }[]).map((f) => f.id));
-      if (files.length < PAGE_FILES) break;
-    }
-    fileIds = collected;
+    fileIds = await resolveFolderFileIds(admin, options.folderId);
     if (fileIds.length === 0) return [];
   }
 
-  // دعم التحميل التدريجي (infinite scroll) بـ limit و offset
-  const limit = options?.limit ?? 40;
+  const limit = options?.limit ?? UNCONFIRMED_PAGE_SIZE;
   const offset = options?.offset ?? 0;
 
-  // السبب الجذري السابق: استعلام واحد مع .limit(10000) يُقطع عند حد
-  // PostgREST الافتراضي (~1000 صف لكل طلب)، فيظهر الجدول أقل من قاعدة البيانات.
-  // الحل الجذري: جلب كل الصفحات عبر .range() بترتيب ثابت حتى نفاد البيانات.
-  const PAGE_SIZE = 1000;
-  const MAX_PAGES = 200; // سقف أمان: حتى 200 ألف سجل
+  // جلب النطاق المطلوب [offset, offset+limit) على دفعات (PostgREST يقطع عند ~1000 صف لكل طلب)
+  // بترتيب ثابت حتى يكون الـ offset مستقراً عبر الصفحات.
+  const FETCH_CHUNK = 1000;
   const allRecords: UnconfirmedRecord[] = [];
+  let cursor = offset;
+  const end = offset + limit;
 
-  const targetEnd = offset + limit;
-
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const pageStart = page * PAGE_SIZE;
-    const pageEnd = page * PAGE_SIZE + PAGE_SIZE - 1;
-
-    if (pageStart >= targetEnd) break;
-
+  while (cursor < end) {
+    const chunkEnd = Math.min(cursor + FETCH_CHUNK - 1, end - 1);
     let query = admin.from("unconfirmed_records").select("*");
-
-    if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
-    if (options?.status) query = query.eq("status", options.status);
-    if (options?.fileId) query = query.eq("file_id", options.fileId);
-    if (fileIds) query = query.in("file_id", fileIds);
-
+    query = applyRecordFilters(query, options, fileIds);
     const { data: records, error } = await query
       .order("created_at", { ascending: true })
       .order("row_number", { ascending: true })
       .order("id", { ascending: true })
-      .range(pageStart, Math.min(pageEnd, targetEnd - 1));
+      .range(cursor, chunkEnd);
     if (error) throw new Error("fetch-failed");
     const batch = (records ?? []) as UnconfirmedRecord[];
     allRecords.push(...batch);
-    if (batch.length < PAGE_SIZE) break;
-    if (pageStart + PAGE_SIZE >= targetEnd) break;
+    if (batch.length < chunkEnd - cursor + 1) break; // نفدت البيانات
+    cursor = chunkEnd + 1;
   }
 
-  const sorted = (list: UnconfirmedRecord[]) => [...list].sort((a, b) => {
-    const nameA = (a.owner_name || "").trim();
-    const nameB = (b.owner_name || "").trim();
-    if (!nameA && !nameB) return 0;
-    if (!nameA) return 1;
-    if (!nameB) return -1;
-    const aIsAr = /^[\u0600-\u06FF]/.test(nameA);
-    const bIsAr = /^[\u0600-\u06FF]/.test(nameB);
-    if (aIsAr && !bIsAr) return -1;
-    if (!aIsAr && bIsAr) return 1;
-    return nameA.localeCompare(nameB, "ar", { sensitivity: "base" });
-  });
+  return allRecords;
+}
 
-  const finalRecords = allRecords.slice(0, limit);
+/** العدد الإجمالي للسجلات المطابقة للفلاتر — يُستخدم لعرض "عرض X من Y" الصحيح */
+export async function getUnconfirmedRecordsCount(options?: Omit<GetRecordsOptions, "limit" | "offset">): Promise<number> {
+  const supabase = await createClient();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (!user || userError) throw new Error("unauthorized");
 
-  if (options?.q) {
-    const searchTerm = options.q.toLowerCase();
-    const filtered = finalRecords.filter((r) => {
-      const searchable = [
-        r.owner_name,
-        r.unit_area,
-        r.building_number,
-        r.unit_number,
-        r.owner_phone,
-        r.owner_phone_alt,
-        r.affiliated_company,
-        r.last_feedback,
-        JSON.stringify(r.extra_data || {}),
-      ].join(" ").toLowerCase();
-      return searchable.includes(searchTerm);
-    });
-    return sorted(filtered);
+  const admin = createAdminClient();
+
+  let fileIds: string[] | undefined;
+  if (options?.folderId) {
+    fileIds = await resolveFolderFileIds(admin, options.folderId);
+    if (fileIds.length === 0) return 0;
   }
 
-  return sorted(finalRecords);
+  let query = admin.from("unconfirmed_records").select("id", { count: "exact", head: true });
+  query = applyRecordFilters(query, options, fileIds);
+  const { count, error } = await query;
+  if (error) throw new Error("fetch-failed");
+  return count ?? 0;
 }

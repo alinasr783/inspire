@@ -11,19 +11,21 @@ import { UploadsTable } from "@/components/unconfirmed-data/uploads-table";
 import { CampaignActions } from "@/components/unconfirmed-data/campaign-actions";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ShortcutsHelp } from "@/components/units/shortcuts-help";
-import { type UnconfirmedRecord } from "@/lib/unconfirmed-data-actions";
+import { type UnconfirmedRecord, getRecords, getUnconfirmedRecordsCount } from "@/lib/unconfirmed-data-actions";
 import { getFolders, type Folder } from "@/lib/unconfirmed-folder-actions";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { Link } from "@/i18n/navigation";
 
 interface Props {
   initialRecords: UnconfirmedRecord[];
+  initialTotalCount: number;
+  pageSize: number;
   locale: string;
   userId: string;
   employees: { id: string; name: string }[];
 }
 
-export function UnconfirmedDataClient({ initialRecords, locale, userId, employees }: Props) {
+export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageSize, locale, userId, employees }: Props) {
   const t = useTranslations("UnconfirmedData");
   const tNav = useTranslations("Nav");
   const searchParams = useSearchParams();
@@ -40,15 +42,26 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
     setHydrated(true);
   }, [initialRecords, setInitialData]);
 
+  const [searchInput, setSearchInput] = useState(searchParams.get("q") ?? "");
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [folderId, setFolderId] = useState(searchParams.get("folder") ?? "");
   const [fileId, setFileId] = useState(searchParams.get("file") ?? "");
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(initialTotalCount);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentLimit, setCurrentLimit] = useState(40);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const [isFiltering, setIsFiltering] = useState(false);
   const [feedbackOnly, setFeedbackOnly] = useState(false);
+  const requestIdRef = useRef(0);
+  const liveRecordsRef = useRef(liveRecords);
+  useEffect(() => {
+    liveRecordsRef.current = liveRecords;
+  }, [liveRecords]);
+
+  // Debounce للبحث النصي — البحث يتم على السيرفر عبر كل الصفوف وليس المحمّل منها فقط
+  useEffect(() => {
+    const id = setTimeout(() => setSearch(searchInput), 400);
+    return () => clearTimeout(id);
+  }, [searchInput]);
 
   useEffect(() => {
     getFolders().then((data) => setFolders(data)).catch(() => {});
@@ -56,8 +69,65 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
 
   const currentFiles = folders.find((f) => f.id === folderId)?.files ?? [];
 
+  // إعادة التحميل من السيرفر عند تغيّر الفلاتر (بحث / فولدر / ملف / فيدباك)
+  useEffect(() => {
+    if (!hydrated) return;
+    const requestId = ++requestIdRef.current;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-filter-change: جلب صفحة جديدة من السيرفر عند تغيّر الفلاتر
+    setIsFiltering(true);
+    const filters = {
+      q: search.trim() || undefined,
+      folderId: folderId || undefined,
+      fileId: fileId || undefined,
+      hasFeedback: feedbackOnly || undefined,
+    };
+    Promise.all([
+      getRecords({ ...filters, limit: pageSize, offset: 0 }),
+      getUnconfirmedRecordsCount(filters),
+    ])
+      .then(([rows, count]) => {
+        if (requestIdRef.current !== requestId) return;
+        setInitialData(rows);
+        setTotalCount(count);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (requestIdRef.current === requestId) setIsFiltering(false);
+      });
+  }, [search, folderId, fileId, feedbackOnly, hydrated, pageSize, setInitialData]);
+
+  // تحميل الدفعة التالية من السيرفر وإلحاقها بالقائمة
+  const handleLoadMore = useCallback(async () => {
+    if (isLoading || isFiltering) return;
+    const offset = liveRecordsRef.current.length;
+    if (offset >= totalCount) return;
+    setIsLoading(true);
+    try {
+      const rows = await getRecords({
+        q: search.trim() || undefined,
+        folderId: folderId || undefined,
+        fileId: fileId || undefined,
+        hasFeedback: feedbackOnly || undefined,
+        limit: pageSize,
+        offset,
+      });
+      if (rows.length === 0) {
+        setTotalCount(offset);
+        return;
+      }
+      const seen = new Set(liveRecordsRef.current.map((r) => r.id));
+      const merged = [...liveRecordsRef.current, ...rows.filter((r) => !seen.has(r.id))];
+      setInitialData(merged);
+    } catch {
+      // يُترك الخطأ صامتاً — يبقى الزر متاحاً لإعادة المحاولة
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isLoading, isFiltering, totalCount, search, folderId, fileId, feedbackOnly, pageSize, setInitialData]);
+
   const dataSource = hydrated ? liveRecords : initialRecords;
 
+  // فلترة أمان خفيفة على العميل (لإخفاء أي إدراج realtime لا يطابق الفلاتر الحالية)
   const filteredRecords = useMemo(() => {
     let result = dataSource;
     if (folderId) {
@@ -70,8 +140,8 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
     if (fileId) {
       result = result.filter((r) => r.file_id === fileId);
     }
-    if (search) {
-      const term = search.toLowerCase();
+    if (search.trim()) {
+      const term = search.trim().toLowerCase();
       result = result.filter((r) => {
         return [
           r.owner_name, r.unit_area, r.building_number, r.unit_number,
@@ -86,7 +156,8 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
     return result;
   }, [dataSource, folderId, fileId, search, folders, feedbackOnly]);
 
-  const limitedRecords = filteredRecords.slice(0, currentLimit);
+  const hasMore = dataSource.length < totalCount;
+  const remaining = Math.max(totalCount - dataSource.length, 0);
 
   const columns = [
     { key: "owner_name", label: t("ownerName"), type: "text" },
@@ -125,7 +196,7 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
             <span>{t("allUploads")}</span>
             <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums">
-              {filteredRecords.length}
+              {totalCount}
             </span>
             {filteredRecords.length !== dataSource.length && (
               <span className="text-xs font-normal text-muted-foreground tabular-nums">
@@ -151,8 +222,8 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
               <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="search"
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
+                value={searchInput}
+                onChange={(e) => { setSearchInput(e.target.value); }}
                 placeholder={t("filterSearch")}
                 className="ps-9"
               />
@@ -201,11 +272,11 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
                 {t("filterFeedbackOnly")}
               </label>
 
-              {(search || folderId || fileId || feedbackOnly) && (
+              {(searchInput || folderId || fileId || feedbackOnly) && (
                 <Button
                   variant="ghost"
                   size="sm"
-                    onClick={() => { setSearch(""); setFolderId(""); setFileId(""); setFeedbackOnly(false); }}
+                    onClick={() => { setSearchInput(""); setSearch(""); setFolderId(""); setFileId(""); setFeedbackOnly(false); }}
                   className="h-8 gap-1 text-xs"
                 >
                   <X className="h-3 w-3" />
@@ -215,28 +286,28 @@ export function UnconfirmedDataClient({ initialRecords, locale, userId, employee
             </div>
           </div>
 
-          <UploadsTable records={limitedRecords} columns={columns} locale={locale} selectable={true} userId={userId} employees={employees} onPendingChange={handlePendingChange} />
+          {isFiltering ? (
+            <div className="flex justify-center py-16">
+              <span className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : (
+            <UploadsTable records={filteredRecords} columns={columns} locale={locale} selectable={true} userId={userId} employees={employees} onPendingChange={handlePendingChange} />
+          )}
           <div className="flex flex-col items-center gap-2 pt-4">
             <p className="text-xs text-muted-foreground tabular-nums">
-              {t("showingOf", { shown: Math.min(currentLimit, filteredRecords.length), total: filteredRecords.length })}
+              {t("showingOf", { shown: filteredRecords.length, total: totalCount })}
             </p>
-          {currentLimit < filteredRecords.length && !isLoading && (
+          {hasMore && !isLoading && !isFiltering && (
             <div className="flex justify-center mt-2">
-              <Button variant="outline" onClick={() => setCurrentLimit((c) => Math.min(c + 40, filteredRecords.length))}>
-                {t("showMore")} ({filteredRecords.length - currentLimit} {t("remaining")})
+              <Button variant="outline" onClick={handleLoadMore}>
+                {t("showMore")} ({remaining} {t("remaining")})
               </Button>
             </div>
           )}
-          {isLoading && hasMore && (
+          {(isLoading || isFiltering) && (
             <div className="flex justify-center my-8">
               <span className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full"></span>
             </div>
-          )}
-          {loadMoreRef.current && !isLoading && hasMore && (
-            <div
-              ref={loadMoreRef}
-              className="h-8 w-full my-8 border-t border-muted/20"
-            />
           )}
           </div>
         </CardContent>

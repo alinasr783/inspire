@@ -33,8 +33,9 @@ function createMockClient() {
   let pendingDelete = false;
 
   const q = {
-    select: (_cols?: string) => q,
+    select: (_cols?: string, _opts?: unknown) => q,
     eq: (col: string, val: unknown) => { filters[col] = val; return q; },
+    neq: (col: string, val: unknown) => { filters[`neq:${col}`] = val; return q; },
     in: (col: string, vals: unknown[]) => { inFilters[col] = vals; return q; },
     or: (_filter: string) => q,
     order: (col: string, opts: { ascending: boolean }) => { orderBy = { column: col, asc: opts.ascending }; return q; },

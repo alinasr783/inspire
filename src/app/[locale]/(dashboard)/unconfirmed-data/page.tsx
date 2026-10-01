@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getRecords } from "@/lib/unconfirmed-data-actions";
+import { UNCONFIRMED_PAGE_SIZE, getRecords, getUnconfirmedRecordsCount } from "@/lib/unconfirmed-data-actions";
 import { UnconfirmedDataClient } from "@/components/unconfirmed-data/unconfirmed-data-client";
 
 export default async function UnconfirmedDataPage({
@@ -23,10 +23,17 @@ export default async function UnconfirmedDataPage({
 
   const admin = createAdminClient();
 
-  const records = await getRecords({
-    folderId: sp.folder,
-    fileId: sp.file,
-  });
+  const filters = {
+    folderId: sp.folder || undefined,
+    fileId: sp.file || undefined,
+    q: sp.q || undefined,
+  };
+
+  // أول دفعة + العدد الإجمالي حتى تعرض الواجهة "عرض X من Y" بشكل صحيح
+  const [records, totalCount] = await Promise.all([
+    getRecords({ ...filters, limit: UNCONFIRMED_PAGE_SIZE, offset: 0 }),
+    getUnconfirmedRecordsCount(filters),
+  ]);
 
   const { data: employees } = await admin
     .from("profiles")
@@ -41,7 +48,14 @@ export default async function UnconfirmedDataPage({
 
   return (
     <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
-      <UnconfirmedDataClient initialRecords={records} locale={locale} userId={user.id} employees={employeeList} />
+      <UnconfirmedDataClient
+        initialRecords={records}
+        initialTotalCount={totalCount}
+        pageSize={UNCONFIRMED_PAGE_SIZE}
+        locale={locale}
+        userId={user.id}
+        employees={employeeList}
+      />
     </Suspense>
   );
 }
