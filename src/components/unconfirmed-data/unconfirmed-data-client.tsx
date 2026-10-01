@@ -56,6 +56,9 @@ export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageS
   useEffect(() => {
     liveRecordsRef.current = liveRecords;
   }, [liveRecords]);
+  // حاوية السكرول + عنصر المراقبة للتحميل التلقائي عند الوصول لأسفل القائمة
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Debounce للبحث النصي — البحث يتم على السيرفر عبر كل الصفوف وليس المحمّل منها فقط
   useEffect(() => {
@@ -73,8 +76,10 @@ export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageS
   useEffect(() => {
     if (!hydrated) return;
     const requestId = ++requestIdRef.current;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-filter-change: جلب صفحة جديدة من السيرفر عند تغيّر الفلاتر
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-filter-change: جلب أول 40 صف من السيرفر عند تغيّر الفلاتر
     setIsFiltering(true);
+    // العودة لأعلى القائمة مع كل فلتر جديد
+    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
     const filters = {
       q: search.trim() || undefined,
       folderId: folderId || undefined,
@@ -125,6 +130,12 @@ export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageS
     }
   }, [isLoading, isFiltering, totalCount, search, folderId, fileId, feedbackOnly, pageSize, setInitialData]);
 
+  // مرآة لأحدث نسخة من handleLoadMore حتى لا يستدعي الـ observer نسخة قديمة (stale closure)
+  const loadMoreLatestRef = useRef(handleLoadMore);
+  useEffect(() => {
+    loadMoreLatestRef.current = handleLoadMore;
+  }, [handleLoadMore]);
+
   const dataSource = hydrated ? liveRecords : initialRecords;
 
   // فلترة أمان خفيفة على العميل (لإخفاء أي إدراج realtime لا يطابق الفلاتر الحالية)
@@ -159,7 +170,24 @@ export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageS
   const hasMore = dataSource.length < totalCount;
   const remaining = Math.max(totalCount - dataSource.length, 0);
 
-  const columns = [
+  // تحميل تلقائي عند السكرول لأسفل (infinite scroll بأسلوب فيسبوك):
+  // عنصر مراقبة في نهاية القائمة + هامش تحميل مسبق 600px حتى تبدأ الدفعة التالية قبل الوصول للنهاية.
+  // الدفعات صغيرة (40 صف) والطلبات محمية بـ isLoading حتى لا تتكدس على الأجهزة الضعيفة.
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !hasMore || isFiltering) return;
+    if (typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) void loadMoreLatestRef.current();
+      },
+      { root: scrollContainerRef.current, rootMargin: "600px 0px", threshold: 0 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, isFiltering, filteredRecords.length]);
+
+  const columns = useMemo(() => [
     { key: "owner_name", label: t("ownerName"), type: "text" },
     { key: "unit_area", label: t("unitArea"), type: "text" },
     { key: "building_number", label: t("buildingNumber"), type: "text" },
@@ -171,7 +199,7 @@ export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageS
     { key: "last_contact_date", label: t("lastContactDate"), type: "date" },
     { key: "whatsapp_state", label: t("whatsappState"), type: "text" },
     { key: "assigned_employee", label: t("assignedEmployee"), type: "select" },
-  ];
+  ], [t]);
 
   const selectClass = "appearance-none flex h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -216,7 +244,7 @@ export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageS
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent className="min-h-0 flex-1 overflow-auto pt-0">
+        <CardContent ref={scrollContainerRef} className="min-h-0 flex-1 overflow-auto pt-0">
           <div className="mb-4 space-y-3">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -297,18 +325,20 @@ export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageS
             <p className="text-xs text-muted-foreground tabular-nums">
               {t("showingOf", { shown: filteredRecords.length, total: totalCount })}
             </p>
-          {hasMore && !isLoading && !isFiltering && (
-            <div className="flex justify-center mt-2">
-              <Button variant="outline" onClick={handleLoadMore}>
-                {t("showMore")} ({remaining} {t("remaining")})
-              </Button>
+            {/* عنصر المراقبة للتحميل التلقائي عند السكرول — يبقى دائماً في نهاية القائمة */}
+            <div ref={sentinelRef} className="flex min-h-10 w-full items-center justify-center">
+              {isLoading && (
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              )}
             </div>
-          )}
-          {(isLoading || isFiltering) && (
-            <div className="flex justify-center my-8">
-              <span className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full"></span>
-            </div>
-          )}
+            {/* زرار يدوي كبديل (متصفحات بدون IntersectionObserver أو عند فشل التحميل التلقائي) */}
+            {hasMore && !isLoading && !isFiltering && (
+              <div className="flex justify-center">
+                <Button variant="outline" onClick={handleLoadMore}>
+                  {t("showMore")} ({remaining} {t("remaining")})
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
