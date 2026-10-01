@@ -538,7 +538,7 @@ export async function getRecords(options?: { uploadId?: string; status?: string;
   }
 
   // دعم التحميل التدريجي (infinite scroll) بـ limit و offset
-  const limit = options?.limit ?? 1000;
+  const limit = options?.limit ?? 40;
   const offset = options?.offset ?? 0;
 
   // السبب الجذري السابق: استعلام واحد مع .limit(10000) يُقطع عند حد
