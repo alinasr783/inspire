@@ -23,6 +23,7 @@ export type ClientRow = {
   additional_notes: string | null;
   last_contact_date: string | null;
   assigned_employee: string | null;
+  backup_employee: string | null;
   seriousness_rating: number;
   custom_fields: Record<string, unknown>;
   created_by: string;
@@ -47,6 +48,7 @@ const clientSchema = z.object({
   additional_notes: z.string().trim().optional(),
   last_contact_date: z.string().trim().optional(),
   assigned_employee: z.string().trim().optional(),
+  backup_employee: z.string().trim().optional(),
   seriousness_rating: z.coerce.number().int().min(1).max(10),
   custom_fields: z.record(z.string(), z.any()).optional().default({}),
 });
@@ -124,7 +126,7 @@ export async function updateClient(id: string, formData: FormData) {
 
   const { data: existing } = await admin
     .from("clients")
-    .select("created_by")
+    .select("created_by, assigned_employee, backup_employee")
     .eq("id", id)
     .single();
 
@@ -132,21 +134,34 @@ export async function updateClient(id: string, formData: FormData) {
     redirect(`/${locale}/clients?error=not-found`);
   }
 
-  if (existing.created_by !== user.id) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
 
-    if (!profile || profile.role !== "admin") {
-      redirect(`/${locale}/clients/${id}?error=unauthorized`);
-    }
+  const isAdmin = profile?.role === "admin";
+  const isOwner = existing.created_by === user.id;
+  const isAssigned = existing.assigned_employee === user.id;
+  const isBackup = existing.backup_employee === user.id;
+
+  if (!isAdmin && !isOwner && !isAssigned && !isBackup) {
+    redirect(`/${locale}/clients/${id}?error=unauthorized`);
+  }
+
+  const updateData: Record<string, unknown> = {
+    ...parsed.data,
+    updated_at: new Date().toISOString(),
+  };
+
+  // The backup employee cannot change the primary responsible employee
+  if (!isAdmin && !isOwner && !isAssigned && isBackup) {
+    updateData.assigned_employee = existing.assigned_employee;
   }
 
   const { error } = await admin
     .from("clients")
-    .update({ ...parsed.data, updated_at: new Date().toISOString() })
+    .update(updateData)
     .eq("id", id);
 
   if (error) {
@@ -166,7 +181,7 @@ export async function deleteClient(id: string) {
 
   const { data: existing } = await admin
     .from("clients")
-    .select("created_by")
+    .select("created_by, assigned_employee")
     .eq("id", id)
     .single();
 
@@ -174,7 +189,10 @@ export async function deleteClient(id: string) {
     redirect(`/${locale}/clients?error=not-found`);
   }
 
-  if (existing.created_by !== user.id) {
+  const isOwner = existing.created_by === user.id;
+  const isAssigned = existing.assigned_employee === user.id;
+
+  if (!isOwner && !isAssigned) {
     const { data: profile } = await admin
       .from("profiles")
       .select("role")
@@ -202,10 +220,36 @@ export async function updateClientField(clientId: string, field: string, value: 
     "customer_name", "phone", "phone_alt", "budget_from", "budget_to",
     "payment_method", "preferred_area", "unit_type", "bedrooms",
     "preferred_developer", "source", "additional_notes", "last_contact_date",
-    "assigned_employee", "seriousness_rating",
+    "assigned_employee", "backup_employee", "seriousness_rating",
   ];
 
   const admin = createAdminClient();
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  const isAdmin = profile?.role === "admin";
+
+  const { data: client } = await admin
+    .from("clients")
+    .select("created_by, assigned_employee, backup_employee")
+    .eq("id", clientId)
+    .single();
+
+  const isOwner = client?.created_by === user.id;
+  const isAssigned = client?.assigned_employee === user.id;
+  const isBackup = client?.backup_employee === user.id;
+
+  if (!isAdmin && !isOwner && !isAssigned && !isBackup) {
+    throw new Error("unauthorized");
+  }
+
+  // Backup employee cannot change the primary assigned employee
+  if (field === "assigned_employee" && !isAdmin && !isOwner && !isAssigned && isBackup) {
+    throw new Error("backup-cannot-change-primary");
+  }
 
   if (!allowedFields.includes(field)) {
     const { data: current } = await admin.from("clients").select("custom_fields").eq("id", clientId).single();
@@ -225,7 +269,7 @@ export async function updateClientField(clientId: string, field: string, value: 
     const trimmed = value.trim();
     updateValue = trimmed ? Number(trimmed) : null;
     if (trimmed && isNaN(updateValue as number)) updateValue = value;
-  } else if (field === "last_contact_date") {
+  } else if (field === "last_contact_date" || field === "assigned_employee" || field === "backup_employee") {
     updateValue = value.trim() || null;
   }
 

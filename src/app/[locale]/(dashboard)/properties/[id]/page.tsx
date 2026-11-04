@@ -282,6 +282,23 @@ export default async function UnitDetailPage({
     }
   }
 
+  let backupName = "—";
+  if (unitData.backup_employee) {
+    try {
+      const { data: emp, error } = await admin
+        .from("profiles")
+        .select("first_name, second_name")
+        .eq("id", unitData.backup_employee)
+        .single();
+      if (emp && !error) {
+        const name = [emp.first_name, emp.second_name].filter(Boolean).join(" ");
+        backupName = name || "—";
+      }
+    } catch {
+      backupName = "—";
+    }
+  }
+
   const { data: profile } = await admin
     .from("profiles")
     .select("role")
@@ -290,8 +307,14 @@ export default async function UnitDetailPage({
 
   const isAr = locale === "ar";
 
-  const canEdit = unitData.created_by === user.id || profile?.role === "admin";
-  const canManageGallery = profile?.role === "admin" || unitData.created_by === user.id || unitData.assigned_employee === user.id;
+  const isAdmin = profile?.role === "admin";
+  const isOwner = unitData.created_by === user.id;
+  const isAssigned = unitData.assigned_employee === user.id;
+  const isBackup = unitData.backup_employee === user.id;
+
+  const canEdit = isAdmin || isOwner || isAssigned || isBackup;
+  const canDelete = isAdmin || isOwner || isAssigned;
+  const canManageGallery = isAdmin || isOwner || isAssigned || isBackup;
 
   const initialGallery = await getUnitGallery(unitData.id);
 
@@ -446,6 +469,15 @@ export default async function UnitDetailPage({
                     {assigneeName}
                   </span>
                 </span>
+                {unitData.backup_employee && (
+                  <span className="inline-flex items-center gap-1">
+                    <UserCheck className="size-3.5" />
+                    {t("backupEmployee")}:{" "}
+                    <span className="font-medium text-foreground">
+                      {backupName}
+                    </span>
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-1">
                   <CalendarClock className="size-3.5" />
                   {t("listedSince")}: {formatDate(unitData.created_at, locale)}
@@ -501,17 +533,15 @@ export default async function UnitDetailPage({
                 {t("share")}
               </a>
               {canEdit && (
-                <>
-                  <Link
-                    href={`/properties/${unitData.id}/edit`}
-                    className={cn(buttonVariants({ variant: "outline", size: "sm" }), "justify-center gap-1.5")}
-                  >
-                    <Pencil className="size-4" />
-                    {t("editUnit")}
-                  </Link>
-                  <DeleteUnitButton unitId={unitData.id} />
-                </>
+                <Link
+                  href={`/properties/${unitData.id}/edit`}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "justify-center gap-1.5")}
+                >
+                  <Pencil className="size-4" />
+                  {t("editUnit")}
+                </Link>
               )}
+              {canDelete && <DeleteUnitButton unitId={unitData.id} />}
             </div>
           </div>
         </div>
@@ -742,6 +772,14 @@ export default async function UnitDetailPage({
                 role={t("assignedEmployee")}
                 icon={<UserCheck className="size-3" />}
               />
+              {unitData.backup_employee && (
+                <PersonRow
+                  name={backupName}
+                  initials={initialsOf(backupName)}
+                  role={t("backupEmployee")}
+                  icon={<UserCheck className="size-3" />}
+                />
+              )}
               <PersonRow
                 name={creatorName}
                 initials={initialsOf(creatorName)}
@@ -830,12 +868,12 @@ export default async function UnitDetailPage({
               WhatsApp
             </a>
             {canEdit && (
-              <>
-                <Link href={`/properties/${unitData.id}/edit`} className="flex items-center justify-center rounded-xl border border-border px-3 py-2.5">
-                  <Pencil className="size-4" />
-                </Link>
-                <span><DeleteUnitButton unitId={unitData.id} /></span>
-              </>
+              <Link href={`/properties/${unitData.id}/edit`} className="flex items-center justify-center rounded-xl border border-border px-3 py-2.5">
+                <Pencil className="size-4" />
+              </Link>
+            )}
+            {canDelete && (
+              <span><DeleteUnitButton unitId={unitData.id} /></span>
             )}
           </div>
         </div>

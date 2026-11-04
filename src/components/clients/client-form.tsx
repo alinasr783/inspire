@@ -34,6 +34,7 @@ const baseSchema = z.object({
   additional_notes: z.string().trim().optional().default(""),
   last_contact_date: z.string().trim().optional().default(""),
   assigned_employee: z.string().trim().optional().default(""),
+  backup_employee: z.string().trim().optional().default(""),
   ad_campaign_id: z.string().trim().optional().default(""),
   seriousness_rating: z.coerce.number().int().min(1).max(10),
 });
@@ -51,11 +52,12 @@ interface ClientFormProps {
   adCampaignId?: string;
   companyMode?: boolean;
   lockNamePhone?: boolean;
+  isBackupOnly?: boolean;
 }
 
 const selectClass = "flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground [&>option]:text-foreground [&>option]:bg-background";
 
-export function ClientForm({ mode, defaultValues, clientId, customColumns, assignedEmployeeValue, employees, campaignOptions, adCampaignId, companyMode = false, lockNamePhone = false }: ClientFormProps) {
+export function ClientForm({ mode, defaultValues, clientId, customColumns, assignedEmployeeValue, employees, campaignOptions, adCampaignId, companyMode = false, lockNamePhone = false, isBackupOnly = false }: ClientFormProps) {
   const t = useTranslations("Clients");
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -108,6 +110,7 @@ export function ClientForm({ mode, defaultValues, clientId, customColumns, assig
       additional_notes: "",
       last_contact_date: "",
       assigned_employee: assignedEmployeeValue || "",
+      backup_employee: "",
       ad_campaign_id: adCampaignId || "",
       seriousness_rating: 5,
       ...defaultValues,
@@ -260,6 +263,26 @@ export function ClientForm({ mode, defaultValues, clientId, customColumns, assig
             id="assigned_employee"
             className={selectClass}
             {...register("assigned_employee")}
+            disabled={isBackupOnly}
+          >
+            <option value="">—</option>
+            {(employees ?? []).map((emp) => (
+              <option key={emp.id} value={emp.id}>
+                {emp.name}
+              </option>
+            ))}
+          </select>
+          {isBackupOnly && (
+            <p className="text-xs text-muted-foreground">لا يمكن للموظف الاحتياطي تغيير الموظف المسؤول الأساسي.</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="backup_employee">{t("backupEmployee")}</Label>
+          <select
+            id="backup_employee"
+            className={selectClass}
+            {...register("backup_employee")}
           >
             <option value="">—</option>
             {(employees ?? []).map((emp) => (

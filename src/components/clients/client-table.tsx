@@ -38,7 +38,7 @@ const COL_WIDTHS: Record<string, number> = {
   customer_name: 160, phone: 140, phone_alt: 140, budget_from: 130, budget_to: 130,
   payment_method: 120, preferred_area: 140, unit_type: 120, bedrooms: 100,
   preferred_developer: 150, source: 130, additional_notes: 180, last_contact_date: 130,
-  assigned_employee: 150, created_by: 140, seriousness_rating: 120,
+  assigned_employee: 150, backup_employee: 150, created_by: 140, seriousness_rating: 120,
 };
 const DEFAULT_WIDTH = 150;
 const MIN_WIDTH = 50;
@@ -73,6 +73,7 @@ interface ClientTableProps {
   creatorMap: Map<string, string>;
   employeeMap: Map<string, string>;
   userId: string;
+  isAdmin?: boolean;
   companyMode?: boolean;
   basePath?: string;
   canDelete?: boolean;
@@ -223,7 +224,7 @@ const TableRowComponent = memo(function TableRowComponent({
         return (
           <PresenceTd key={col.id} table="clients" rowId={client.id as string} colKey={key} className={`overflow-hidden border-b border-r align-middle ${isActiveCell ? "bg-primary/15" : ""}`} onContextMenu={onContextMenu}>
             {isEdit ? (
-              <CellEditor defaultValue={key === "assigned_employee" ? String(client[key] ?? "") : raw}
+              <CellEditor defaultValue={key === "assigned_employee" || key === "backup_employee" ? String(client[key] ?? "") : raw}
                 type={getEditType(col)} options={editOptions} colKey={key}
                 onSave={(v) => cellSave(client.id as string, key, v)} onCancel={editCancel} />
             ) : (
@@ -270,7 +271,7 @@ const TableRowComponent = memo(function TableRowComponent({
   );
 });
 
-export function ClientTable({ columns, clients, locale, creatorMap, employeeMap, userId, companyMode = false, basePath = "/clients", canDelete = true, canEditNamePhone = true, campaignOptions }: ClientTableProps) {
+export function ClientTable({ columns, clients, locale, creatorMap, employeeMap, userId, isAdmin = false, companyMode = false, basePath = "/clients", canDelete = true, canEditNamePhone = true, campaignOptions }: ClientTableProps) {
   const t = useTranslations("Clients");
   const router = useRouter();
   const { notifyCellEdit } = useRealtime();
@@ -323,8 +324,14 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
 
   const cellEdit = useCallback((cid: string, key: string) => {
     if (!canEditNamePhone && (key === "customer_name" || key === "phone")) return;
+    const client = localClients.find((c) => c.id === cid);
+    const isBackupOnly = client?.backup_employee === userId && client?.assigned_employee !== userId && client?.created_by !== userId && !isAdmin;
+    if (key === "assigned_employee" && isBackupOnly) {
+      showError("لا يمكن للموظف الاحتياطي تغيير الموظف المسؤول الأساسي.");
+      return;
+    }
     setEditing({ cid, key });
-  }, [canEditNamePhone]);
+  }, [canEditNamePhone, localClients, userId, isAdmin]);
   const editCancel = useCallback(() => setEditing(null), []);
 
   const onEditCell = useCallback((rowId: string, colKey: string) => {
@@ -362,8 +369,14 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
 
   const openDelete = useCallback((cid: string) => {
     const c = clientsData.find((x) => x.id === cid);
+    const isOwner = c?.created_by === userId;
+    const isAssigned = c?.assigned_employee === userId;
+    if (!isAdmin && !isOwner && !isAssigned) {
+      showError("لا يمكن للموظف الاحتياطي حذف العميل.");
+      return;
+    }
     setDeleteDialog({ cid, name: (c as any)?.customer_name || cid.slice(0, 8) });
-  }, [clientsData]);
+  }, [clientsData, isAdmin, userId]);
 
   const confirmDelete = useCallback(async () => {
     if (!deleteDialog) return;
@@ -450,12 +463,13 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
 
   const clientsBuiltin = useRef(new Set([
     "customer_name","phone","phone_alt","budget_from","budget_to","payment_method","preferred_area",
-    "unit_type","bedrooms","preferred_developer","source","additional_notes","last_contact_date","assigned_employee",
+    "unit_type","bedrooms","preferred_developer","source","additional_notes","last_contact_date","assigned_employee","backup_employee",
     "seriousness_rating",
   ]));
 
   const cellSave = useCallback((cid: string, key: string, value: string) => {
     setEditing(null);
+    const prevClients = localClients;
     setLocalClients((prev) => prev.map((c) => {
       if (c.id !== cid) return c;
       if (clientsBuiltin.current.has(key)) return { ...c, [key]: value } as ClientRow;
@@ -467,9 +481,20 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
     if (!bgSaveRef.current.has(tag)) {
       bgSaveRef.current.add(tag);
       const save = companyMode ? updateCompanyClientField(cid, key, value) : updateClientField(cid, key, value);
-      save.finally(() => bgSaveRef.current.delete(tag));
+      save
+        .catch((e: Error) => {
+          setLocalClients(prevClients);
+          if (e.message === "backup-cannot-change-primary") {
+            showError("لا يمكن للموظف الاحتياطي تغيير الموظف المسؤول الأساسي.");
+          } else if (e.message === "unauthorized") {
+            showError("ليس لديك صلاحية لتعديل هذا العميل.");
+          } else {
+            showError(e?.message || "Update failed");
+          }
+        })
+        .finally(() => bgSaveRef.current.delete(tag));
     }
-  }, [notifyCellEdit, companyMode]);
+  }, [notifyCellEdit, companyMode, localClients]);
 
   const onAssignCampaign = useCallback((cid: string, campaignId: string) => {
     setLocalClients((prev) => prev.map((c) => (c.id === cid ? { ...c, ad_campaign_id: campaignId || null } as ClientRow : c)));
@@ -501,12 +526,12 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
   // Memoized helpers to avoid recreating closures per render
   const getCellRaw = useCallback((col: ColumnConfig, client: ClientRow) => {
     if (col.key === "created_by") return creatorMap.get(String(client[col.key] ?? "")) || String(client[col.key] ?? "");
-    if (col.key === "assigned_employee") return employeeMap.get(String(client[col.key] ?? "")) || String(client[col.key] ?? "");
+    if (col.key === "assigned_employee" || col.key === "backup_employee") return employeeMap.get(String(client[col.key] ?? "")) || String(client[col.key] ?? "");
     return col.is_builtin ? String(client[col.key] ?? "") : String((client.custom_fields as Record<string, unknown>)?.[col.key] ?? "");
   }, [creatorMap, employeeMap]);
 
   const getEditOptions = useCallback((col: ColumnConfig): { value: string; label: string }[] | undefined => {
-    if (col.key === "assigned_employee") return Array.from(employeeMap.entries()).map(([id, name]) => ({ value: id, label: name }));
+    if (col.key === "assigned_employee" || col.key === "backup_employee") return Array.from(employeeMap.entries()).map(([id, name]) => ({ value: id, label: name }));
     const opts = DROPDOWN_OPTIONS[col.key];
     if (opts && opts.length > 0) return opts.map((o) => ({ value: o, label: o }));
     if (col.type === "select" && col.options && col.options.length > 0) return col.options.map((o) => ({ value: o, label: o }));
@@ -514,7 +539,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
   }, [employeeMap]);
 
   const getEditType = useCallback((col: ColumnConfig): string => {
-    if (col.key === "assigned_employee") return "select";
+    if (col.key === "assigned_employee" || col.key === "backup_employee") return "select";
     if (col.key === "budget_from" || col.key === "budget_to") return "number";
     if (col.key === "last_contact_date" || col.type === "date") return "date";
     return "text";
@@ -583,7 +608,7 @@ export function ClientTable({ columns, clients, locale, creatorMap, employeeMap,
                   onRowMouseEnter={handleRowMouseEnter}
                   onCellMouseEnter={handleCellMouseEnter}
                   basePath={basePath}
-                  canDelete={canDelete}
+                  canDelete={canDelete && (isAdmin || client.created_by === userId || client.assigned_employee === userId)}
                   showCampaignCol={showCampaignCol}
                   canAssignCampaign={canEditNamePhone}
                   campaignNameMap={campaignNameMap}

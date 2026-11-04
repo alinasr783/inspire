@@ -25,6 +25,7 @@ export type UnitRow = {
   additional_notes: string | null;
   feedback: string | null;
   assigned_employee: string | null;
+  backup_employee: string | null;
   custom_fields: Record<string, unknown>;
   created_by: string;
   created_at: string;
@@ -92,6 +93,7 @@ const unitSchema = z.object({
   additional_notes: z.string().trim().default(""),
   feedback: z.string().trim().default(""),
   assigned_employee: z.string().trim().optional(),
+  backup_employee: z.string().trim().optional(),
   custom_fields: z.record(z.string(), z.any()).optional().default({}),
 });
 
@@ -199,9 +201,10 @@ export async function updateUnit(id: string, formData: FormData) {
     parsed.data.custom_fields = cfCheck.valid;
   }
 
-  const { data: existing } = await supabase
+  const admin = createAdminClient();
+  const { data: existing } = await admin
     .from("units")
-    .select("created_by")
+    .select("created_by, assigned_employee, backup_employee")
     .eq("id", id)
     .single();
 
@@ -209,23 +212,34 @@ export async function updateUnit(id: string, formData: FormData) {
     redirect(`/${locale}/properties?error=not-found`);
   }
 
-  if (existing.created_by !== user.id) {
-    const admin = createAdminClient();
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
 
-    if (!profile || profile.role !== "admin") {
-      redirect(`/${locale}/properties/${id}?error=unauthorized`);
-    }
+  const isAdmin = profile?.role === "admin";
+  const isOwner = existing.created_by === user.id;
+  const isAssigned = existing.assigned_employee === user.id;
+  const isBackup = existing.backup_employee === user.id;
+
+  if (!isAdmin && !isOwner && !isAssigned && !isBackup) {
+    redirect(`/${locale}/properties/${id}?error=unauthorized`);
   }
 
-  const admin = createAdminClient();
+  const updateData: Record<string, unknown> = {
+    ...parsed.data,
+    updated_at: new Date().toISOString(),
+  };
+
+  // The backup employee cannot change the primary responsible employee
+  if (!isAdmin && !isOwner && !isAssigned && isBackup) {
+    updateData.assigned_employee = existing.assigned_employee;
+  }
+
   const { error } = await admin
     .from("units")
-    .update({ ...parsed.data, updated_at: new Date().toISOString() })
+    .update(updateData)
     .eq("id", id);
 
   if (error) {
@@ -283,7 +297,7 @@ export async function updateUnitField(unitId: string, field: string, value: stri
   const allowedFields = [
     "customer_name", "phone", "compound_name", "area", "building_number",
     "finishing_status", "rent_sale", "unit_type", "cash_required", "remaining",
-    "last_contact_date", "additional_notes", "feedback", "assigned_employee",
+    "last_contact_date", "additional_notes", "feedback", "assigned_employee", "backup_employee",
   ];
 
   const admin = createAdminClient();
@@ -295,13 +309,23 @@ export async function updateUnitField(unitId: string, field: string, value: stri
     .single();
   const isAdmin = profile?.role === "admin";
 
-  if (!isAdmin) {
-    const { data: unit } = await admin.from("units").select("created_by, assigned_employee").eq("id", unitId).single();
-    const isOwner = unit?.created_by === user.id;
-    const isAssigned = unit?.assigned_employee === user.id;
-    if (!isOwner && !isAssigned) {
-      throw new Error("unauthorized");
-    }
+  const { data: unit } = await admin
+    .from("units")
+    .select("created_by, assigned_employee, backup_employee")
+    .eq("id", unitId)
+    .single();
+
+  const isOwner = unit?.created_by === user.id;
+  const isAssigned = unit?.assigned_employee === user.id;
+  const isBackup = unit?.backup_employee === user.id;
+
+  if (!isAdmin && !isOwner && !isAssigned && !isBackup) {
+    throw new Error("unauthorized");
+  }
+
+  // Backup employee cannot change the primary assigned employee
+  if (field === "assigned_employee" && !isAdmin && !isOwner && !isAssigned && isBackup) {
+    throw new Error("backup-cannot-change-primary");
   }
 
   if (!allowedFields.includes(field)) {
@@ -367,7 +391,7 @@ export async function updateUnitField(unitId: string, field: string, value: stri
     const trimmed = strValue.trim();
     updateValue = trimmed ? Number(trimmed) : null;
     if (trimmed && isNaN(updateValue as number)) updateValue = value;
-  } else if (field === "last_contact_date") {
+  } else if (field === "last_contact_date" || field === "assigned_employee" || field === "backup_employee") {
     updateValue = strValue.trim() || null;
   }
 
@@ -399,13 +423,14 @@ export async function updateShareText(unitId: string, text: string) {
   if (!isAdmin) {
     const { data: unit } = await admin
       .from("units")
-      .select("created_by, assigned_employee")
+      .select("created_by, assigned_employee, backup_employee")
       .eq("id", unitId)
       .single();
 
     const isOwner = unit?.created_by === user.id;
     const isAssigned = unit?.assigned_employee === user.id;
-    if (!isOwner && !isAssigned) {
+    const isBackup = unit?.backup_employee === user.id;
+    if (!isOwner && !isAssigned && !isBackup) {
       throw new Error("unauthorized");
     }
   }
@@ -684,7 +709,7 @@ export async function confirmGroupUnits(rows: Array<{ mapped: Record<string, str
   for (let i = 0; i < rows.length; i++) {
     const raw: Record<string, unknown> = {};
     for (const key of Object.keys(unitSchema.shape)) {
-      if (key === "custom_fields" || key === "assigned_employee") continue;
+      if (key === "custom_fields" || key === "assigned_employee" || key === "backup_employee") continue;
       const val = rows[i].mapped[key];
       if (val !== null && val !== undefined && val !== "") {
         raw[key] = val;
@@ -740,13 +765,14 @@ export async function highlightRow(unitId: string, color: "green" | "red" | null
   if (!isAdmin) {
     const { data: unit } = await admin
       .from("units")
-      .select("created_by, assigned_employee")
+      .select("created_by, assigned_employee, backup_employee")
       .eq("id", unitId)
       .single();
 
     const isOwner = unit?.created_by === user.id;
     const isAssigned = unit?.assigned_employee === user.id;
-    if (!isOwner && !isAssigned) {
+    const isBackup = unit?.backup_employee === user.id;
+    if (!isOwner && !isAssigned && !isBackup) {
       throw new Error("unauthorized");
     }
   }

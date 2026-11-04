@@ -110,7 +110,7 @@ function applyFilters(
   }
 
   if (filters.assigned_employee && filters.assigned_employee !== "all" && "assigned_employee" !== skipKey) {
-    result = result.filter((u) => (u as any).assigned_employee === filters.assigned_employee);
+    result = result.filter((u) => (u as any).assigned_employee === filters.assigned_employee || (u as any).backup_employee === filters.assigned_employee);
   }
 
   if (filters.last_contact_from && "last_contact_from" !== skipKey) {
@@ -264,7 +264,7 @@ export function PropertiesClient({
       const subset = applyFilters(unitsData, filters, deferredSearch, customColumns, duplicatePhones, key);
       const vals = subset
         .flatMap((u) => {
-          if (key === "assigned_employee") return [(u as any).assigned_employee];
+          if (key === "assigned_employee") return [(u as any).assigned_employee, (u as any).backup_employee];
           if (BUILTIN_DROPDOWN_KEYS.includes(key)) return [u[key as keyof UnitRow]];
           const cv = (u.custom_fields as Record<string, unknown>)?.[key];
           if (Array.isArray(cv)) return cv.map((v) => String(v));

@@ -264,8 +264,9 @@ export default async function CompanyClientDetailPage({
 
   const isAdmin = profile?.role === "admin";
   const isAssignee = clientData.assigned_employee === user.id;
+  const isBackup = clientData.backup_employee === user.id;
 
-  if (!isAdmin && !isAssignee) {
+  if (!isAdmin && !isAssignee && !isBackup) {
     redirect(`/${locale}/company-clients?error=unauthorized`);
   }
 
@@ -293,6 +294,23 @@ export default async function CompanyClientDetailPage({
       }
     } catch {
       assigneeName = "—";
+    }
+  }
+
+  let backupName = "—";
+  if (clientData.backup_employee) {
+    try {
+      const { data: emp, error: empError } = await admin
+        .from("profiles")
+        .select("first_name, second_name")
+        .eq("id", clientData.backup_employee)
+        .single();
+      if (emp && !empError) {
+        const name = [emp.first_name, emp.second_name].filter(Boolean).join(" ");
+        backupName = name || "—";
+      }
+    } catch {
+      backupName = "—";
     }
   }
 
@@ -418,6 +436,15 @@ export default async function CompanyClientDetailPage({
                     {assigneeName}
                   </span>
                 </span>
+                {clientData.backup_employee && (
+                  <span className="inline-flex items-center gap-1">
+                    <UserCheck className="size-3.5" />
+                    {t("backupEmployee")}:{" "}
+                    <span className="font-medium text-foreground">
+                      {backupName}
+                    </span>
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-1">
                   <CalendarClock className="size-3.5" />
                   {t("memberSince")}: {formatDate(clientData.created_at, locale)}
@@ -670,6 +697,14 @@ export default async function CompanyClientDetailPage({
                 role={t("assignedEmployee")}
                 icon={<UserCheck className="size-3" />}
               />
+              {clientData.backup_employee && (
+                <PersonRow
+                  name={backupName}
+                  initials={initialsOf(backupName)}
+                  role={t("backupEmployee")}
+                  icon={<UserCheck className="size-3" />}
+                />
+              )}
               <PersonRow
                 name={creatorName}
                 initials={initialsOf(creatorName)}

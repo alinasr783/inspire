@@ -32,7 +32,7 @@ export default async function CompanyClientsPage({
   const customCols = allColumns.filter((c) => !c.is_builtin && c.enabled);
 
   let query = admin.from("clients").select("*").eq("is_company_client", true).order("created_at", { ascending: false });
-  if (!isAdmin) query = query.eq("assigned_employee", user.id);
+  if (!isAdmin) query = query.or(`assigned_employee.eq.${user.id},backup_employee.eq.${user.id}`);
   const { data: clients } = await query;
   const clientsData = (clients ?? []) as ClientRow[];
 
@@ -55,7 +55,7 @@ export default async function CompanyClientsPage({
   const creatorMap = new Map((creators ?? []).map((c: { id: string; first_name: string | null; second_name: string | null }) => [c.id, [c.first_name, c.second_name].filter(Boolean).join(" ")]));
   const creatorOptions = (creators ?? []).map((c) => ({ id: c.id, name: [c.first_name, c.second_name].filter(Boolean).join(" ") }));
 
-  const assigneeIds = [...new Set(clientsData.map((c) => c.assigned_employee).filter(Boolean))] as string[];
+  const assigneeIds = [...new Set(clientsData.flatMap((c) => [c.assigned_employee, c.backup_employee]).filter(Boolean))] as string[];
   const { data: assignees } = assigneeIds.length > 0 ? await admin.from("profiles").select("id, first_name, second_name").in("id", assigneeIds) : { data: [] };
   const employeeMap = new Map((assignees ?? []).map((a: { id: string; first_name: string | null; second_name: string | null }) => [a.id, [a.first_name, a.second_name].filter(Boolean).join(" ")]));
   const employeeOptions = (assignees ?? []).map((a) => ({ id: a.id, name: [a.first_name, a.second_name].filter(Boolean).join(" ") }));

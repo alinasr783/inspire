@@ -104,7 +104,7 @@ export function ClientsClient({
     if (area !== "all") result = result.filter((c) => c.preferred_area === area);
     if (developer !== "all") result = result.filter((c) => c.preferred_developer === developer);
     if (bedrooms !== "all") result = result.filter((c) => c.bedrooms === bedrooms);
-    if (assigned !== "all") result = result.filter((c) => c.assigned_employee === assigned);
+    if (assigned !== "all") result = result.filter((c) => c.assigned_employee === assigned || c.backup_employee === assigned);
     if (createdBy !== "all") result = result.filter((c) => c.created_by === createdBy);
     if (budgetFrom) { const m = Number(budgetFrom); if (!isNaN(m)) result = result.filter((c) => (Number(c.budget_from) || 0) >= m); }
     if (budgetTo) { const m = Number(budgetTo); if (!isNaN(m)) result = result.filter((c) => (Number(c.budget_from) || 0) <= m); }
@@ -245,7 +245,7 @@ export function ClientsClient({
         </div>
       </div>
 
-      <ClientTable columns={columns} clients={visible} locale={locale} creatorMap={creatorMap} employeeMap={employeeMap} userId={userId} companyMode={companyMode} basePath={basePath} canDelete={canDelete} canEditNamePhone={canEditNamePhone} campaignOptions={campaignOptions} />
+      <ClientTable columns={columns} clients={visible} locale={locale} creatorMap={creatorMap} employeeMap={employeeMap} userId={userId} isAdmin={isAdmin} companyMode={companyMode} basePath={basePath} canDelete={canDelete} canEditNamePhone={canEditNamePhone} campaignOptions={campaignOptions} />
 
       {showCount < filtered.length && (
         <div className="flex justify-center pt-4"><Button variant="outline" onClick={() => setShowCount((c) => c + 50)}>Show More ({filtered.length - showCount} remaining)</Button></div>

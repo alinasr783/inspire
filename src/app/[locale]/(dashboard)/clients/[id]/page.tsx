@@ -275,13 +275,37 @@ export default async function ClientDetailPage({
       assigneeName = "—";
     }
   }
+
+  let backupName = "—";
+  if (clientData.backup_employee) {
+    try {
+      const { data: emp, error } = await admin
+        .from("profiles")
+        .select("first_name, second_name")
+        .eq("id", clientData.backup_employee)
+        .single();
+      if (emp && !error) {
+        const name = [emp.first_name, emp.second_name].filter(Boolean).join(" ");
+        backupName = name || "—";
+      }
+    } catch {
+      backupName = "—";
+    }
+  }
+
   const { data: profile } = await admin
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .single();
 
-  const canEdit = clientData.created_by === user.id || profile?.role === "admin";
+  const isAdmin = profile?.role === "admin";
+  const isOwner = clientData.created_by === user.id;
+  const isAssigned = clientData.assigned_employee === user.id;
+  const isBackup = clientData.backup_employee === user.id;
+
+  const canEdit = isAdmin || isOwner || isAssigned || isBackup;
+  const canDelete = isAdmin || isOwner || isAssigned;
 
   const { count: dealsCount } = await admin
     .from("generated_deals")
@@ -410,6 +434,15 @@ export default async function ClientDetailPage({
                     {assigneeName}
                   </span>
                 </span>
+                {clientData.backup_employee && (
+                  <span className="inline-flex items-center gap-1">
+                    <UserCheck className="size-3.5" />
+                    {t("backupEmployee")}:{" "}
+                    <span className="font-medium text-foreground">
+                      {backupName}
+                    </span>
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-1">
                   <CalendarClock className="size-3.5" />
                   {t("memberSince")}: {formatDate(clientData.created_at, locale)}
@@ -457,16 +490,14 @@ export default async function ClientDetailPage({
                 </Button>
               </Link>
               {canEdit && (
-                <>
-                  <Link href={`/clients/${clientData.id}/edit`}>
-                    <Button variant="outline" size="sm" className="w-full justify-center gap-1.5">
-                      <Pencil className="size-4" />
-                      {t("editClient")}
-                    </Button>
-                  </Link>
-                  <DeleteClientButton clientId={clientData.id} />
-                </>
+                <Link href={`/clients/${clientData.id}/edit`}>
+                  <Button variant="outline" size="sm" className="w-full justify-center gap-1.5">
+                    <Pencil className="size-4" />
+                    {t("editClient")}
+                  </Button>
+                </Link>
               )}
+              {canDelete && <DeleteClientButton clientId={clientData.id} />}
             </div>
           </div>
         </div>
@@ -681,6 +712,14 @@ export default async function ClientDetailPage({
                 role={t("assignedEmployee")}
                 icon={<UserCheck className="size-3" />}
               />
+              {clientData.backup_employee && (
+                <PersonRow
+                  name={backupName}
+                  initials={initialsOf(backupName)}
+                  role={t("backupEmployee")}
+                  icon={<UserCheck className="size-3" />}
+                />
+              )}
               <PersonRow
                 name={creatorName}
                 initials={initialsOf(creatorName)}
@@ -749,12 +788,12 @@ export default async function ClientDetailPage({
               WhatsApp
             </a>
             {canEdit && (
-              <>
-                <Link href={`/clients/${clientData.id}/edit`} className="flex items-center justify-center rounded-xl border border-border px-3 py-2.5">
-                  <Pencil className="size-4" />
-                </Link>
-                <span><DeleteClientButton clientId={clientData.id} /></span>
-              </>
+              <Link href={`/clients/${clientData.id}/edit`} className="flex items-center justify-center rounded-xl border border-border px-3 py-2.5">
+                <Pencil className="size-4" />
+              </Link>
+            )}
+            {canDelete && (
+              <span><DeleteClientButton clientId={clientData.id} /></span>
             )}
           </div>
         </div>

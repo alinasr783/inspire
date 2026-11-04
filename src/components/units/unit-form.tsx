@@ -32,6 +32,7 @@ const baseSchema = z.object({
   additional_notes: z.string().trim().optional().default(""),
   feedback: z.string().trim().optional().default(""),
   assigned_employee: z.string().trim().optional().default(""),
+  backup_employee: z.string().trim().optional().default(""),
 });
 
 type FormValues = z.output<typeof baseSchema>;
@@ -42,11 +43,12 @@ interface UnitFormProps {
   unitId?: string;
   allColumns: ColumnConfig[];
   customFieldValues?: Record<string, unknown>;
+  isBackupOnly?: boolean;
 }
 
 const selectClass = "flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground [&>option]:text-foreground [&>option]:bg-background";
 
-export function UnitForm({ mode, defaultValues, unitId, allColumns, customFieldValues }: UnitFormProps) {
+export function UnitForm({ mode, defaultValues, unitId, allColumns, customFieldValues, isBackupOnly = false }: UnitFormProps) {
   const t = useTranslations("Properties");
   const formRef = useRef<HTMLFormElement>(null);
   const enabledColumns = allColumns.filter((c) => c.enabled);
@@ -264,7 +266,27 @@ export function UnitForm({ mode, defaultValues, unitId, allColumns, customFieldV
           return (
             <div key={key} className="space-y-2">
               <Label htmlFor={key}>{col.label_ar}</Label>
-              <select id={key} className={selectClass} value={String(watch(key as any) ?? "")} onChange={(e) => setValue(key as any, e.target.value)}>
+              <select
+                id={key}
+                name={key}
+                className={selectClass}
+                value={String(watch(key as any) ?? "")}
+                onChange={(e) => setValue(key as any, e.target.value)}
+                disabled={isBackupOnly}
+              >
+                <option value="">—</option>
+                {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+              </select>
+              {isBackupOnly && (
+                <p className="text-xs text-muted-foreground">لا يمكن للموظف الاحتياطي تغيير الموظف المسؤول الأساسي.</p>
+              )}
+            </div>
+          );
+        case "backup_employee":
+          return (
+            <div key={key} className="space-y-2">
+              <Label htmlFor={key}>{col.label_ar}</Label>
+              <select id={key} name={key} className={selectClass} value={String(watch(key as any) ?? "")} onChange={(e) => setValue(key as any, e.target.value)}>
                 <option value="">—</option>
                 {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
               </select>

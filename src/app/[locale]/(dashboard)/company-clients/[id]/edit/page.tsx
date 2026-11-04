@@ -47,10 +47,13 @@ export default async function EditCompanyClientPage({
 
   const isAdmin = profile?.role === "admin";
   const isAssignee = clientData.assigned_employee === user.id;
+  const isBackup = clientData.backup_employee === user.id;
 
-  if (!isAdmin && !isAssignee) {
+  if (!isAdmin && !isAssignee && !isBackup) {
     redirect(`/${locale}/company-clients/${id}?error=unauthorized`);
   }
+
+  const isBackupOnly = isBackup && !isAdmin && !isAssignee;
 
   const customColumns = await getColumnConfig();
   const employees = await getAllEmployees();
@@ -73,6 +76,7 @@ export default async function EditCompanyClientPage({
             adCampaignId={clientData.ad_campaign_id ?? ""}
             companyMode
             lockNamePhone={!isAdmin}
+            isBackupOnly={isBackupOnly}
             defaultValues={{
               customer_name: clientData.customer_name,
               phone: clientData.phone,
@@ -88,6 +92,7 @@ export default async function EditCompanyClientPage({
               additional_notes: clientData.additional_notes ?? "",
               last_contact_date: clientData.last_contact_date ?? "",
               assigned_employee: clientData.assigned_employee ?? "",
+              backup_employee: clientData.backup_employee ?? "",
               ad_campaign_id: clientData.ad_campaign_id ?? "",
               seriousness_rating: clientData.seriousness_rating ?? 5,
             }}

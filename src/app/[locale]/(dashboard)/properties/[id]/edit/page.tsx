@@ -39,10 +39,17 @@ export default async function EditUnitPage({
     .eq("id", user.id)
     .single();
 
-  const canEdit = unitData.created_by === user.id || profile?.role === "admin";
+  const isAdmin = profile?.role === "admin";
+  const isOwner = unitData.created_by === user.id;
+  const isAssigned = unitData.assigned_employee === user.id;
+  const isBackup = unitData.backup_employee === user.id;
+
+  const canEdit = isAdmin || isOwner || isAssigned || isBackup;
   if (!canEdit) {
     redirect(`/${locale}/properties/${id}?error=unauthorized`);
   }
+
+  const isBackupOnly = isBackup && !isAdmin && !isOwner && !isAssigned;
 
   const allColumns = await getColumnConfig();
 
@@ -58,6 +65,7 @@ export default async function EditUnitPage({
             mode="edit"
             unitId={id}
             allColumns={allColumns}
+            isBackupOnly={isBackupOnly}
             defaultValues={{
               customer_name: unitData.customer_name,
               phone: unitData.phone,
@@ -72,6 +80,8 @@ export default async function EditUnitPage({
               last_contact_date: unitData.last_contact_date ?? "",
               additional_notes: unitData.additional_notes ?? "",
               feedback: unitData.feedback ?? "",
+              assigned_employee: unitData.assigned_employee ?? "",
+              backup_employee: unitData.backup_employee ?? "",
             }}
             customFieldValues={unitData.custom_fields as Record<string, unknown>}
           />

@@ -45,11 +45,11 @@ async function checkGalleryPermission(unitId: string, userId: string): Promise<b
 
   const { data: unit } = await admin
     .from("units")
-    .select("created_by, assigned_employee")
+    .select("created_by, assigned_employee, backup_employee")
     .eq("id", unitId)
     .single();
 
-  return unit?.created_by === userId || unit?.assigned_employee === userId;
+  return unit?.created_by === userId || unit?.assigned_employee === userId || unit?.backup_employee === userId;
 }
 
 export async function getUnitGallery(unitId: string): Promise<GallerySectionWithImages[]> {

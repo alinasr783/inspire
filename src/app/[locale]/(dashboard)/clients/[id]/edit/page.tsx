@@ -40,10 +40,17 @@ export default async function EditClientPage({
     .eq("id", user.id)
     .single();
 
-  const canEdit = clientData.created_by === user.id || profile?.role === "admin";
+  const isAdmin = profile?.role === "admin";
+  const isOwner = clientData.created_by === user.id;
+  const isAssigned = clientData.assigned_employee === user.id;
+  const isBackup = clientData.backup_employee === user.id;
+
+  const canEdit = isAdmin || isOwner || isAssigned || isBackup;
   if (!canEdit) {
     redirect(`/${locale}/clients/${id}?error=unauthorized`);
   }
+
+  const isBackupOnly = isBackup && !isAdmin && !isOwner && !isAssigned;
 
   const customColumns = await getColumnConfig();
   const employees = await getAllEmployees();
@@ -61,6 +68,7 @@ export default async function EditClientPage({
             clientId={id}
             customColumns={customColumns}
             employees={employees}
+            isBackupOnly={isBackupOnly}
             defaultValues={{
               customer_name: clientData.customer_name,
               phone: clientData.phone,
@@ -76,6 +84,7 @@ export default async function EditClientPage({
               additional_notes: clientData.additional_notes ?? "",
               last_contact_date: clientData.last_contact_date ?? "",
               assigned_employee: clientData.assigned_employee ?? "",
+              backup_employee: clientData.backup_employee ?? "",
               seriousness_rating: clientData.seriousness_rating ?? 5,
             }}
           />

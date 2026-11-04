@@ -45,7 +45,7 @@ const COLUMN_WIDTHS: Record<string, number> = {
   building_number: 110, finishing_status: 150, rent_sale: 110,
   unit_type: 120, cash_required: 130, remaining: 130,
   last_contact_date: 130, additional_notes: 180, feedback: 220,
-  assigned_employee: 150,
+  assigned_employee: 150, backup_employee: 150,
 };
 const DEFAULT_COL_WIDTH = 150;
 const MIN_COL_WIDTH = 50;
@@ -292,7 +292,7 @@ const TableRowComponent = memo(function TableRowComponent({
       <td className="whitespace-nowrap border-b px-2 py-1.5 align-middle" style={highlightBg ? { backgroundColor: highlightBg } : undefined}>
         <div className="flex items-center gap-0.5">
           <Link href={`/properties/${uid}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Eye className="h-4 w-4" /></Link>
-          {(isAdmin || unit.created_by === userId || unit.assigned_employee === userId) && (
+          {(isAdmin || unit.created_by === userId || unit.assigned_employee === userId || unit.backup_employee === userId) && (
             <Link href={`/properties/${uid}/edit`} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"><Pencil className="h-4 w-4" /></Link>
           )}
           {(isAdmin || unit.created_by === userId || unit.assigned_employee === userId) && (
@@ -511,7 +511,7 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   const unitsBuiltin = useRef(new Set([
     "customer_name","phone","compound_name","area","building_number",
     "finishing_status","rent_sale","unit_type","cash_required","remaining",
-    "last_contact_date","additional_notes","feedback","assigned_employee",
+    "last_contact_date","additional_notes","feedback","assigned_employee","backup_employee",
   ]));
 
   const cellSave = useCallback((uid: string, key: string, value: string | string[] | boolean) => {
@@ -535,7 +535,9 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
       updateUnitField(uid, key, value)
         .catch((e: Error) => {
           setLocalUnits(prevUnits);
-          if (e.message === "unauthorized") {
+          if (e.message === "backup-cannot-change-primary") {
+            showError("لا يمكن للموظف الاحتياطي تغيير الموظف المسؤول الأساسي.");
+          } else if (e.message === "unauthorized") {
             showError("ليس لديك صلاحية لتعديل هذا العقار. يمكنك فقط تعديل العقارات التي قمت بإنشائها أو التي تم تعيينك كموظف مسؤول عنها.");
           } else if (e.message === "invalid-option") {
             showError("هذه القيمة غير موجودة في اختيارات العمود — اختر من القائمة فقط");
@@ -614,8 +616,12 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
   // Pre-compute cell info function for each column+unit combination
   const getCellInfo = useCallback((col: ColumnConfig, unit: UnitRow) => {
     const key = col.key;
-    const isOwner = unit.created_by === userId || unit.assigned_employee === userId;
-    const canEdit = isAdmin || isOwner;
+    const isOwner = unit.created_by === userId || unit.assigned_employee === userId || unit.backup_employee === userId;
+    const isBackupOnly = unit.backup_employee === userId && unit.assigned_employee !== userId && unit.created_by !== userId && !isAdmin;
+    let canEdit = isAdmin || isOwner;
+    if (key === "assigned_employee" && isBackupOnly) {
+      canEdit = false;
+    }
 
     // Custom option/checkbox columns: strict handling, invalid legacy values flagged.
     if (!col.is_builtin && (col.type === "select" || col.type === "multi_select" || col.type === "checkbox")) {
@@ -663,10 +669,11 @@ export function UnitTable({ columns, units: serverUnits, locale, isAdmin, userId
     }
 
     const rawVal = col.is_builtin ? String((unit as Record<string, unknown>)[key] ?? "") : customDisplayText(col, (unit.custom_fields as Record<string, unknown>)?.[key]);
-    const raw = key === "assigned_employee" ? (employeeMap.get(rawVal) || "—") : rawVal;
-    const editValue = key === "assigned_employee" ? rawVal : col.is_builtin ? raw : String((unit.custom_fields as Record<string, unknown>)?.[key] ?? "");
+    const isEmployeeCol = key === "assigned_employee" || key === "backup_employee";
+    const raw = isEmployeeCol ? (employeeMap.get(rawVal) || "—") : rawVal;
+    const editValue = isEmployeeCol ? rawVal : col.is_builtin ? raw : String((unit.custom_fields as Record<string, unknown>)?.[key] ?? "");
     const options =
-      key === "assigned_employee" ? Array.from(employeeMap.entries()).map(([id, name]) => ({ value: id, label: name })) :
+      isEmployeeCol ? Array.from(employeeMap.entries()).map(([id, name]) => ({ value: id, label: name })) :
       key === "finishing_status" ? (uniqueValues.finishing_status || []).map((v) => ({ value: v, label: v })) :
       key === "rent_sale" ? (uniqueValues.rent_sale || []).map((v) => ({ value: v, label: v })) :
       key === "unit_type" ? (uniqueValues.unit_type || []).map((v) => ({ value: v, label: v })) :

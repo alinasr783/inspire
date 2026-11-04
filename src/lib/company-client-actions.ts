@@ -23,6 +23,7 @@ export type CompanyClientRow = {
   additional_notes: string | null;
   last_contact_date: string | null;
   assigned_employee: string | null;
+  backup_employee: string | null;
   seriousness_rating: number;
   custom_fields: Record<string, unknown>;
   created_by: string;
@@ -46,6 +47,7 @@ const companyClientSchema = z.object({
   additional_notes: z.string().trim().optional(),
   last_contact_date: z.string().trim().optional(),
   assigned_employee: z.string().trim().optional(),
+  backup_employee: z.string().trim().optional(),
   ad_campaign_id: z.string().trim().optional().default(""),
   seriousness_rating: z.coerce.number().int().min(1).max(10),
   custom_fields: z.record(z.string(), z.any()).optional().default({}),
@@ -125,7 +127,7 @@ export async function updateCompanyClient(id: string, formData: FormData) {
 
   const { data: existing } = await admin
     .from("clients")
-    .select("customer_name, phone, assigned_employee")
+    .select("customer_name, phone, assigned_employee, backup_employee")
     .eq("id", id)
     .single();
 
@@ -136,8 +138,9 @@ export async function updateCompanyClient(id: string, formData: FormData) {
   const role = await getRole(user.id);
   const isAdmin = role === "admin";
   const isAssignee = existing.assigned_employee === user.id;
+  const isBackup = existing.backup_employee === user.id;
 
-  if (!isAdmin && !isAssignee) {
+  if (!isAdmin && !isAssignee && !isBackup) {
     redirect(`/${locale}/company-clients/${id}?error=unauthorized`);
   }
 
@@ -151,6 +154,11 @@ export async function updateCompanyClient(id: string, formData: FormData) {
   if (!isAdmin) {
     updateData.customer_name = existing.customer_name;
     updateData.phone = existing.phone;
+  }
+
+  // Backup employee cannot change the primary responsible employee
+  if (!isAdmin && !isAssignee && isBackup) {
+    updateData.assigned_employee = existing.assigned_employee;
   }
 
   const { error } = await admin
@@ -193,7 +201,7 @@ export async function updateCompanyClientField(
 
   const { data: existing } = await admin
     .from("clients")
-    .select("assigned_employee")
+    .select("assigned_employee, backup_employee")
     .eq("id", clientId)
     .single();
 
@@ -202,8 +210,14 @@ export async function updateCompanyClientField(
   const role = await getRole(user.id);
   const isAdmin = role === "admin";
   const isAssignee = existing.assigned_employee === user.id;
+  const isBackup = existing.backup_employee === user.id;
 
-  if (!isAdmin && !isAssignee) throw new Error("unauthorized");
+  if (!isAdmin && !isAssignee && !isBackup) throw new Error("unauthorized");
+
+  // Backup employee cannot change the primary responsible employee
+  if (field === "assigned_employee" && !isAdmin && !isAssignee && isBackup) {
+    throw new Error("backup-cannot-change-primary");
+  }
 
   if (LOCKED_FIELDS.includes(field) && !isAdmin) {
     throw new Error("field-locked");
@@ -213,7 +227,7 @@ export async function updateCompanyClientField(
     "customer_name", "phone", "phone_alt", "budget_from", "budget_to",
     "payment_method", "preferred_area", "unit_type", "bedrooms",
     "preferred_developer", "source", "additional_notes", "last_contact_date",
-    "assigned_employee", "seriousness_rating",
+    "assigned_employee", "backup_employee", "seriousness_rating",
   ];
 
   if (!allowedFields.includes(field)) {
@@ -238,7 +252,7 @@ export async function updateCompanyClientField(
     const trimmed = value.trim();
     updateValue = trimmed ? Number(trimmed) : null;
     if (trimmed && isNaN(updateValue as number)) updateValue = value;
-  } else if (field === "last_contact_date") {
+  } else if (field === "last_contact_date" || field === "assigned_employee" || field === "backup_employee") {
     updateValue = value.trim() || null;
   }
 
