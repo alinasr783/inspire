@@ -166,11 +166,14 @@ CREATE TABLE public.unconfirmed_records (
   whatsapp_state text NOT NULL DEFAULT ''::text,
   file_id uuid,
   assigned_employee uuid,
+  backup_employee uuid,
+  backup_feedback text DEFAULT ''::text,
   updated_by uuid,
   CONSTRAINT unconfirmed_records_pkey PRIMARY KEY (id),
   CONSTRAINT unconfirmed_records_file_id_fkey FOREIGN KEY (file_id) REFERENCES public.unconfirmed_files(id),
   CONSTRAINT unconfirmed_records_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES public.unconfirmed_uploads(id),
   CONSTRAINT unconfirmed_records_assigned_employee_fkey FOREIGN KEY (assigned_employee) REFERENCES public.profiles(id),
+  CONSTRAINT unconfirmed_records_backup_employee_fkey FOREIGN KEY (backup_employee) REFERENCES public.profiles(id),
   CONSTRAINT unconfirmed_records_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.whatsapp_campaigns (

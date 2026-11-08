@@ -627,6 +627,8 @@
     "save": "Save",
     "edit": "Edit",
     "assignedEmployee": "Assigned To",
+    "backupEmployee": "Backup Employee",
+    "backupFeedback": "Backup Employee Feedback",
     "selectEmployee": "Select employee...",
     "updatedBy": "Last updated by",
     "uploadExcelMultiple": "Upload Excel files (multiple allowed)",

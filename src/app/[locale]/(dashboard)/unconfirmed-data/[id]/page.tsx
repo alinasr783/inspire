@@ -37,6 +37,7 @@ export default async function RecordDetailPage({
   const admin = createAdminClient();
 
   let employeeName = "";
+  let backupEmployeeName = "";
   let updatedByName = "";
 
   if (record.assigned_employee) {
@@ -46,6 +47,15 @@ export default async function RecordDetailPage({
       .eq("id", record.assigned_employee)
       .single();
     if (emp) employeeName = [emp.first_name, emp.second_name].filter(Boolean).join(" ");
+  }
+
+  if (record.backup_employee) {
+    const { data: bEmp } = await admin
+      .from("profiles")
+      .select("first_name, second_name")
+      .eq("id", record.backup_employee)
+      .single();
+    if (bEmp) backupEmployeeName = [bEmp.first_name, bEmp.second_name].filter(Boolean).join(" ");
   }
 
   if (record.updated_by) {
@@ -66,6 +76,7 @@ export default async function RecordDetailPage({
     { key: "owner_phone_alt", label: t("phoneAlt") },
     { key: "affiliated_company", label: t("affiliatedCompany") },
     { key: "last_feedback", label: t("lastFeedback") },
+    { key: "backup_feedback", label: t("backupFeedback") },
     { key: "last_contact_date", label: t("lastContactDate") },
   ];
 
@@ -140,6 +151,18 @@ export default async function RecordDetailPage({
             </CardHeader>
             <CardContent>
               <p className="text-sm font-medium">{employeeName || "—"}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <User className="h-4 w-4" />
+                {t("backupEmployee")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm font-medium">{backupEmployeeName || "—"}</p>
             </CardContent>
           </Card>
 

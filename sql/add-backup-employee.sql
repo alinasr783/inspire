@@ -15,6 +15,15 @@ ADD COLUMN IF NOT EXISTS backup_employee uuid REFERENCES public.profiles(id) ON 
 
 CREATE INDEX IF NOT EXISTS idx_clients_backup_employee ON public.clients(backup_employee);
 
+-- 2b) Add backup_employee and backup_feedback columns to unconfirmed_records
+ALTER TABLE public.unconfirmed_records
+ADD COLUMN IF NOT EXISTS backup_employee uuid REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+ALTER TABLE public.unconfirmed_records
+ADD COLUMN IF NOT EXISTS backup_feedback text NOT NULL DEFAULT ''::text;
+
+CREATE INDEX IF NOT EXISTS idx_unconfirmed_records_backup_employee ON public.unconfirmed_records(backup_employee);
+
 -- 3) Seed backup_employee into unit_column_config
 INSERT INTO public.unit_column_config (key, label_ar, label_en, type, sort_order, enabled, is_builtin)
 VALUES ('backup_employee', 'موظف احتياطي', 'Backup Employee', 'text', 14, true, true)

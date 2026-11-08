@@ -21,6 +21,7 @@ const FIELDS = [
   { key: "owner_phone_alt", label: "phoneAlt", type: "text" },
   { key: "affiliated_company", label: "affiliatedCompany", type: "text" },
   { key: "last_feedback", label: "lastFeedback", type: "textarea" },
+  { key: "backup_feedback", label: "backupFeedback", type: "textarea" },
   { key: "last_contact_date", label: "lastContactDate", type: "date" },
 ];
 

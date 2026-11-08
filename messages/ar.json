@@ -628,6 +628,8 @@
     "save": "حفظ",
     "edit": "تعديل",
     "assignedEmployee": "الموظف المسؤول",
+    "backupEmployee": "موظف احتياطي",
+    "backupFeedback": "فيد باك الموظف الاحتياطي",
     "selectEmployee": "اختر موظف...",
     "updatedBy": "آخر تحديث بواسطة",
     "uploadExcelMultiple": "رفع ملفات Excel (يمكن اختيار أكثر من ملف)",

@@ -32,6 +32,8 @@ const COL_WIDTHS: Record<string, number> = {
   last_contact_date: 130,
   whatsapp_state: 110,
   assigned_employee: 160,
+  backup_employee: 160,
+  backup_feedback: 180,
 };
 const DEFAULT_WIDTH = 150;
 const MIN_WIDTH = 50;
@@ -76,7 +78,7 @@ const CellDisplay = memo(({ col, record, locale, onEdit, onSave, employees }: { 
       </select>
     );
   }
-  if (col.key === "assigned_employee" && employees) {
+  if ((col.key === "assigned_employee" || col.key === "backup_employee") && employees) {
     const val = (record as Record<string, unknown>)[col.key] as string ?? "";
     return (
       <select value={val} onChange={(e) => onSave(e.target.value)}
@@ -209,7 +211,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   const srvRef = useRef(serverRecords); srvRef.current = serverRecords;
 
   const onEditCell = useCallback((rowId: string, colKey: string) => {
-    if (colKey === "whatsapp_state" || colKey === "assigned_employee") return;
+    if (colKey === "whatsapp_state" || colKey === "assigned_employee" || colKey === "backup_employee") return;
     setEditing({ rid: rowId, key: colKey });
   }, []);
 
@@ -316,12 +318,16 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
 
     const pendKey = `${rid}:${key}`;
     const shouldAutoAssign = (key === "whatsapp_state" && val !== "") || (key === "last_feedback" && val.trim() !== "");
+    const shouldAutoAssignBackup = key === "backup_feedback" && val.trim() !== "";
+    const prevAssigned = rec?.assigned_employee ?? null;
+    const prevBackup = rec?.backup_employee ?? null;
 
     setPendingCell(pendKey, true);
     setRecords((p) => p.map((r) => {
       if (r.id !== rid) return r;
       const updates: Record<string, unknown> = { [key]: val };
       if (shouldAutoAssign) updates.assigned_employee = userId;
+      if (shouldAutoAssignBackup) updates.backup_employee = userId;
       return { ...r, ...updates };
     }));
 
@@ -334,6 +340,8 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
         setRecords((p) => p.map((r) => {
           if (r.id !== rid) return r;
           const updates: Record<string, unknown> = { [key]: prevVal };
+          if (shouldAutoAssign) updates.assigned_employee = prevAssigned;
+          if (shouldAutoAssignBackup) updates.backup_employee = prevBackup;
           return { ...r, ...updates };
         }));
         setPendingCell(pendKey, false);

@@ -157,12 +157,15 @@ export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageS
         return [
           r.owner_name, r.unit_area, r.building_number, r.unit_number,
           r.owner_phone, r.owner_phone_alt, r.affiliated_company,
-          r.last_feedback, r.last_contact_date,
+          r.last_feedback, r.backup_feedback, r.last_contact_date,
         ].some((v) => (v ?? "").toLowerCase().includes(term));
       });
     }
     if (feedbackOnly) {
-      result = result.filter((r) => !!(r.last_feedback && r.last_feedback.trim()));
+      result = result.filter((r) => !!(
+        (r.last_feedback && r.last_feedback.trim()) ||
+        (r.backup_feedback && r.backup_feedback.trim())
+      ));
     }
     return result;
   }, [dataSource, folderId, fileId, search, folders, feedbackOnly]);
@@ -199,6 +202,8 @@ export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageS
     { key: "last_contact_date", label: t("lastContactDate"), type: "date" },
     { key: "whatsapp_state", label: t("whatsappState"), type: "text" },
     { key: "assigned_employee", label: t("assignedEmployee"), type: "select" },
+    { key: "backup_employee", label: t("backupEmployee"), type: "select" },
+    { key: "backup_feedback", label: t("backupFeedback"), type: "text" },
   ], [t]);
 
   const selectClass = "appearance-none flex h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";

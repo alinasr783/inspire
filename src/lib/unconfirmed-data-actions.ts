@@ -31,6 +31,8 @@ export interface UnconfirmedRecord {
   whatsapp_state: "" | "send" | "failed";
   file_id: string | null;
   assigned_employee: string | null;
+  backup_employee: string | null;
+  backup_feedback: string;
   updated_by: string | null;
 }
 
@@ -384,11 +386,11 @@ export async function updateRecordField(recordId: string, field: string, value: 
     "owner_name", "unit_area", "building_number", "unit_number",
     "owner_phone", "owner_phone_alt", "affiliated_company",
     "last_feedback", "last_contact_date", "whatsapp_state",
-    "assigned_employee",
+    "assigned_employee", "backup_employee", "backup_feedback",
   ];
   if (!allowedFields.includes(field)) throw new Error("invalid-field");
 
-  const updateValue = field === "assigned_employee" && value === "" ? null : value;
+  const updateValue = (field === "assigned_employee" || field === "backup_employee") && value === "" ? null : value;
 
   const updates: Record<string, unknown> = { [field]: updateValue, updated_by: user.id };
 
@@ -398,6 +400,13 @@ export async function updateRecordField(recordId: string, field: string, value: 
 
   if (shouldAutoAssign) {
     updates.assigned_employee = user.id;
+  }
+
+  const shouldAutoAssignBackup =
+    field === "backup_feedback" && value.trim() !== "";
+
+  if (shouldAutoAssignBackup) {
+    updates.backup_employee = user.id;
   }
 
   const { error } = await admin
@@ -552,8 +561,8 @@ function applyRecordFilters(query: any, options: GetRecordsOptions | undefined, 
   if (options?.fileId) query = query.eq("file_id", options.fileId);
   if (fileIds) query = query.in("file_id", fileIds);
   if (options?.hasFeedback) {
-    // last_feedback غير فارغ (يستبعد "" — والقيم null تُستبعد في فلترة العميل أيضاً)
-    query = query.neq("last_feedback", "");
+    // يشمل السجلات التي بها آخر فيدباك أو فيد باك الموظف الاحتياطي (غير فارغ)
+    query = query.or("last_feedback.ilike._%,backup_feedback.ilike._%");
   }
   const q = options?.q?.trim();
   if (q) {
@@ -569,6 +578,7 @@ function applyRecordFilters(query: any, options: GetRecordsOptions | undefined, 
         `unit_area.ilike.${like}`,
         `affiliated_company.ilike.${like}`,
         `last_feedback.ilike.${like}`,
+        `backup_feedback.ilike.${like}`,
         `phone_normalized.ilike.${like}`,
         `phone_alt_normalized.ilike.${like}`,
       ].join(",")

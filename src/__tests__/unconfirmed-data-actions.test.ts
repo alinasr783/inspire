@@ -95,7 +95,7 @@ function createMockClient() {
 vi.mock("@/lib/supabase/server", () => ({ createClient: () => createMockClient() }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => createMockClient() }));
 
-import { confirmUpload, deleteRecords, getRecords } from "@/lib/unconfirmed-data-actions";
+import { confirmUpload, deleteRecords, getRecords, updateRecordField } from "@/lib/unconfirmed-data-actions";
 
 describe("unconfirmed-data-actions", () => {
   beforeEach(() => {
@@ -181,6 +181,38 @@ describe("unconfirmed-data-actions", () => {
     test("returns empty for non-matching status", async () => {
       const records = await getRecords({ status: "rejected" });
       expect(records).toHaveLength(0);
+    });
+  });
+
+  describe("updateRecordField (backup_employee & backup_feedback)", () => {
+    beforeEach(() => {
+      mockTables.unconfirmed_records = [
+        {
+          id: "rec-1",
+          upload_id: "upload-1",
+          owner_name: "أحمد",
+          status: "approved",
+          assigned_employee: "emp-primary",
+          backup_employee: null,
+          last_feedback: "",
+          backup_feedback: "",
+        },
+      ];
+    });
+
+    test("updates backup_employee manually and clears it to null when empty", async () => {
+      await updateRecordField("rec-1", "backup_employee", "emp-backup");
+      expect(mockTables.unconfirmed_records[0].backup_employee).toBe("emp-backup");
+
+      await updateRecordField("rec-1", "backup_employee", "");
+      expect(mockTables.unconfirmed_records[0].backup_employee).toBeNull();
+    });
+
+    test("writing backup_feedback auto-assigns backup_employee to current user without changing assigned_employee", async () => {
+      await updateRecordField("rec-1", "backup_feedback", "تم التواصل من الاحتياطي");
+      expect(mockTables.unconfirmed_records[0].backup_feedback).toBe("تم التواصل من الاحتياطي");
+      expect(mockTables.unconfirmed_records[0].backup_employee).toBe("user-1");
+      expect(mockTables.unconfirmed_records[0].assigned_employee).toBe("emp-primary");
     });
   });
 });
