@@ -18,7 +18,7 @@ import { useCellNavigation } from "@/hooks/use-cell-navigation";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { showSuccess, showError } from "@/lib/toast-utils";
 
-interface Columns { key: string; label: string; type: string }
+interface Columns { key: string; label: string; type: string; extra?: boolean }
 
 const COL_WIDTHS: Record<string, number> = {
   owner_name: 160,
@@ -95,8 +95,12 @@ const CellDisplay = memo(({ col, record, locale, onEdit, onSave, employees }: { 
     const text = val ? new Date(val).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" }) : "";
     return <span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate">{text || "\u00A0"}</span>;
   }
-  const v = (record as Record<string, unknown>)[col.key];
+  const v = col.extra ? record.extra_data?.[col.key] : (record as Record<string, unknown>)[col.key];
   const dv = v == null || v === "" ? "" : String(v);
+  if (col.extra) {
+    if (!dv) return <span className="px-0 py-0 block truncate min-h-[1.25rem]">&nbsp;</span>;
+    return <Tooltip><TooltipTrigger><span className="px-0 py-0 block truncate">{dv}</span></TooltipTrigger><TooltipContent side="bottom" align="start" className="max-w-sm whitespace-pre-wrap break-words">{dv}</TooltipContent></Tooltip>;
+  }
   if (!dv) return <span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate min-h-[1.25rem]">&nbsp;</span>;
   return <Tooltip><TooltipTrigger><span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate">{dv}</span></TooltipTrigger><TooltipContent side="bottom" align="start" className="max-w-sm whitespace-pre-wrap break-words">{dv}</TooltipContent></Tooltip>;
 });
@@ -212,8 +216,10 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
 
   const onEditCell = useCallback((rowId: string, colKey: string) => {
     if (colKey === "whatsapp_state" || colKey === "assigned_employee" || colKey === "backup_employee") return;
+    const colDef = columns.find((c) => c.key === colKey);
+    if (colDef?.extra) return;
     setEditing({ rid: rowId, key: colKey });
-  }, []);
+  }, [columns]);
 
   const { activeRowId, activeColKey, handleRowMouseEnter, handleCellMouseEnter } = useCellNavigation(records, columns, onEditCell);
 
@@ -224,11 +230,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
   });
   const colWidthsRef = useRef(colWidths); colWidthsRef.current = colWidths;
 
-  const prevServerIdsRef = useRef("");
   useEffect(() => {
-    const ids = serverRecords.map((r) => r.id).sort().join(",");
-    if (ids === prevServerIdsRef.current) return;
-    prevServerIdsRef.current = ids;
     setRecords((prev) => {
       const prevMap = new Map(prev.map((r) => [r.id, r]));
       const result: UnconfirmedRecord[] = [];

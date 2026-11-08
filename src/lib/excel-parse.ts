@@ -1,46 +1,110 @@
 import * as XLSX from "xlsx";
 
-import type { PreviewResult, PreviewRow } from "./unconfirmed-data-actions";
+import type { PreviewResult, PreviewRow, UnconfirmedRecord } from "./unconfirmed-data-actions";
 
 const COLUMN_ALIASES: Record<string, string[]> = {
-  owner_name: ["owner name", "owner", "customer name", "customer", "client name", "client", "المالك", "اسم المالك", "العميل", "اسم العميل", "name", "full name", "الاسم", "owner"],
-  unit_area: ["unit area", "area", "area sqm", "property area", "المساحة", "مساحة الوحدة", "area (sqm)", "sqm", "size"],
-  building_number: ["building number", "building no", "building", "block", "رقم المبنى", "رقم المبني", "رقم العمارة", "رقم العماره", "المبنى", "المبني", "block number", "building #", "bldg"],
-  unit_number: ["unit number", "unit no", "unit", "apartment number", "apartment no", "flat no", "رقم الوحدة", "الوحدة", "رقم الشقة", "رقم الشقه", "apartment", "flat", "apt"],
-  owner_phone: ["owner phone", "phone", "phone number", "mobile", "mobile number", "tel", "telephone", "هاتف", "رقم الهاتف", "رقم التليفون", "رقم الموبايل", "تليفون", "موبايل", "cell", "cell phone", "mobile no", "phone no", "رقم التواصل", "جوال", "رقم الجوال", "phone 1", "موبيل"],
-  owner_phone_alt: ["alt phone", "phone 2", "phone alt", "alternative phone", "secondary phone", "هاتف بديل", "تليفون بديل", "phone2", "other phone", "second phone", "mobile 2", "alt mobile", "رقم بديل", "هاتف اخر", "تليفون اخر"],
-  affiliated_company: ["affiliated company", "company", "developer", "شركة", "الشركة التابعة", "المطور", "company name", "شركة المطور"],
-  last_contact_date: ["last contact date", "contact date", "date", "last contacted", "تاريخ", "آخر تاريخ تواصل", "تاريخ الاتصال", "contacted", "last call", "اخر تواصل"],
+  owner_name: [
+    "owner name", "owner", "customer name", "customer", "client name", "client",
+    "المالك", "اسم المالك", "العميل", "اسم العميل", "name", "full name",
+    "الاسم", "اسم", "الاسم بالكامل", "اسم صاحب الوحده", "صاحب الوحده",
+    "صاحب العقار", "المشتري", "اسم المشتري", "المستاجر", "الساكن",
+  ],
+  unit_area: [
+    "unit area", "area", "area sqm", "property area", "المساحة", "مساحة الوحدة",
+    "مساحة", "مساحه الشقه", "مساحه الارض", "مساحه المباني", "المتر", "متر",
+    "area (sqm)", "sqm", "size", "bua", "land area",
+  ],
+  building_number: [
+    "building number", "building no", "building", "block", "رقم المبنى", "رقم المبني",
+    "رقم العمارة", "رقم العماره", "المبنى", "المبني", "مبنى", "مبني",
+    "العمارة", "العماره", "عمارة", "عماره", "رقم العقار", "العقار",
+    "رقم البلوك", "البلوك", "بلوك", "رقم القطعة", "القطعة", "قطعة",
+    "رقم الفيلا", "الفيلا", "فيلا", "block number", "building #", "bldg", "plot", "parcel",
+  ],
+  unit_number: [
+    "unit number", "unit no", "unit", "apartment number", "apartment no", "flat no",
+    "رقم الوحدة", "الوحدة", "وحدة", "رقم الشقة", "رقم الشقه", "الشقة", "شقة",
+    "كود الوحدة", "كود الوحده", "apartment", "flat", "apt", "unit code",
+  ],
+  owner_phone: [
+    "owner phone", "phone", "phone number", "mobile", "mobile number", "tel", "telephone",
+    "هاتف", "الهاتف", "رقم الهاتف", "رقم التليفون", "التليفون", "تليفون",
+    "رقم الموبايل", "الموبايل", "موبايل", "موبيل", "الموبيل", "رقم الموبيل",
+    "cell", "cell phone", "mobile no", "phone no", "رقم التواصل", "التواصل",
+    "جوال", "الجوال", "رقم الجوال", "phone 1", "mobile 1", "رقم المالك",
+    "تليفون المالك", "موبايل المالك", "رقم العميل", "تليفون العميل", "موبايل العميل",
+    "ارقام التليفون", "ارقام الهاتف", "ارقام الموبايل", "واتس", "واتساب", "whatsapp",
+    "contact number", "رقم 1", "رقم1",
+  ],
+  owner_phone_alt: [
+    "alt phone", "phone 2", "phone alt", "alternative phone", "secondary phone",
+    "هاتف بديل", "تليفون بديل", "موبايل بديل", "موبيل بديل", "phone2",
+    "other phone", "second phone", "mobile 2", "mobile2", "alt mobile", "tel 2",
+    "رقم بديل", "هاتف اخر", "تليفون اخر", "موبايل اخر", "موبيل اخر", "رقم اخر",
+    "هاتف 2", "تليفون 2", "موبايل 2", "موبيل 2", "رقم 2", "رقم2",
+    "رقم هاتف 2", "رقم تليفون 2", "رقم موبايل 2",
+  ],
+  affiliated_company: [
+    "affiliated company", "company", "developer", "شركة", "الشركة", "الشركة التابعة",
+    "المطور", "الشركة المطورة", "company name", "شركة المطور", "الكمبوند", "كمبوند",
+    "المشروع", "مشروع", "اسم المشروع", "اسم الكمبوند", "اسم الشركة",
+    "compound", "project", "project name", "القرية", "المرحلة", "المنطقة",
+  ],
+  last_feedback: [
+    "last feedback", "feedback", "notes", "note", "comment", "comments",
+    "ملاحظات", "الملاحظات", "ملاحظة", "فيدباك", "فيد باك", "التعليق", "تعليق",
+    "رد العميل", "حالة العميل",
+  ],
+  last_contact_date: [
+    "last contact date", "contact date", "date", "last contacted",
+    "تاريخ", "التاريخ", "آخر تاريخ تواصل", "تاريخ الاتصال", "contacted",
+    "last call", "اخر تواصل", "تاريخ التواصل", "تاريخ اخر تواصل",
+  ],
 };
 
-const PHONE_KEYWORDS = ["phone", "mobile", "tel", "telephone", "هاتف", "تليفون", "موبايل", "جوال", "cell", "موبيل"];
+const PHONE_KEYWORDS = [
+  "phone", "mobile", "tel", "telephone", "هاتف", "تليفون", "موبايل",
+  "جوال", "cell", "موبيل", "واتس", "whatsapp", "تواصل",
+];
+
+const NON_PHONE_NUMBER_KEYWORDS = [
+  "دور", "طابق", "عقد", "مسلسل", "بطاقه", "قومي", "صفحه", "حساب", "طلب", "استماره",
+];
 
 /**
  * Arabic orthography normalization so headers like "رقم الوحده"/"رقم الوحدة"
- * or "المبني"/"المبنى" match the same alias. Applied to both the incoming
- * header and every alias before comparing.
+ * or "المبني"/"المبنى" or "الأسم"/"الاسم" match the same alias. Applied to both
+ * the incoming header and every alias before comparing.
  */
 export function normalizeArText(s: string): string {
   return s
-    .replace(/[أإآ]/g, "ا")
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
+    .replace(/[أإآٱ]/g, "ا")
     .replace(/ة/g, "ه")
     .replace(/ى/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 function cleanHeader(excelCol: string): string {
-  return normalizeArText(excelCol.toLowerCase().replace(/[_-]/g, " "));
+  return normalizeArText(
+    excelCol
+      .toLowerCase()
+      .replace(/[_-]/g, " ")
+      .replace(/[/:()[\]{}.,#\\|]+/g, " ")
+  );
 }
 
 const NORMALIZED_ALIASES: Record<string, string[]> = Object.fromEntries(
   Object.entries(COLUMN_ALIASES).map(([fixed, aliases]) => [
     fixed,
-    aliases.map((a) => normalizeArText(a.toLowerCase())),
+    aliases.map((a) => cleanHeader(a)),
   ])
 );
 
-const NORMALIZED_PHONE_KEYWORDS = PHONE_KEYWORDS.map((k) => normalizeArText(k.toLowerCase()));
+const NORMALIZED_PHONE_KEYWORDS = PHONE_KEYWORDS.map((k) => cleanHeader(k));
 
 export function mapExcelColumn(excelCol: string): string {
   const cleaned = cleanHeader(excelCol);
@@ -54,26 +118,72 @@ export function mapExcelColumn(excelCol: string): string {
   }
 
   if (cleaned.includes("رقم")) {
-    if (cleaned.includes("مبني") || cleaned.includes("عماره")) {
+    if (
+      cleaned.includes("مبني") ||
+      cleaned.includes("عماره") ||
+      cleaned.includes("بلوك") ||
+      cleaned.includes("قطعه") ||
+      cleaned.includes("فيلا") ||
+      cleaned.includes("عقار")
+    ) {
       return "building_number";
     }
-    if (cleaned.includes("وحده") || cleaned.includes("شقه") || cleaned.includes("apartment")) {
+    if (
+      cleaned.includes("وحده") ||
+      cleaned.includes("شقه") ||
+      cleaned.includes("apartment") ||
+      cleaned.includes("flat")
+    ) {
       return "unit_number";
     }
   }
 
   const isPhone = NORMALIZED_PHONE_KEYWORDS.some((kw) => cleaned.includes(kw));
   if (isPhone) {
-    if (cleaned.includes("alt") || cleaned.includes("2") || cleaned.includes("بديل") || cleaned.includes("اخر") || cleaned.includes("ثاني")) {
+    if (
+      cleaned.includes("alt") ||
+      cleaned.includes("2") ||
+      cleaned.includes("بديل") ||
+      cleaned.includes("اخر") ||
+      cleaned.includes("ثاني")
+    ) {
       return "owner_phone_alt";
     }
     return "owner_phone";
   }
 
-  if (cleaned.includes("رقم")) return "owner_phone";
+  if (cleaned.includes("رقم")) {
+    const isNonPhoneNum = NON_PHONE_NUMBER_KEYWORDS.some((kw) => cleaned.includes(kw));
+    if (!isNonPhoneNum) {
+      if (
+        cleaned.includes("2") ||
+        cleaned.includes("بديل") ||
+        cleaned.includes("اخر") ||
+        cleaned.includes("ثاني")
+      ) {
+        return "owner_phone_alt";
+      }
+      return "owner_phone";
+    }
+  }
+
+  if (
+    cleaned.includes("شركه") ||
+    cleaned.includes("كمبوند") ||
+    cleaned.includes("مشروع") ||
+    cleaned.includes("مطور") ||
+    cleaned.includes("compound") ||
+    cleaned.includes("project") ||
+    cleaned.includes("developer") ||
+    cleaned.includes("company")
+  ) {
+    return "affiliated_company";
+  }
 
   for (const [fixed, aliases] of Object.entries(NORMALIZED_ALIASES)) {
-    if (aliases.some((a) => cleaned.includes(a) || a.includes(cleaned))) return fixed;
+    if (aliases.some((a) => a.length >= 3 && (cleaned.includes(a) || a.includes(cleaned)))) {
+      return fixed;
+    }
   }
 
   return "";
@@ -153,7 +263,145 @@ export function extraDataColumnLabel(key: string, blankIndex?: number): string {
   return key;
 }
 
-function buildPreviewRows(
+export interface HydratedRecordResult {
+  record: UnconfirmedRecord;
+  dbUpdates: Record<string, unknown>;
+  mappedExtraKeys: Set<string>;
+}
+
+/**
+ * Hydrates empty standard fields on an `UnconfirmedRecord` from `record.extra_data`
+ * without mutating or deleting `record.extra_data`. Returns the hydrated record,
+ * a `dbUpdates` map of standard fields that were recovered (suitable for persisting
+ * back to `public.unconfirmed_records`), and the set of `extra_data` keys whose
+ * values are now represented in standard columns.
+ */
+export function hydrateRecordFromExtraData(rawRecord: UnconfirmedRecord): HydratedRecordResult {
+  const extra = rawRecord.extra_data;
+  if (!extra || typeof extra !== "object" || Object.keys(extra).length === 0) {
+    return { record: rawRecord, dbUpdates: {}, mappedExtraKeys: new Set() };
+  }
+
+  const hydrated: UnconfirmedRecord = { ...rawRecord };
+  const dbUpdates: Record<string, unknown> = {};
+  const mappedExtraKeys = new Set<string>();
+
+  const isEmptyField = (field: string): boolean => {
+    const cur = (hydrated as Record<string, unknown>)[field];
+    return cur == null || String(cur).trim() === "";
+  };
+
+  const setField = (field: string, val: string, sourceKey: string) => {
+    (hydrated as Record<string, unknown>)[field] = val;
+    dbUpdates[field] = val;
+    mappedExtraKeys.add(sourceKey);
+  };
+
+  // Pass 1: Named headers in extra_data that map to FIXED_COLUMNS
+  for (const [key, rawVal] of Object.entries(extra)) {
+    if (isBlankHeader(key)) continue;
+    const fixed = mapExcelColumn(key);
+    if (!fixed || !FIXED_COLUMNS.includes(fixed)) continue;
+
+    const val = toStr(rawVal).trim();
+    if (!val) {
+      mappedExtraKeys.add(key);
+      continue;
+    }
+
+    // Guard against serial-number columns ("رقم" = 1, 2, 3...) claiming phone slots
+    if (fixed === "owner_phone" || fixed === "owner_phone_alt") {
+      const cleaned = cleanHeader(key);
+      const hasExplicitPhoneKw = NORMALIZED_PHONE_KEYWORDS.some((kw) => cleaned.includes(kw));
+      const digits = val.replace(/\D/g, "");
+      if (!hasExplicitPhoneKw && digits.length < 7) {
+        continue;
+      }
+    }
+
+    if (isEmptyField(fixed)) {
+      setField(fixed, val, key);
+    } else if (String((hydrated as Record<string, unknown>)[fixed] ?? "").trim() === val) {
+      mappedExtraKeys.add(key);
+    } else if (
+      (fixed === "owner_phone" || fixed === "owner_phone_alt") &&
+      isEmptyField("owner_phone_alt") &&
+      String(hydrated.owner_phone ?? "").trim() !== val
+    ) {
+      setField("owner_phone_alt", val, key);
+    }
+  }
+
+  // Pass 2: Blank headers ("", "_1", "__EMPTY", "__EMPTY_1") -> phone slots
+  for (const [key, rawVal] of Object.entries(extra)) {
+    if (!isBlankHeader(key)) continue;
+    const val = toStr(rawVal).trim();
+    if (!val) {
+      mappedExtraKeys.add(key);
+      continue;
+    }
+    if (isEmptyField("owner_phone")) {
+      setField("owner_phone", val, key);
+    } else if (
+      isEmptyField("owner_phone_alt") &&
+      String(hydrated.owner_phone ?? "").trim() !== val
+    ) {
+      setField("owner_phone_alt", val, key);
+    } else if (
+      String(hydrated.owner_phone ?? "").trim() === val ||
+      String(hydrated.owner_phone_alt ?? "").trim() === val
+    ) {
+      mappedExtraKeys.add(key);
+    }
+  }
+
+  // Pass 3: Value-based fallback for Egyptian phone numbers if phone slots are still empty
+  if (isEmptyField("owner_phone") || isEmptyField("owner_phone_alt")) {
+    for (const [key, rawVal] of Object.entries(extra)) {
+      if (mappedExtraKeys.has(key)) continue;
+      const val = toStr(rawVal).trim();
+      if (!val) continue;
+      const norm = normalizeEgyptianPhone(val);
+      if (/^01[0125]\d{8}$/.test(norm)) {
+        if (isEmptyField("owner_phone")) {
+          setField("owner_phone", val, key);
+        } else if (
+          isEmptyField("owner_phone_alt") &&
+          String(hydrated.owner_phone ?? "").trim() !== val
+        ) {
+          setField("owner_phone_alt", val, key);
+        }
+      }
+    }
+  }
+
+  // Normalize phone_normalized and phone_alt_normalized whenever phone values exist
+  const phoneVal = String(hydrated.owner_phone ?? "").trim();
+  if (phoneVal) {
+    const norm = normalizeEgyptianPhone(phoneVal);
+    if (norm && (isEmptyField("phone_normalized") || dbUpdates.owner_phone !== undefined)) {
+      hydrated.phone_normalized = norm;
+      if (String(rawRecord.phone_normalized ?? "") !== norm) {
+        dbUpdates.phone_normalized = norm;
+      }
+    }
+  }
+
+  const phoneAltVal = String(hydrated.owner_phone_alt ?? "").trim();
+  if (phoneAltVal) {
+    const normAlt = normalizeEgyptianPhone(phoneAltVal);
+    if (normAlt && (isEmptyField("phone_alt_normalized") || dbUpdates.owner_phone_alt !== undefined)) {
+      hydrated.phone_alt_normalized = normAlt;
+      if (String(rawRecord.phone_alt_normalized ?? "") !== normAlt) {
+        dbUpdates.phone_alt_normalized = normAlt;
+      }
+    }
+  }
+
+  return { record: hydrated, dbUpdates, mappedExtraKeys };
+}
+
+export function buildPreviewRows(
   jsonData: Record<string, string>[],
   headers: string[],
   fixedOf: (header: string) => string = mapExcelColumn

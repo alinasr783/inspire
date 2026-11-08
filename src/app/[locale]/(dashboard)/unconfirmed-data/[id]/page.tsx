@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRecord } from "@/lib/unconfirmed-data-actions";
+import { extraDataColumnLabel } from "@/lib/excel-parse";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -186,7 +187,7 @@ export default async function RecordDetailPage({
               <CardContent className="space-y-3">
                 {Object.entries(record.extra_data).map(([key, value]) => (
                   <div key={key}>
-                    <p className="text-xs text-muted-foreground mb-0.5">{key}</p>
+                    <p className="text-xs text-muted-foreground mb-0.5">{extraDataColumnLabel(key)}</p>
                     <p className="text-sm">{String(value ?? "—")}</p>
                   </div>
                 ))}

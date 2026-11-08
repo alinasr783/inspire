@@ -7,6 +7,14 @@ import * as XLSX from "xlsx";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { UNCONFIRMED_PAGE_SIZE } from "@/lib/unconfirmed-constants";
+import {
+  mapExcelColumn,
+  FIXED_COLUMNS,
+  isBlankHeader,
+  extraDataColumnLabel,
+  buildPreviewRows,
+  hydrateRecordFromExtraData,
+} from "@/lib/excel-parse";
 
 export interface UnconfirmedRecord {
   [key: string]: unknown;
@@ -64,132 +72,7 @@ export interface PreviewResult {
   };
 }
 
-const COLUMN_ALIASES: Record<string, string[]> = {
-  owner_name: ["owner name", "owner", "customer name", "customer", "client name", "client", "المالك", "اسم المالك", "العميل", "اسم العميل", "name", "full name", "الاسم", "owner"],
-  unit_area: ["unit area", "area", "area sqm", "property area", "المساحة", "مساحة الوحدة", "area (sqm)", "sqm", "size"],
-  building_number: ["building number", "building no", "building", "block", "رقم المبنى", "رقم المبني", "رقم العمارة", "رقم العماره", "المبنى", "المبني", "block number", "building #", "bldg"],
-  unit_number: ["unit number", "unit no", "unit", "apartment number", "apartment no", "flat no", "رقم الوحدة", "الوحدة", "رقم الشقة", "رقم الشقه", "apartment", "flat", "apt"],
-  owner_phone: ["owner phone", "phone", "phone number", "mobile", "mobile number", "tel", "telephone", "هاتف", "رقم الهاتف", "رقم التليفون", "رقم الموبايل", "تليفون", "موبايل", "cell", "cell phone", "mobile no", "phone no", "رقم التواصل", "جوال", "رقم الجوال", "phone 1", "موبيل"],
-  owner_phone_alt: ["alt phone", "phone 2", "phone alt", "alternative phone", "secondary phone", "هاتف بديل", "تليفون بديل", "phone2", "other phone", "second phone", "mobile 2", "alt mobile", "رقم بديل", "هاتف اخر", "تليفون اخر"],
-  affiliated_company: ["affiliated company", "company", "developer", "شركة", "الشركة التابعة", "المطور", "company name", "شركة المطور"],
-  last_contact_date: ["last contact date", "contact date", "date", "last contacted", "تاريخ", "آخر تاريخ تواصل", "تاريخ الاتصال", "contacted", "last call", "اخر تواصل"],
-};
-
-const PHONE_KEYWORDS = ["phone", "mobile", "tel", "telephone", "هاتف", "تليفون", "موبايل", "جوال", "cell", "موبيل"];
-
-function mapExcelColumn(excelCol: string): string {
-  const cleaned = excelCol.trim().toLowerCase().replace(/[_-]/g, " ");
-
-  for (const [fixed, aliases] of Object.entries(COLUMN_ALIASES)) {
-    if (aliases.includes(cleaned)) return fixed;
-  }
-
-  if (cleaned.includes("رقم")) {
-    if (cleaned.includes("مبني") || cleaned.includes("مبنى") || cleaned.includes("عمارة") || cleaned.includes("عماره")) {
-      return "building_number";
-    }
-    if (cleaned.includes("وحدة") || cleaned.includes("شقة") || cleaned.includes("شقه") || cleaned.includes("apartment")) {
-      return "unit_number";
-    }
-  }
-
-  const isPhone = PHONE_KEYWORDS.some((kw) => cleaned.includes(kw));
-  if (isPhone) {
-    if (cleaned.includes("alt") || cleaned.includes("2") || cleaned.includes("بديل") || cleaned.includes("اخر") || cleaned.includes("ثاني")) {
-      return "owner_phone_alt";
-    }
-    return "owner_phone";
-  }
-
-  if (cleaned.includes("رقم")) return "owner_phone";
-
-  for (const [fixed, aliases] of Object.entries(COLUMN_ALIASES)) {
-    if (aliases.some((a) => cleaned.includes(a) || a.includes(cleaned))) return fixed;
-  }
-
-  return "";
-}
-
-const FIXED_COLUMNS = [
-  "owner_name",
-  "unit_area",
-  "building_number",
-  "unit_number",
-  "owner_phone",
-  "owner_phone_alt",
-  "affiliated_company",
-  "last_feedback",
-  "last_contact_date",
-];
-
-function normalizeEgyptianPhone(phone: unknown): string {
-  const str = String(phone ?? "");
-  if (!str) return "";
-  const digits = str.replace(/\D/g, "");
-  if (digits.length === 0) return "";
-
-  const prefixes = ["10", "11", "12", "15"];
-
-  if (digits.length === 10 && prefixes.some((p) => digits.startsWith(p))) {
-    return "0" + digits;
-  }
-  if (digits.length === 11 && digits.startsWith("0") && prefixes.some((p) => digits.slice(1).startsWith(p))) {
-    return digits;
-  }
-  if (digits.length === 12 && digits.startsWith("20") && prefixes.some((p) => digits.slice(2).startsWith(p))) {
-    return "0" + digits.slice(2);
-  }
-  if (digits.length === 14 && digits.startsWith("0020") && prefixes.some((p) => digits.slice(4).startsWith(p))) {
-    return "0" + digits.slice(4);
-  }
-  if (digits.length >= 9 && digits.length <= 10 && prefixes.some((p) => digits.startsWith(p))) {
-    return "0" + digits;
-  }
-  if (digits.length >= 11 && digits.startsWith("2")) return digits;
-
-  return str;
-}
-
-function toStr(v: unknown): string {
-  if (v == null) return "";
-  if (typeof v === "number") {
-    return v >= 1e12 ? String(v) : String(v);
-  }
-  return String(v);
-}
-
-function buildPreviewRows(jsonData: Record<string, string>[], headers: string[]): PreviewRow[] {
-  return jsonData.map((row) => {
-    const mapped: Record<string, string> = {};
-    const extraData: Record<string, unknown> = {};
-    for (const excelCol of headers) {
-      const val = toStr(row[excelCol]);
-      const fixed = mapExcelColumn(excelCol);
-      if (fixed && FIXED_COLUMNS.includes(fixed)) {
-        if (val) {
-          mapped[fixed] = val;
-        } else if (!(fixed in mapped)) {
-          mapped[fixed] = "";
-        }
-      } else {
-        extraData[excelCol] = val;
-      }
-    }
-    for (const col of FIXED_COLUMNS) {
-      if (!(col in mapped)) mapped[col] = "";
-    }
-    mapped["last_feedback"] = "";
-    const phone = mapped.owner_phone || "";
-    const phoneAlt = mapped.owner_phone_alt || "";
-    return {
-      mapped,
-      extra_data: extraData,
-      phone_normalized: normalizeEgyptianPhone(phone),
-      phone_alt_normalized: normalizeEgyptianPhone(phoneAlt),
-      ai_notes: "",
-    };
-  });
-}
+const PHONE_FALLBACK_SLOTS = ["owner_phone", "owner_phone_alt"];
 
 export async function processExcelFile(fileBase64: string, fileName: string) {
   const supabase = await createClient();
@@ -237,30 +120,73 @@ export async function processExcelFile(fileBase64: string, fileName: string) {
     throw new Error("excel-empty");
   }
 
-  let headers = Object.keys(allRows[0] ?? {});
+  const rawHeaders = Object.keys(allRows[0] ?? {});
+  const isNonEmpty = (col: string) =>
+    allRows.some((row) => (row[col] ?? "").toString().trim() !== "");
 
-  const nonEmptyColumns = headers.filter((col) =>
-    allRows.some((row) => (row[col] ?? "").toString().trim() !== "")
-  );
+  const namedPhoneClaimed = new Set<string>();
+  for (const key of rawHeaders) {
+    if (isBlankHeader(key) || !isNonEmpty(key)) continue;
+    const fixed = mapExcelColumn(key);
+    if (fixed === "owner_phone" || fixed === "owner_phone_alt") {
+      namedPhoneClaimed.add(fixed);
+    }
+  }
+  const freeBlankSlots = PHONE_FALLBACK_SLOTS.filter((s) => !namedPhoneClaimed.has(s)).length;
 
-  const emptyHeadersRemoved = headers.length - nonEmptyColumns.length;
-  void emptyHeadersRemoved;
-  headers = nonEmptyColumns;
+  let blanksSeen = 0;
+  const headers = rawHeaders.filter((col) => {
+    if (isBlankHeader(col)) {
+      blanksSeen++;
+      if (blanksSeen <= freeBlankSlots) return true;
+    }
+    return isNonEmpty(col);
+  });
 
   if (headers.length === 0) {
     throw new Error("no-headers");
   }
 
+  const fixedByHeader = new Map<string, string>();
+  const claimedFixed = new Set<string>();
+  for (const key of headers) {
+    if (isBlankHeader(key)) continue;
+    const fixed = mapExcelColumn(key);
+    if (fixed && FIXED_COLUMNS.includes(fixed)) {
+      fixedByHeader.set(key, fixed);
+      claimedFixed.add(fixed);
+    }
+  }
+  for (const key of headers) {
+    if (!isBlankHeader(key)) continue;
+    const slot = PHONE_FALLBACK_SLOTS.find((s) => !claimedFixed.has(s));
+    if (slot) {
+      fixedByHeader.set(key, slot);
+      claimedFixed.add(slot);
+    }
+  }
+  const fixedOf = (h: string) => fixedByHeader.get(h) ?? "";
+
   const columnMap = new Map<string, string>();
   const columns: Array<{ key: string; label: string; type: "text" }> = [];
+  let blankOverflowSeen = 0;
   for (const key of headers) {
-    const fixed = mapExcelColumn(key);
+    const fixed = fixedOf(key);
     const colKey = fixed && FIXED_COLUMNS.includes(fixed) ? fixed : key;
     if (!columnMap.has(colKey)) {
       columnMap.set(colKey, key);
+      let blankPhoneLabel: string | null = null;
+      if (isBlankHeader(key)) {
+        if (fixed === "owner_phone_alt") blankPhoneLabel = "رقم هاتف بديل";
+        else if (fixed === "owner_phone") blankPhoneLabel = "رقم الهاتف";
+        else {
+          blankPhoneLabel = extraDataColumnLabel(key, blankOverflowSeen);
+          blankOverflowSeen++;
+        }
+      }
       columns.push({
         key: colKey,
-        label: key.replace(/[_-]/g, " ").split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+        label: blankPhoneLabel ?? key.replace(/[_-]/g, " ").split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
         type: "text" as const,
       });
     }
@@ -284,7 +210,7 @@ export async function processExcelFile(fileBase64: string, fileName: string) {
     throw new Error("only-empty-rows");
   }
 
-  const previewRows = buildPreviewRows(cleanRows, headers);
+  const previewRows = buildPreviewRows(cleanRows, headers, fixedOf);
 
   const warningsCount = previewRows.filter((row) => {
     const orig = row.mapped.owner_phone || "";
@@ -293,13 +219,13 @@ export async function processExcelFile(fileBase64: string, fileName: string) {
 
   // تشخيص الأعمدة: أي عمود لم يُطابق أي حقل معروف + الحقول الحرجة الناقصة
   const unmappedHeaders = headers.filter((h) => {
-    const fixed = mapExcelColumn(h);
+    const fixed = fixedOf(h);
     return !fixed || !FIXED_COLUMNS.includes(fixed);
   });
   const mappedKeys = Array.from(
     new Set(
       headers
-        .map((h) => mapExcelColumn(h))
+        .map((h) => fixedOf(h))
         .filter((k) => k && FIXED_COLUMNS.includes(k))
     )
   );
@@ -355,17 +281,30 @@ export async function confirmUpload(data: {
   }
 
   const { error: recordsError } = await admin.from("unconfirmed_records").insert(
-    data.rows.map((row, index) => ({
-      upload_id: upload.id,
-      row_number: index + 1,
-      ...row.mapped,
-      extra_data: row.extra_data,
-      phone_normalized: row.phone_normalized,
-      phone_alt_normalized: row.phone_alt_normalized,
-      ai_notes: row.ai_notes,
-      status: "approved",
-      file_id: data.fileId || null,
-    }))
+    data.rows.map((row, index) => {
+      const candidate = {
+        ...row.mapped,
+        extra_data: row.extra_data ?? {},
+        phone_normalized: row.phone_normalized ?? "",
+        phone_alt_normalized: row.phone_alt_normalized ?? "",
+      } as unknown as UnconfirmedRecord;
+      const { record: hydrated } = hydrateRecordFromExtraData(candidate);
+      const mappedFields: Record<string, string> = {};
+      for (const col of FIXED_COLUMNS) {
+        mappedFields[col] = String((hydrated as Record<string, unknown>)[col] ?? row.mapped?.[col] ?? "");
+      }
+      return {
+        upload_id: upload.id,
+        row_number: index + 1,
+        ...mappedFields,
+        extra_data: row.extra_data,
+        phone_normalized: hydrated.phone_normalized || row.phone_normalized || "",
+        phone_alt_normalized: hydrated.phone_alt_normalized || row.phone_alt_normalized || "",
+        ai_notes: row.ai_notes,
+        status: "approved",
+        file_id: data.fileId || null,
+      };
+    })
   );
 
   if (recordsError) {
@@ -446,7 +385,11 @@ export async function getRecord(recordId: string) {
     .single();
 
   if (error || !record) throw new Error("record-not-found");
-  return record as UnconfirmedRecord;
+  const { record: hydrated, dbUpdates } = hydrateRecordFromExtraData(record as UnconfirmedRecord);
+  if (Object.keys(dbUpdates).length > 0) {
+    await admin.from("unconfirmed_records").update(dbUpdates).eq("id", recordId);
+  }
+  return hydrated;
 }
 
 export async function updateRecordStatus(recordId: string, status: "pending" | "approved" | "rejected") {
@@ -555,34 +498,37 @@ function escapeLike(term: string): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyRecordFilters(query: any, options: GetRecordsOptions | undefined, fileIds: string[] | undefined): any {
+function applyRecordFilters(query: any, options: GetRecordsOptions | undefined, fileIds: string[] | undefined, includeBackupFeedback = true): any {
   if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
   if (options?.status) query = query.eq("status", options.status);
   if (options?.fileId) query = query.eq("file_id", options.fileId);
   if (fileIds) query = query.in("file_id", fileIds);
   if (options?.hasFeedback) {
     // يشمل السجلات التي بها آخر فيدباك أو فيد باك الموظف الاحتياطي (غير فارغ)
-    query = query.or("last_feedback.ilike._%,backup_feedback.ilike._%");
+    if (includeBackupFeedback) {
+      query = query.or("last_feedback.ilike._%,backup_feedback.ilike._%");
+    } else {
+      query = query.neq("last_feedback", "").not("last_feedback", "is", null);
+    }
   }
   const q = options?.q?.trim();
   if (q) {
     const like = `%${escapeLike(q)}%`;
     // بحث نصي على السيرفر حتى يعمل مع كل الـ 18000+ صف وليس فقط المحمّل منها
-    query = query.or(
-      [
-        `owner_name.ilike.${like}`,
-        `owner_phone.ilike.${like}`,
-        `owner_phone_alt.ilike.${like}`,
-        `building_number.ilike.${like}`,
-        `unit_number.ilike.${like}`,
-        `unit_area.ilike.${like}`,
-        `affiliated_company.ilike.${like}`,
-        `last_feedback.ilike.${like}`,
-        `backup_feedback.ilike.${like}`,
-        `phone_normalized.ilike.${like}`,
-        `phone_alt_normalized.ilike.${like}`,
-      ].join(",")
-    );
+    const clauses = [
+      `owner_name.ilike.${like}`,
+      `owner_phone.ilike.${like}`,
+      `owner_phone_alt.ilike.${like}`,
+      `building_number.ilike.${like}`,
+      `unit_number.ilike.${like}`,
+      `unit_area.ilike.${like}`,
+      `affiliated_company.ilike.${like}`,
+      `last_feedback.ilike.${like}`,
+      ...(includeBackupFeedback ? [`backup_feedback.ilike.${like}`] : []),
+      `phone_normalized.ilike.${like}`,
+      `phone_alt_normalized.ilike.${like}`,
+    ];
+    query = query.or(clauses.join(","));
   }
   return query;
 }
@@ -609,16 +555,31 @@ export async function getRecords(options?: GetRecordsOptions) {
   const allRecords: UnconfirmedRecord[] = [];
   let cursor = offset;
   const end = offset + limit;
+  let useBackupFeedback = true;
 
   while (cursor < end) {
     const chunkEnd = Math.min(cursor + FETCH_CHUNK - 1, end - 1);
     let query = admin.from("unconfirmed_records").select("*");
-    query = applyRecordFilters(query, options, fileIds);
-    const { data: records, error } = await query
+    query = applyRecordFilters(query, options, fileIds, useBackupFeedback);
+    let { data: records, error } = await query
       .order("created_at", { ascending: true })
       .order("row_number", { ascending: true })
       .order("id", { ascending: true })
       .range(cursor, chunkEnd);
+
+    if (error && useBackupFeedback && (options?.hasFeedback || options?.q)) {
+      useBackupFeedback = false;
+      let fallbackQuery = admin.from("unconfirmed_records").select("*");
+      fallbackQuery = applyRecordFilters(fallbackQuery, options, fileIds, false);
+      const retry = await fallbackQuery
+        .order("created_at", { ascending: true })
+        .order("row_number", { ascending: true })
+        .order("id", { ascending: true })
+        .range(cursor, chunkEnd);
+      records = retry.data;
+      error = retry.error;
+    }
+
     if (error) throw new Error("fetch-failed");
     const batch = (records ?? []) as UnconfirmedRecord[];
     allRecords.push(...batch);
@@ -626,7 +587,24 @@ export async function getRecords(options?: GetRecordsOptions) {
     cursor = chunkEnd + 1;
   }
 
-  return allRecords;
+  const pendingRepairs: Array<{ id: string; updates: Record<string, unknown> }> = [];
+  const hydratedRecords = allRecords.map((raw) => {
+    const { record, dbUpdates } = hydrateRecordFromExtraData(raw);
+    if (raw.id && Object.keys(dbUpdates).length > 0) {
+      pendingRepairs.push({ id: raw.id, updates: dbUpdates });
+    }
+    return record;
+  });
+
+  if (pendingRepairs.length > 0) {
+    await Promise.allSettled(
+      pendingRepairs.map(({ id, updates }) =>
+        admin.from("unconfirmed_records").update(updates).eq("id", id)
+      )
+    );
+  }
+
+  return hydratedRecords;
 }
 
 /** العدد الإجمالي للسجلات المطابقة للفلاتر — يُستخدم لعرض "عرض X من Y" الصحيح */
@@ -644,8 +622,86 @@ export async function getUnconfirmedRecordsCount(options?: Omit<GetRecordsOption
   }
 
   let query = admin.from("unconfirmed_records").select("id", { count: "exact", head: true });
-  query = applyRecordFilters(query, options, fileIds);
-  const { count, error } = await query;
+  query = applyRecordFilters(query, options, fileIds, true);
+  let { count, error } = await query;
+
+  if (error && (options?.hasFeedback || options?.q)) {
+    let fallbackQuery = admin.from("unconfirmed_records").select("id", { count: "exact", head: true });
+    fallbackQuery = applyRecordFilters(fallbackQuery, options, fileIds, false);
+    const retry = await fallbackQuery;
+    count = retry.count;
+    error = retry.error;
+  }
+
   if (error) throw new Error("fetch-failed");
   return count ?? 0;
+}
+
+/**
+ * استرجاع البيانات المخزنة داخل extra_data وكتابتها في الأعمدة القياسية بقاعدة البيانات
+ * لجميع السجلات (أو لملف/فولدر محدد) التي تكون أعمدتها القياسية فارغة.
+ */
+export async function repairUnconfirmedRecordsFromExtraData(options?: {
+  fileId?: string;
+  folderId?: string;
+  uploadId?: string;
+}): Promise<{ scanned: number; repaired: number }> {
+  const supabase = await createClient();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (!user || userError) throw new Error("unauthorized");
+
+  const admin = createAdminClient();
+
+  let fileIds: string[] | undefined;
+  if (options?.folderId) {
+    fileIds = await resolveFolderFileIds(admin, options.folderId);
+    if (fileIds.length === 0) return { scanned: 0, repaired: 0 };
+  }
+
+  const BATCH_SIZE = 500;
+  const UPDATE_CONCURRENCY = 25;
+  let scanned = 0;
+  let repaired = 0;
+
+  for (let page = 0; page < 40; page++) {
+    let query = admin.from("unconfirmed_records").select("*");
+    if (options?.fileId) query = query.eq("file_id", options.fileId);
+    if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
+    if (fileIds) query = query.in("file_id", fileIds);
+    if (!options?.fileId && !options?.folderId && !options?.uploadId) {
+      // عند الفحص العام نستهدف الصفوف التي يكون فيها اسم المالك أو الهاتف فارغاً لتسريع الإصلاح
+      query = query.or("owner_name.eq.,owner_phone.eq.");
+    }
+
+    const { data: rows, error } = await query
+      .order("created_at", { ascending: true })
+      .order("row_number", { ascending: true })
+      .order("id", { ascending: true })
+      .range(page * BATCH_SIZE, page * BATCH_SIZE + BATCH_SIZE - 1);
+
+    if (error || !rows || rows.length === 0) break;
+
+    scanned += rows.length;
+    const toUpdate: Array<{ id: string; updates: Record<string, unknown> }> = [];
+    for (const raw of rows as UnconfirmedRecord[]) {
+      const { dbUpdates } = hydrateRecordFromExtraData(raw);
+      if (raw.id && Object.keys(dbUpdates).length > 0) {
+        toUpdate.push({ id: raw.id, updates: dbUpdates });
+      }
+    }
+
+    for (let i = 0; i < toUpdate.length; i += UPDATE_CONCURRENCY) {
+      const slice = toUpdate.slice(i, i + UPDATE_CONCURRENCY);
+      await Promise.allSettled(
+        slice.map(({ id, updates }) =>
+          admin.from("unconfirmed_records").update(updates).eq("id", id)
+        )
+      );
+      repaired += slice.length;
+    }
+
+    if (rows.length < BATCH_SIZE) break;
+  }
+
+  return { scanned, repaired };
 }

@@ -11,7 +11,13 @@ import { UploadsTable } from "@/components/unconfirmed-data/uploads-table";
 import { CampaignActions } from "@/components/unconfirmed-data/campaign-actions";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ShortcutsHelp } from "@/components/units/shortcuts-help";
-import { type UnconfirmedRecord, getRecords, getUnconfirmedRecordsCount } from "@/lib/unconfirmed-data-actions";
+import {
+  type UnconfirmedRecord,
+  getRecords,
+  getUnconfirmedRecordsCount,
+  repairUnconfirmedRecordsFromExtraData,
+} from "@/lib/unconfirmed-data-actions";
+import { extraDataColumnLabel, hydrateRecordFromExtraData, isBlankHeader } from "@/lib/excel-parse";
 import { getFolders, type Folder } from "@/lib/unconfirmed-folder-actions";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { Link } from "@/i18n/navigation";
@@ -69,6 +75,14 @@ export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageS
   useEffect(() => {
     getFolders().then((data) => setFolders(data)).catch(() => {});
   }, []);
+
+  // إصلاح تلقائي في الخلفية لملء الأعمدة القياسية في قاعدة البيانات من extra_data
+  useEffect(() => {
+    void repairUnconfirmedRecordsFromExtraData({
+      folderId: folderId || undefined,
+      fileId: fileId || undefined,
+    }).catch(() => {});
+  }, [folderId, fileId]);
 
   const currentFiles = folders.find((f) => f.id === folderId)?.files ?? [];
 
@@ -136,7 +150,11 @@ export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageS
     loadMoreLatestRef.current = handleLoadMore;
   }, [handleLoadMore]);
 
-  const dataSource = hydrated ? liveRecords : initialRecords;
+  const rawDataSource = hydrated ? liveRecords : initialRecords;
+  const dataSource = useMemo(
+    () => rawDataSource.map((r) => hydrateRecordFromExtraData(r).record),
+    [rawDataSource]
+  );
 
   // فلترة أمان خفيفة على العميل (لإخفاء أي إدراج realtime لا يطابق الفلاتر الحالية)
   const filteredRecords = useMemo(() => {
@@ -158,6 +176,7 @@ export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageS
           r.owner_name, r.unit_area, r.building_number, r.unit_number,
           r.owner_phone, r.owner_phone_alt, r.affiliated_company,
           r.last_feedback, r.backup_feedback, r.last_contact_date,
+          JSON.stringify(r.extra_data || {}),
         ].some((v) => (v ?? "").toLowerCase().includes(term));
       });
     }
@@ -190,6 +209,28 @@ export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageS
     return () => observer.disconnect();
   }, [hasMore, isFiltering, filteredRecords.length]);
 
+  const extraColumns = useMemo(() => {
+    const keys: string[] = [];
+    const seen = new Set<string>();
+    for (const r of rawDataSource) {
+      if (!r.extra_data || typeof r.extra_data !== "object") continue;
+      const { mappedExtraKeys } = hydrateRecordFromExtraData(r);
+      for (const [k, v] of Object.entries(r.extra_data)) {
+        if (mappedExtraKeys.has(k)) continue;
+        if (v == null || String(v).trim() === "") continue;
+        if (!seen.has(k)) {
+          seen.add(k);
+          keys.push(k);
+        }
+      }
+    }
+    let blanksSeen = 0;
+    return keys.map((k) => {
+      const idx = isBlankHeader(k) ? blanksSeen++ : undefined;
+      return { key: k, label: extraDataColumnLabel(k, idx), type: "text", extra: true as const };
+    });
+  }, [rawDataSource]);
+
   const columns = useMemo(() => [
     { key: "owner_name", label: t("ownerName"), type: "text" },
     { key: "unit_area", label: t("unitArea"), type: "text" },
@@ -204,7 +245,8 @@ export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageS
     { key: "assigned_employee", label: t("assignedEmployee"), type: "select" },
     { key: "backup_employee", label: t("backupEmployee"), type: "select" },
     { key: "backup_feedback", label: t("backupFeedback"), type: "text" },
-  ], [t]);
+    ...extraColumns,
+  ], [t, extraColumns]);
 
   const selectClass = "appearance-none flex h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 

@@ -95,7 +95,14 @@ function createMockClient() {
 vi.mock("@/lib/supabase/server", () => ({ createClient: () => createMockClient() }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => createMockClient() }));
 
-import { confirmUpload, deleteRecords, getRecords, updateRecordField } from "@/lib/unconfirmed-data-actions";
+import {
+  confirmUpload,
+  deleteRecords,
+  getRecords,
+  updateRecordField,
+  repairUnconfirmedRecordsFromExtraData,
+} from "@/lib/unconfirmed-data-actions";
+import { hydrateRecordFromExtraData } from "@/lib/excel-parse";
 
 describe("unconfirmed-data-actions", () => {
   beforeEach(() => {
@@ -213,6 +220,92 @@ describe("unconfirmed-data-actions", () => {
       expect(mockTables.unconfirmed_records[0].backup_feedback).toBe("تم التواصل من الاحتياطي");
       expect(mockTables.unconfirmed_records[0].backup_employee).toBe("user-1");
       expect(mockTables.unconfirmed_records[0].assigned_employee).toBe("emp-primary");
+    });
+  });
+
+  describe("extra_data hydration & automatic DB restoration", () => {
+    test("getRecords hydrates empty standard columns from extra_data and persists them back to DB", async () => {
+      mockTables.unconfirmed_records = [
+        {
+          id: "rec-blank-1",
+          upload_id: "upload-1",
+          file_id: "file-target",
+          row_number: 1,
+          status: "approved",
+          owner_name: "",
+          unit_area: "",
+          building_number: "",
+          unit_number: "",
+          owner_phone: "",
+          owner_phone_alt: "",
+          affiliated_company: "",
+          last_feedback: "",
+          last_contact_date: "",
+          phone_normalized: "",
+          phone_alt_normalized: "",
+          extra_data: {
+            "الأسم": "أحمد سمير",
+            "المساحه": "145",
+            "العماره": "B12",
+            "رقم الوحده": "304",
+            "__EMPTY": "1012345678",
+            "__EMPTY_1": "01198765432",
+            "الشركه": "طلعت مصطفى",
+            "عمود مخصص": "قيمة إضافية",
+          },
+        },
+      ];
+
+      const records = await getRecords({ fileId: "file-target" });
+      expect(records).toHaveLength(1);
+      expect(records[0].owner_name).toBe("أحمد سمير");
+      expect(records[0].unit_area).toBe("145");
+      expect(records[0].building_number).toBe("B12");
+      expect(records[0].unit_number).toBe("304");
+      expect(records[0].owner_phone).toBe("1012345678");
+      expect(records[0].owner_phone_alt).toBe("01198765432");
+      expect(records[0].phone_normalized).toBe("01012345678");
+      expect(records[0].phone_alt_normalized).toBe("01198765432");
+      expect(records[0].affiliated_company).toBe("طلعت مصطفى");
+
+      // التحقق من كتابة الحقول المستعادة في قاعدة البيانات دون مسح extra_data
+      const dbRow = mockTables.unconfirmed_records[0];
+      expect(dbRow.owner_name).toBe("أحمد سمير");
+      expect(dbRow.unit_area).toBe("145");
+      expect(dbRow.building_number).toBe("B12");
+      expect(dbRow.unit_number).toBe("304");
+      expect(dbRow.owner_phone).toBe("1012345678");
+      expect(dbRow.phone_normalized).toBe("01012345678");
+      expect((dbRow.extra_data as Record<string, unknown>)["عمود مخصص"]).toBe("قيمة إضافية");
+
+      const { mappedExtraKeys } = hydrateRecordFromExtraData(records[0]);
+      expect(mappedExtraKeys.has("الأسم")).toBe(true);
+      expect(mappedExtraKeys.has("عمود مخصص")).toBe(false);
+    });
+
+    test("repairUnconfirmedRecordsFromExtraData bulk-repairs records in DB", async () => {
+      mockTables.unconfirmed_records = [
+        {
+          id: "rec-r1",
+          upload_id: "u1",
+          file_id: "file-1",
+          row_number: 1,
+          status: "approved",
+          owner_name: "",
+          owner_phone: "",
+          unit_area: "",
+          building_number: "",
+          unit_number: "",
+          extra_data: { "اسم المالك": "محمود حسن", "موبايل": "01234567890", "عمارة": "7", "شقة": "12" },
+        },
+      ];
+
+      const res = await repairUnconfirmedRecordsFromExtraData({ fileId: "file-1" });
+      expect(res.repaired).toBe(1);
+      expect(mockTables.unconfirmed_records[0].owner_name).toBe("محمود حسن");
+      expect(mockTables.unconfirmed_records[0].owner_phone).toBe("01234567890");
+      expect(mockTables.unconfirmed_records[0].building_number).toBe("7");
+      expect(mockTables.unconfirmed_records[0].unit_number).toBe("12");
     });
   });
 });

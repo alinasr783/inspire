@@ -5,6 +5,8 @@ import { getLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWhatsAppMessage } from "@/lib/whatsapp-send";
+import { hydrateRecordFromExtraData } from "@/lib/excel-parse";
+import type { UnconfirmedRecord } from "@/lib/unconfirmed-data-actions";
 
 function toInternationalPhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
@@ -86,12 +88,20 @@ export async function createCampaign(data: {
     throw new Error("no-records-available");
   }
 
+  const hydratedRecords = records.map((raw) => {
+    const { record, dbUpdates } = hydrateRecordFromExtraData(raw as UnconfirmedRecord);
+    if (raw.id && Object.keys(dbUpdates).length > 0) {
+      void admin.from("unconfirmed_records").update(dbUpdates).eq("id", raw.id);
+    }
+    return record;
+  });
+
   const { data: campaign, error: campError } = await admin
     .from("whatsapp_campaigns")
     .insert({
       created_by: user.id,
       status: "active",
-      total_count: records.length,
+      total_count: hydratedRecords.length,
       delay_ms: data.delayMinMs,
       delay_max_ms: data.delayMaxMs,
       message_template: data.message,
@@ -105,7 +115,7 @@ export async function createCampaign(data: {
   if (campError || !campaign) throw new Error(campError?.message || "campaign-create-failed");
 
   const { error: recError } = await admin.from("whatsapp_campaign_records").insert(
-    records.map((r) => ({
+    hydratedRecords.map((r) => ({
       campaign_id: campaign.id,
       record_id: r.id,
       owner_name: r.owner_name,
