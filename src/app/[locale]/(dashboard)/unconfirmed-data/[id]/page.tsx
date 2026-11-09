@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRecord } from "@/lib/unconfirmed-data-actions";
-import { extraDataColumnLabel } from "@/lib/excel-parse";
+import { extraDataColumnLabel, parseExtraData } from "@/lib/excel-parse";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -179,21 +179,25 @@ export default async function RecordDetailPage({
             </CardContent>
           </Card>
 
-          {record.extra_data && Object.keys(record.extra_data).length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">{t("extraColumns")}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {Object.entries(record.extra_data).map(([key, value]) => (
-                  <div key={key}>
-                    <p className="text-xs text-muted-foreground mb-0.5">{extraDataColumnLabel(key)}</p>
-                    <p className="text-sm">{String(value ?? "—")}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+          {(() => {
+            const extraObj = parseExtraData(record.extra_data);
+            if (Object.keys(extraObj).length === 0) return null;
+            return (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">{t("extraColumns")}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {Object.entries(extraObj).map(([key, value]) => (
+                    <div key={key}>
+                      <p className="text-xs text-muted-foreground mb-0.5">{extraDataColumnLabel(key)}</p>
+                      <p className="text-sm">{String(value ?? "—")}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {record.ai_notes && (
             <Card>

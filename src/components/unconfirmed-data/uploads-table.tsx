@@ -9,6 +9,7 @@ import { FileSpreadsheet, Trash2, Eye, Pencil } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { UnconfirmedRecord } from "@/lib/unconfirmed-data-actions";
 import { deleteRecords, updateRecordField, quickCreateRecord } from "@/lib/unconfirmed-data-actions";
+import { parseExtraData } from "@/lib/excel-parse";
 import { useRealtime } from "@/components/providers/realtime-provider";
 import { PresenceTd } from "@/components/realtime/presence-td";
 import { TableCellContextMenu, type CellInfo } from "@/components/realtime/table-cell-context-menu";
@@ -95,7 +96,8 @@ const CellDisplay = memo(({ col, record, locale, onEdit, onSave, employees }: { 
     const text = val ? new Date(val).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" }) : "";
     return <span onClick={onEdit} className="cursor-pointer hover:bg-muted/50 px-0 py-0 block truncate">{text || "\u00A0"}</span>;
   }
-  const v = col.extra ? record.extra_data?.[col.key] : (record as Record<string, unknown>)[col.key];
+  const extraObj = col.extra ? parseExtraData(record.extra_data) : null;
+  const v = col.extra ? extraObj?.[col.key] : (record as Record<string, unknown>)[col.key];
   const dv = v == null || v === "" ? "" : String(v);
   if (col.extra) {
     if (!dv) return <span className="px-0 py-0 block truncate min-h-[1.25rem]">&nbsp;</span>;

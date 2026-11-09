@@ -263,6 +263,46 @@ export function extraDataColumnLabel(key: string, blankIndex?: number): string {
   return key;
 }
 
+export function isLikelyPhone(val: unknown): boolean {
+  if (val == null) return false;
+  const s = String(val).trim();
+  if (!s) return false;
+  const digits = s.replace(/\D/g, "");
+  if (digits.length >= 10 && digits.length <= 15) return true;
+  if (
+    digits.length >= 8 &&
+    (digits.startsWith("01") || digits.startsWith("1") || digits.startsWith("20") || s.startsWith("+") || s.startsWith("00"))
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function parseExtraData(raw: unknown): Record<string, unknown> {
+  if (!raw) return {};
+  if (typeof raw === "object" && raw !== null && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === "string") {
+        try {
+          return (JSON.parse(parsed) || {}) as Record<string, unknown>;
+        } catch {
+          return {};
+        }
+      }
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
 export interface HydratedRecordResult {
   record: UnconfirmedRecord;
   dbUpdates: Record<string, unknown>;
@@ -271,20 +311,22 @@ export interface HydratedRecordResult {
 
 /**
  * Hydrates empty standard fields on an `UnconfirmedRecord` from `record.extra_data`
- * without mutating or deleting `record.extra_data`. Returns the hydrated record,
- * a `dbUpdates` map of standard fields that were recovered (suitable for persisting
- * back to `public.unconfirmed_records`), and the set of `extra_data` keys whose
- * values are now represented in standard columns.
+ * and repairs any columns that were mistakenly misassigned (e.g. customer name
+ * mistakenly placed in `owner_phone` or unit area placed in `owner_phone_alt`).
+ *
+ * Safely parses stringified `extra_data`, recovers all fields, normalizes phones,
+ * and outputs `dbUpdates` ready for Supabase persistence.
  */
 export function hydrateRecordFromExtraData(rawRecord: UnconfirmedRecord): HydratedRecordResult {
-  const extra = rawRecord.extra_data;
-  if (!extra || typeof extra !== "object" || Object.keys(extra).length === 0) {
-    return { record: rawRecord, dbUpdates: {}, mappedExtraKeys: new Set() };
-  }
-
-  const hydrated: UnconfirmedRecord = { ...rawRecord };
+  const extra = parseExtraData(rawRecord.extra_data);
+  const hydrated: UnconfirmedRecord = { ...rawRecord, extra_data: extra };
   const dbUpdates: Record<string, unknown> = {};
   const mappedExtraKeys = new Set<string>();
+
+  // If extra_data was stored as a JSON string scalar in the database, update it to a proper object
+  if (typeof rawRecord.extra_data === "string" && Object.keys(extra).length > 0) {
+    dbUpdates.extra_data = extra;
+  }
 
   const isEmptyField = (field: string): boolean => {
     const cur = (hydrated as Record<string, unknown>)[field];
@@ -292,54 +334,121 @@ export function hydrateRecordFromExtraData(rawRecord: UnconfirmedRecord): Hydrat
   };
 
   const setField = (field: string, val: string, sourceKey: string) => {
-    (hydrated as Record<string, unknown>)[field] = val;
-    dbUpdates[field] = val;
-    mappedExtraKeys.add(sourceKey);
+    const cleanVal = String(val ?? "").trim();
+    (hydrated as Record<string, unknown>)[field] = cleanVal;
+    dbUpdates[field] = cleanVal;
+    if (sourceKey) mappedExtraKeys.add(sourceKey);
   };
 
-  // Pass 1: Named headers in extra_data that map to FIXED_COLUMNS
-  for (const [key, rawVal] of Object.entries(extra)) {
-    if (isBlankHeader(key)) continue;
-    const fixed = mapExcelColumn(key);
-    if (!fixed || !FIXED_COLUMNS.includes(fixed)) continue;
+  // --------------------------------------------------------------------------
+  // Step 1: Detect and fix misplaced fields in the record itself.
+  // When an Excel file with blank/no headers was uploaded, the old parser mapped:
+  //   __EMPTY   -> owner_phone  (which is actually the customer's NAME!)
+  //   __EMPTY_1 -> owner_phone_alt (which is actually the unit AREA, e.g. 59, 121!)
+  // --------------------------------------------------------------------------
+  const rawPhone = String(hydrated.owner_phone ?? "").trim();
+  const rawPhoneDigits = rawPhone.replace(/\D/g, "");
+  const rawPhoneHasLetters = /[a-zA-Z\u0600-\u06FF]/.test(rawPhone);
 
-    const val = toStr(rawVal).trim();
-    if (!val) {
-      mappedExtraKeys.add(key);
-      continue;
+  if (rawPhoneHasLetters && rawPhoneDigits.length < 7) {
+    if (isEmptyField("owner_name")) {
+      setField("owner_name", rawPhone, "owner_phone_misplaced");
+    }
+    hydrated.owner_phone = "";
+    dbUpdates.owner_phone = "";
+    hydrated.phone_normalized = "";
+    dbUpdates.phone_normalized = "";
+  }
+
+  const rawPhoneAlt = String(hydrated.owner_phone_alt ?? "").trim();
+  const rawPhoneAltDigits = rawPhoneAlt.replace(/\D/g, "");
+  const rawPhoneAltHasLetters = /[a-zA-Z\u0600-\u06FF]/.test(rawPhoneAlt);
+
+  if (rawPhoneAlt && (rawPhoneAltDigits.length < 6 || rawPhoneAltHasLetters)) {
+    if (isEmptyField("unit_area") && /^\d{1,4}$/.test(rawPhoneAlt)) {
+      setField("unit_area", rawPhoneAlt, "owner_phone_alt_misplaced");
+    }
+    hydrated.owner_phone_alt = "";
+    dbUpdates.owner_phone_alt = "";
+    hydrated.phone_alt_normalized = "";
+    dbUpdates.phone_alt_normalized = "";
+  }
+
+  // --------------------------------------------------------------------------
+  // Step 2: Special recovery for files with __EMPTY layout (e.g. file 6f4ff5e6-...)
+  //   __EMPTY    = Customer Name
+  //   __EMPTY_1  = Unit Area (sqm)
+  //   __EMPTY_3  = Unit Number
+  //   __EMPTY_4  = Building Number
+  //   __EMPTY_5  = Phone 1
+  //   __EMPTY_6  = Phone 2
+  //   __EMPTY_19, 21, 22 = Feedback
+  //   __EMPTY_25 = Contact Date
+  // --------------------------------------------------------------------------
+  if (extra["__EMPTY"] !== undefined || extra["__EMPTY_1"] !== undefined || extra["__EMPTY_5"] !== undefined) {
+    const rawEmpty = toStr(extra["__EMPTY"]).trim();
+    if (rawEmpty && isEmptyField("owner_name") && !isLikelyPhone(rawEmpty)) {
+      setField("owner_name", rawEmpty, "__EMPTY");
     }
 
-    // Guard against serial-number columns ("رقم" = 1, 2, 3...) claiming phone slots
-    if (fixed === "owner_phone" || fixed === "owner_phone_alt") {
-      const cleaned = cleanHeader(key);
-      const hasExplicitPhoneKw = NORMALIZED_PHONE_KEYWORDS.some((kw) => cleaned.includes(kw));
-      const digits = val.replace(/\D/g, "");
-      if (!hasExplicitPhoneKw && digits.length < 7) {
-        continue;
+    const rawArea = toStr(extra["__EMPTY_1"]).trim();
+    if (rawArea && isEmptyField("unit_area") && /^\d{1,4}(\.\d+)?$/.test(rawArea)) {
+      setField("unit_area", rawArea, "__EMPTY_1");
+    }
+
+    const rawUnit = toStr(extra["__EMPTY_3"]).trim();
+    if (rawUnit && isEmptyField("unit_number")) {
+      setField("unit_number", rawUnit, "__EMPTY_3");
+    }
+
+    const rawBldg = toStr(extra["__EMPTY_4"]).trim();
+    if (rawBldg && isEmptyField("building_number")) {
+      setField("building_number", rawBldg, "__EMPTY_4");
+    }
+
+    const rawP5 = toStr(extra["__EMPTY_5"]).trim();
+    if (rawP5 && isLikelyPhone(rawP5)) {
+      if (isEmptyField("owner_phone")) {
+        setField("owner_phone", rawP5, "__EMPTY_5");
       }
     }
 
-    if (isEmptyField(fixed)) {
-      setField(fixed, val, key);
-    } else if (String((hydrated as Record<string, unknown>)[fixed] ?? "").trim() === val) {
-      mappedExtraKeys.add(key);
-    } else if (
-      (fixed === "owner_phone" || fixed === "owner_phone_alt") &&
-      isEmptyField("owner_phone_alt") &&
-      String(hydrated.owner_phone ?? "").trim() !== val
-    ) {
-      setField("owner_phone_alt", val, key);
+    const rawP6 = toStr(extra["__EMPTY_6"]).trim();
+    if (rawP6 && isLikelyPhone(rawP6)) {
+      if (isEmptyField("owner_phone_alt") && hydrated.owner_phone !== rawP6) {
+        setField("owner_phone_alt", rawP6, "__EMPTY_6");
+      }
     }
+
+    if (isEmptyField("last_feedback")) {
+      const fbs = [extra["__EMPTY_22"], extra["__EMPTY_21"], extra["__EMPTY_19"]]
+        .map((s) => toStr(s).trim())
+        .filter(Boolean);
+      if (fbs.length > 0) {
+        setField("last_feedback", Array.from(new Set(fbs)).join(" - "), "__EMPTY_19");
+      }
+    }
+
+    const rawDate = toStr(extra["__EMPTY_25"]).trim();
+    if (rawDate && isEmptyField("last_contact_date")) {
+      setField("last_contact_date", rawDate, "__EMPTY_25");
+    }
+
+    // Mark intermediate helper columns so they don't appear as raw "__EMPTY_x" columns
+    [
+      "__EMPTY", "__EMPTY_1", "__EMPTY_2", "__EMPTY_3", "__EMPTY_4", "__EMPTY_5",
+      "__EMPTY_6", "__EMPTY_19", "__EMPTY_20", "__EMPTY_21", "__EMPTY_22",
+      "__EMPTY_23", "__EMPTY_24", "__EMPTY_25",
+    ].forEach((k) => mappedExtraKeys.add(k));
   }
 
-  // Pass 2: Blank headers ("", "_1", "__EMPTY", "__EMPTY_1") -> phone slots
+  // --------------------------------------------------------------------------
+  // Step 3: Value-based phone search across all keys in extra_data
+  // --------------------------------------------------------------------------
   for (const [key, rawVal] of Object.entries(extra)) {
-    if (!isBlankHeader(key)) continue;
     const val = toStr(rawVal).trim();
-    if (!val) {
-      mappedExtraKeys.add(key);
-      continue;
-    }
+    if (!val || !isLikelyPhone(val)) continue;
+
     if (isEmptyField("owner_phone")) {
       setField("owner_phone", val, key);
     } else if (
@@ -355,46 +464,56 @@ export function hydrateRecordFromExtraData(rawRecord: UnconfirmedRecord): Hydrat
     }
   }
 
-  // Pass 3: Value-based fallback for Egyptian phone numbers if phone slots are still empty
-  if (isEmptyField("owner_phone") || isEmptyField("owner_phone_alt")) {
-    for (const [key, rawVal] of Object.entries(extra)) {
-      if (mappedExtraKeys.has(key)) continue;
-      const val = toStr(rawVal).trim();
-      if (!val) continue;
-      const norm = normalizeEgyptianPhone(val);
-      if (/^01[0125]\d{8}$/.test(norm)) {
-        if (isEmptyField("owner_phone")) {
-          setField("owner_phone", val, key);
-        } else if (
-          isEmptyField("owner_phone_alt") &&
-          String(hydrated.owner_phone ?? "").trim() !== val
-        ) {
-          setField("owner_phone_alt", val, key);
-        }
-      }
+  // --------------------------------------------------------------------------
+  // Step 4: Named headers in extra_data that map to FIXED_COLUMNS
+  // --------------------------------------------------------------------------
+  for (const [key, rawVal] of Object.entries(extra)) {
+    if (isBlankHeader(key)) continue;
+    const fixed = mapExcelColumn(key);
+    if (!fixed || !FIXED_COLUMNS.includes(fixed)) continue;
+
+    const val = toStr(rawVal).trim();
+    if (!val) {
+      mappedExtraKeys.add(key);
+      continue;
+    }
+
+    // Guard against serial-number columns ("رقم" = 1, 2, 3...) claiming phone slots
+    if (fixed === "owner_phone" || fixed === "owner_phone_alt") {
+      if (!isLikelyPhone(val)) continue;
+    }
+
+    if (isEmptyField(fixed)) {
+      setField(fixed, val, key);
+    } else if (String((hydrated as Record<string, unknown>)[fixed] ?? "").trim() === val) {
+      mappedExtraKeys.add(key);
+    } else if (
+      (fixed === "owner_phone" || fixed === "owner_phone_alt") &&
+      isEmptyField("owner_phone_alt") &&
+      String(hydrated.owner_phone ?? "").trim() !== val
+    ) {
+      setField("owner_phone_alt", val, key);
     }
   }
 
-  // Normalize phone_normalized and phone_alt_normalized whenever phone values exist
+  // --------------------------------------------------------------------------
+  // Step 5: Normalize Egyptian phone numbers
+  // --------------------------------------------------------------------------
   const phoneVal = String(hydrated.owner_phone ?? "").trim();
   if (phoneVal) {
     const norm = normalizeEgyptianPhone(phoneVal);
-    if (norm && (isEmptyField("phone_normalized") || dbUpdates.owner_phone !== undefined)) {
+    if (norm && (isEmptyField("phone_normalized") || String(rawRecord.phone_normalized ?? "") !== norm)) {
       hydrated.phone_normalized = norm;
-      if (String(rawRecord.phone_normalized ?? "") !== norm) {
-        dbUpdates.phone_normalized = norm;
-      }
+      dbUpdates.phone_normalized = norm;
     }
   }
 
   const phoneAltVal = String(hydrated.owner_phone_alt ?? "").trim();
   if (phoneAltVal) {
     const normAlt = normalizeEgyptianPhone(phoneAltVal);
-    if (normAlt && (isEmptyField("phone_alt_normalized") || dbUpdates.owner_phone_alt !== undefined)) {
+    if (normAlt && (isEmptyField("phone_alt_normalized") || String(rawRecord.phone_alt_normalized ?? "") !== normAlt)) {
       hydrated.phone_alt_normalized = normAlt;
-      if (String(rawRecord.phone_alt_normalized ?? "") !== normAlt) {
-        dbUpdates.phone_alt_normalized = normAlt;
-      }
+      dbUpdates.phone_alt_normalized = normAlt;
     }
   }
 

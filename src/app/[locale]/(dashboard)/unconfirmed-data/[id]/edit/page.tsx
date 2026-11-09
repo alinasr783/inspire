@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { getRecord, updateRecordField, type UnconfirmedRecord } from "@/lib/unconfirmed-data-actions";
-import { extraDataColumnLabel } from "@/lib/excel-parse";
+import { extraDataColumnLabel, parseExtraData } from "@/lib/excel-parse";
 
 const FIELDS = [
   { key: "owner_name", label: "ownerName", type: "text" },
@@ -120,24 +120,28 @@ export default function EditRecordPage({ params }: { params: Promise<{ locale: s
             ))}
           </div>
 
-          {record.extra_data && Object.keys(record.extra_data).length > 0 && (
-            <div className="mt-6 pt-6 border-t">
-              <h3 className="text-sm font-medium mb-3">{t("extraColumns")}</h3>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {Object.entries(record.extra_data).map(([key, value]) => (
-                  <div key={key} className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">{extraDataColumnLabel(key)}</Label>
-                    <Input
-                      type="text"
-                      value={String(value ?? "")}
-                      className="text-sm bg-muted/30"
-                      disabled
-                    />
-                  </div>
-                ))}
+          {(() => {
+            const extraObj = parseExtraData(record.extra_data);
+            if (Object.keys(extraObj).length === 0) return null;
+            return (
+              <div className="mt-6 pt-6 border-t">
+                <h3 className="text-sm font-medium mb-3">{t("extraColumns")}</h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {Object.entries(extraObj).map(([key, value]) => (
+                    <div key={key} className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">{extraDataColumnLabel(key)}</Label>
+                      <Input
+                        type="text"
+                        value={String(value ?? "")}
+                        className="text-sm bg-muted/30"
+                        disabled
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </CardContent>
       </Card>
     </div>

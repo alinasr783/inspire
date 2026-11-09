@@ -213,9 +213,9 @@ export function UnconfirmedDataClient({ initialRecords, initialTotalCount, pageS
     const keys: string[] = [];
     const seen = new Set<string>();
     for (const r of rawDataSource) {
-      if (!r.extra_data || typeof r.extra_data !== "object") continue;
-      const { mappedExtraKeys } = hydrateRecordFromExtraData(r);
-      for (const [k, v] of Object.entries(r.extra_data)) {
+      const { record: hyd, mappedExtraKeys } = hydrateRecordFromExtraData(r);
+      const extraObj = (hyd.extra_data || {}) as Record<string, unknown>;
+      for (const [k, v] of Object.entries(extraObj)) {
         if (mappedExtraKeys.has(k)) continue;
         if (v == null || String(v).trim() === "") continue;
         if (!seen.has(k)) {

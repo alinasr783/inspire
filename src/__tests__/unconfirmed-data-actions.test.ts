@@ -307,5 +307,70 @@ describe("unconfirmed-data-actions", () => {
       expect(mockTables.unconfirmed_records[0].building_number).toBe("7");
       expect(mockTables.unconfirmed_records[0].unit_number).toBe("12");
     });
+
+    test("correctly restores records with stringified extra_data and misplaced phone/name like file 6f4ff5e6", async () => {
+      mockTables.unconfirmed_records = [
+        {
+          id: "028cd9f4-b0d1-4972-9578-33f023c9bc7b",
+          upload_id: "ef167749-af77-4dd8-a762-7666ef0f9e09",
+          row_number: 52,
+          owner_name: "",
+          unit_area: "",
+          building_number: "",
+          unit_number: "",
+          owner_phone: "Hatem Ahmed Osman",
+          owner_phone_alt: "59",
+          affiliated_company: "",
+          last_feedback: "",
+          last_contact_date: "",
+          extra_data: JSON.stringify({
+            "__EMPTY": "Hatem Ahmed Osman",
+            "__EMPTY_1": "59",
+            "__EMPTY_2": "",
+            "__EMPTY_3": "177",
+            "__EMPTY_4": "9L",
+            "__EMPTY_5": "01000102762",
+            "__EMPTY_6": "",
+            "__EMPTY_19": "مردش+رساله",
+            "__EMPTY_20": "حسن",
+            "__EMPTY_21": "بيشطب وهياجر قدامه شهرين",
+            "__EMPTY_22": "غير متاحة ",
+            "__EMPTY_23": "محمد شحاته",
+            "__EMPTY_24": "",
+            "__EMPTY_25": "15-6",
+          }),
+          phone_normalized: "Hatem Ahmed Osman",
+          phone_alt_normalized: "59",
+          ai_notes: "",
+          status: "approved",
+          file_id: "6f4ff5e6-1f78-4bb2-b16e-fe7ea40a9cf8",
+        },
+      ];
+
+      const records = await getRecords({ fileId: "6f4ff5e6-1f78-4bb2-b16e-fe7ea40a9cf8" });
+      expect(records).toHaveLength(1);
+      const rec = records[0];
+      expect(rec.owner_name).toBe("Hatem Ahmed Osman");
+      expect(rec.unit_area).toBe("59");
+      expect(rec.building_number).toBe("9L");
+      expect(rec.unit_number).toBe("177");
+      expect(rec.owner_phone).toBe("01000102762");
+      expect(rec.owner_phone_alt).toBe("");
+      expect(rec.phone_normalized).toBe("01000102762");
+      expect(rec.last_feedback).toContain("غير متاحة");
+      expect(rec.last_feedback).toContain("بيشطب وهياجر قدامه شهرين");
+      expect(rec.last_contact_date).toBe("15-6");
+      expect(typeof rec.extra_data).toBe("object");
+
+      // Verify DB row was updated with all corrected fields
+      const dbRow = mockTables.unconfirmed_records[0];
+      expect(dbRow.owner_name).toBe("Hatem Ahmed Osman");
+      expect(dbRow.unit_area).toBe("59");
+      expect(dbRow.building_number).toBe("9L");
+      expect(dbRow.unit_number).toBe("177");
+      expect(dbRow.owner_phone).toBe("01000102762");
+      expect(dbRow.phone_normalized).toBe("01000102762");
+      expect(typeof dbRow.extra_data).toBe("object");
+    });
   });
 });
