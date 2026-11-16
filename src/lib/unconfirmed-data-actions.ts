@@ -348,6 +348,14 @@ export async function updateRecordField(recordId: string, field: string, value: 
     updates.backup_employee = user.id;
   }
 
+  const shouldUpdateContactDate =
+    (field === "last_feedback" && value.trim() !== "") ||
+    (field === "backup_feedback" && value.trim() !== "");
+
+  if (shouldUpdateContactDate) {
+    updates.last_contact_date = new Date().toISOString().split("T")[0];
+  }
+
   const { error } = await admin
     .from("unconfirmed_records")
     .update(updates)

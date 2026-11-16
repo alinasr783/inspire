@@ -215,11 +215,21 @@ describe("unconfirmed-data-actions", () => {
       expect(mockTables.unconfirmed_records[0].backup_employee).toBeNull();
     });
 
-    test("writing backup_feedback auto-assigns backup_employee to current user without changing assigned_employee", async () => {
+    test("writing backup_feedback auto-assigns backup_employee to current user and updates last_contact_date to today without changing assigned_employee", async () => {
+      const today = new Date().toISOString().split("T")[0];
       await updateRecordField("rec-1", "backup_feedback", "تم التواصل من الاحتياطي");
       expect(mockTables.unconfirmed_records[0].backup_feedback).toBe("تم التواصل من الاحتياطي");
       expect(mockTables.unconfirmed_records[0].backup_employee).toBe("user-1");
       expect(mockTables.unconfirmed_records[0].assigned_employee).toBe("emp-primary");
+      expect(mockTables.unconfirmed_records[0].last_contact_date).toBe(today);
+    });
+
+    test("writing last_feedback auto-assigns assigned_employee to current user and updates last_contact_date to today", async () => {
+      const today = new Date().toISOString().split("T")[0];
+      await updateRecordField("rec-1", "last_feedback", "تم التواصل مع المالك");
+      expect(mockTables.unconfirmed_records[0].last_feedback).toBe("تم التواصل مع المالك");
+      expect(mockTables.unconfirmed_records[0].assigned_employee).toBe("user-1");
+      expect(mockTables.unconfirmed_records[0].last_contact_date).toBe(today);
     });
   });
 

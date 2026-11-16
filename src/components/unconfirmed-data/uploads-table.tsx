@@ -323,8 +323,11 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
     const pendKey = `${rid}:${key}`;
     const shouldAutoAssign = (key === "whatsapp_state" && val !== "") || (key === "last_feedback" && val.trim() !== "");
     const shouldAutoAssignBackup = key === "backup_feedback" && val.trim() !== "";
+    const shouldUpdateContactDate = (key === "last_feedback" && val.trim() !== "") || (key === "backup_feedback" && val.trim() !== "");
+    const todayDate = shouldUpdateContactDate ? new Date().toISOString().split("T")[0] : "";
     const prevAssigned = rec?.assigned_employee ?? null;
     const prevBackup = rec?.backup_employee ?? null;
+    const prevContactDate = rec?.last_contact_date ?? "";
 
     setPendingCell(pendKey, true);
     setRecords((p) => p.map((r) => {
@@ -332,6 +335,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
       const updates: Record<string, unknown> = { [key]: val };
       if (shouldAutoAssign) updates.assigned_employee = userId;
       if (shouldAutoAssignBackup) updates.backup_employee = userId;
+      if (shouldUpdateContactDate) updates.last_contact_date = todayDate;
       return { ...r, ...updates };
     }));
 
@@ -346,6 +350,7 @@ export function UploadsTable({ records: serverRecords, columns, locale, selectab
           const updates: Record<string, unknown> = { [key]: prevVal };
           if (shouldAutoAssign) updates.assigned_employee = prevAssigned;
           if (shouldAutoAssignBackup) updates.backup_employee = prevBackup;
+          if (shouldUpdateContactDate) updates.last_contact_date = prevContactDate;
           return { ...r, ...updates };
         }));
         setPendingCell(pendKey, false);
